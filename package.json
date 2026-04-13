@@ -3,15 +3,25 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack -H 0.0.0.0",
+    "dev:clean": "rm -rf .next && next dev --webpack -H 0.0.0.0",
+    "clean": "rm -rf .next",
+    "reinstall": "rm -rf node_modules .next && npm install",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@emailjs/browser": "^4.4.1",
+    "@sanity/client": "^7.20.0",
+    "@sanity/image-url": "^2.1.1",
+    "framer-motion": "^12.38.0",
+    "lucide-react": "^1.8.0",
     "next": "16.2.3",
+    "next-sanity": "^12.2.2",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "react-hook-form": "^7.72.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

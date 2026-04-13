@@ -1,26 +1,98 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-brand-orange: #FF6B00;
+  --color-brand-dark: #1A1A1A;
+  --color-brand-gray: #F5F5F5;
+
+  --font-sans: "Manrope", sans-serif;
+
+  --container-padding-default: 1rem;
+  --container-padding-sm: 2rem;
+  --container-padding-lg: 4rem;
+  --container-padding-xl: 5rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    overflow-x: clip;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    color: var(--color-brand-dark);
+    background-color: #fff;
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    line-height: 1.15;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .section-padding {
+    @apply py-16 md:py-24;
+  }
+
+  .section-title {
+    @apply mb-4 text-2xl font-bold text-brand-dark sm:text-3xl md:text-4xl;
+  }
+
+  .section-subtitle {
+    @apply mb-12 max-w-2xl text-base text-gray-500 sm:text-lg;
+  }
+
+  .btn-primary {
+    @apply bg-brand-orange text-white px-6 py-3 rounded-lg font-semibold
+           hover:bg-orange-600 transition-colors duration-300 inline-block;
+  }
+
+  .btn-outline {
+    @apply border-2 border-brand-orange text-brand-orange px-6 py-3 rounded-lg font-semibold
+           hover:bg-brand-orange hover:text-white transition-colors duration-300 inline-block;
+  }
+}
+
+/* Единая ширина контента + отступы на телефоне и десктопе (переменные из @theme) */
+@layer utilities {
+  .container {
+    width: 100%;
+    max-width: 80rem;
+    margin-inline: auto;
+    padding-left: max(var(--container-padding-default), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--container-padding-default), env(safe-area-inset-right, 0px));
+  }
+
+  @media (min-width: 640px) {
+    .container {
+      padding-left: max(var(--container-padding-sm), env(safe-area-inset-left, 0px));
+      padding-right: max(var(--container-padding-sm), env(safe-area-inset-right, 0px));
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container {
+      padding-left: max(var(--container-padding-lg), env(safe-area-inset-left, 0px));
+      padding-right: max(var(--container-padding-lg), env(safe-area-inset-right, 0px));
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .container {
+      padding-left: max(var(--container-padding-xl), env(safe-area-inset-left, 0px));
+      padding-right: max(var(--container-padding-xl), env(safe-area-inset-right, 0px));
+    }
+  }
+
+  /* Чередование колонок на десктопе; дочерние блоки остаются LTR для текста */
+  .direction-rtl {
+    direction: rtl;
+  }
+  .direction-rtl > * {
+    direction: ltr;
+  }
 }
