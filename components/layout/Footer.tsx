@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import { asset } from '@/lib/asset'
 
 export default function Footer() {
   const year = new Date().getFullYear()
@@ -13,7 +14,7 @@ export default function Footer() {
               className="mb-4 inline-flex max-w-full rounded-lg bg-white p-3 shadow-sm ring-1 ring-white/10"
             >
               <Image
-                src="/img/logo.svg"
+                src={asset("/img/logo.svg")}
                 alt="2×2 — рекламное агентство"
                 className="h-9 w-auto max-h-10 max-w-[min(100%,260px)] object-contain object-left sm:h-10"
                 width={498}

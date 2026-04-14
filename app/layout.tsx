@@ -53,7 +53,7 @@ export const metadata: Metadata = {
       "Полиграфия, наружная реклама и оформление фасадов под ключ.",
     images: [
       {
-        url: "/og-image.jpg",
+        url: `${siteUrl}/og-image.jpg`,
         width: 1200,
         height: 630,
         alt: "2×2 Рекламное агентство",
@@ -65,7 +65,7 @@ export const metadata: Metadata = {
     title: "2×2 — Рекламное агентство",
     description:
       "Полиграфия, наружная реклама и оформление фасадов под ключ.",
-    images: ["/og-image.jpg"],
+    images: [`${siteUrl}/og-image.jpg`],
   },
   robots: {
     index: true,

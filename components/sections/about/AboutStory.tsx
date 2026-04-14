@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import AnimatedSection from '@/components/ui/AnimatedSection'
 import SectionTitle from '@/components/ui/SectionTitle'
+import { asset } from '@/lib/asset'
 
 export default function AboutStory() {
   return (
@@ -30,7 +31,7 @@ export default function AboutStory() {
             <div className="relative">
               <div className="relative aspect-[600/500] w-full overflow-hidden rounded-2xl shadow-xl">
                 <Image
-                  src="/img/about-story-print.png"
+                  src={asset("/img/about-story-print.png")}
                   alt="Полиграфия, цветовые образцы и контроль качества печати"
                   fill
                   className="object-cover"

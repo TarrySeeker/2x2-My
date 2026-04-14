@@ -6,6 +6,7 @@ import AnimatedSection from '@/components/ui/AnimatedSection'
 import Badge from '@/components/ui/Badge'
 import type { PortfolioItem } from '@/lib/types'
 import { featuredPortfolioWorks } from '@/lib/featuredPortfolioWorks'
+import { asset } from '@/lib/asset'
 
 const categories = ['Все', 'Полиграфия', 'Наружная реклама', 'Фасады'] as const
 
@@ -47,7 +48,7 @@ export default function PortfolioGallery({ items }: { items: PortfolioItem[] }) 
                     <div className="relative overflow-hidden aspect-[4/3]">
                       {isLocal ? (
                         <Image
-                          src={resolvedSrc}
+                          src={asset(resolvedSrc)}
                           alt={work.title}
                           fill
                           className="object-cover transition-transform duration-500 group-hover:scale-105"

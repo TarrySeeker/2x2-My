@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { motion, useInView, AnimatePresence } from 'framer-motion'
 import { Users, Calendar, Briefcase, MapPin, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
+import { asset } from '@/lib/asset'
 
 const stats = [
   { icon: Calendar, value: 12, suffix: '+', label: 'лет на рынке', color: 'from-orange-500 to-amber-400' },
@@ -172,7 +173,7 @@ export default function AboutPreview() {
                 transition={{ duration: 0.8, delay: 0.8 }}
               >
                 <Image
-                  src="/img/log-2.png"
+                  src={asset("/img/log-2.png")}
                   alt="2×2"
                   width={280}
                   height={90}

@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { Menu, X } from 'lucide-react'
+import { asset } from '@/lib/asset'
 
 const navLinks = [
   { href: '/', label: 'Главная' },
@@ -36,7 +37,7 @@ export default function Header() {
           className="flex min-w-0 flex-1 items-center justify-start py-1 pr-2 md:flex-none md:max-w-[min(100%,440px)] md:pr-4"
         >
           <Image
-            src="/img/logo.svg"
+            src={asset("/img/logo.svg")}
             alt="2×2 — рекламное агентство"
             className="h-9 w-auto max-h-10 object-contain object-left sm:h-10 md:max-h-11 lg:max-h-12"
             width={498}

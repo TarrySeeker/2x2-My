@@ -2,6 +2,7 @@ import Image from 'next/image'
 import { Printer, Megaphone, Building2, ArrowRight, type LucideIcon } from 'lucide-react'
 import AnimatedSection from '@/components/ui/AnimatedSection'
 import Button from '@/components/ui/Button'
+import { asset } from '@/lib/asset'
 
 type Service = {
   id: string
@@ -76,7 +77,7 @@ export default function ServicesCards() {
                 <div className={isEven ? 'lg:order-2' : 'lg:order-1'}>
                   <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl shadow-xl">
                     <Image
-                      src={service.image}
+                      src={asset(service.image)}
                       alt={service.title}
                       fill
                       className="object-cover"

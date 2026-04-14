@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { Printer, Megaphone, Building2 } from 'lucide-react'
 import { motion, useMotionValue, useSpring } from 'framer-motion'
 import AnimatedSection from '@/components/ui/AnimatedSection'
+import { asset } from '@/lib/asset'
 
 const services = [
   {
@@ -206,7 +207,7 @@ export default function ServicesPreview() {
                   <div className={`group flex flex-col ${reversed ? 'md:flex-row-reverse' : 'md:flex-row'} rounded-2xl border border-gray-100 bg-white transition-all duration-400 hover:shadow-xl md:rounded-3xl`}>
                     <div className="relative h-56 min-h-[220px] overflow-hidden md:h-auto md:min-h-[300px] md:w-1/2">
                       <Image
-                        src={s.image}
+                        src={asset(s.image)}
                         alt={s.title}
                         fill
                         className="object-cover transition-transform duration-700 group-hover:scale-105"
