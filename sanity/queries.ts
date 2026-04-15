@@ -1,13 +1,4 @@
-import { groq } from 'next-sanity'
-
-export const portfolioQuery = groq`
-  *[_type == "portfolio"] | order(publishedAt desc) {
-    _id,
-    title,
-    "slug": coalesce(slug.current, ""),
-    "category": coalesce(category, "Полиграфия"),
-    "description": coalesce(description, ""),
-    "imageUrl": coalesce(image.asset->url, ""),
-    publishedAt,
-  }
-`
+/**
+ * Sanity удалён на Этапе 1. Query-stub оставлен для совместимости.
+ */
+export const portfolioQuery = "";

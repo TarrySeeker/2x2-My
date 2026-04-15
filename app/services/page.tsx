@@ -31,15 +31,31 @@ const servicesSchema = {
   ],
 }
 
-export const metadata: Metadata = {
-  title: 'Услуги',
-  description: 'Полиграфия, наружная реклама и оформление фасадов от рекламного агентства 2×2.',
-}
+import { buildMetadata } from '@/lib/seo/metadata'
+import { JsonLdScript, buildBreadcrumbList } from '@/lib/seo/json-ld'
+
+export const metadata: Metadata = buildMetadata({
+  title: 'Услуги рекламной компании «2х2» — полиграфия, наружная реклама, фасады',
+  description:
+    'Полный спектр рекламных услуг в Ханты-Мансийске: печать визиток, листовок, вывески, световые буквы, стелы, оформление фасадов. Онлайн-калькулятор и стартовые цены.',
+  path: '/services',
+  keywords: [
+    'услуги рекламной компании',
+    'реклама под ключ ханты-мансийск',
+    'полиграфия и наружная реклама',
+  ],
+})
 
 export default function ServicesPage() {
   return (
     <main>
       <JsonLd data={servicesSchema} />
+      <JsonLdScript
+        data={buildBreadcrumbList([
+          { name: 'Главная', url: '/' },
+          { name: 'Услуги', url: '/services' },
+        ])}
+      />
       <ServicesHero />
       <ServicesCards />
       <CtaSection />

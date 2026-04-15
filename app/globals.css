@@ -2,8 +2,27 @@
 
 @theme inline {
   --color-brand-orange: #FF6B00;
+  --color-brand-orange-hover: #EA580C;
+  --color-brand-orange-soft: #FFE8D6;
   --color-brand-dark: #1A1A1A;
   --color-brand-gray: #F5F5F5;
+
+  /* Поверхности e-commerce (Этап 2+): фоны секций, карточек, чекаута */
+  --color-surface-cream: #FFF9F5;
+  --color-surface-cream-deep: #FFF5EF;
+  --color-surface-paper: #FAFAFA;
+
+  /* Семантические цвета — для e-commerce состояний (успех/ошибка/варнинг) */
+  --color-foreground: #1A1A1A;
+  --color-foreground-muted: #525252;
+  --color-foreground-subtle: #737373;
+  --color-border: #E5E5E5;
+  --color-border-strong: #D4D4D4;
+  --color-muted: #F5F5F5;
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-danger: #DC2626;
+  --color-info: #2563EB;
 
   --font-sans: "Manrope", sans-serif;
 
@@ -11,6 +30,16 @@
   --container-padding-sm: 2rem;
   --container-padding-lg: 4rem;
   --container-padding-xl: 5rem;
+
+  /* Радиусы e-commerce (Yna использует rounded-lg / 2xl / full) */
+  --radius-input: 0.5rem;
+  --radius-button: 0.75rem;
+  --radius-card: 1.25rem;
+  --radius-pill: 9999px;
+
+  /* Тени e-commerce: фирменное «оранжевое свечение» под CTA */
+  --shadow-glow-brand: 0 20px 40px -10px rgba(255, 107, 0, 0.25);
+  --shadow-lift: 0 18px 40px -16px rgba(26, 26, 26, 0.18);
 }
 
 @layer base {

@@ -4,6 +4,7 @@ import { useRef, useState, useEffect } from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import Button from '@/components/ui/Button'
+import { trackEvent } from '@/lib/analytics'
 
 const NOISE_BG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E")`
 
@@ -167,11 +168,12 @@ export default function HeroSection() {
               className="mt-10 flex flex-col items-stretch justify-center gap-4 sm:flex-row sm:justify-center lg:justify-start"
             >
               <Button
-                href="/contacts"
+                href="/calculator"
                 size="lg"
                 className="rounded-full px-10 py-4 text-base shadow-xl shadow-brand-orange/25 sm:text-lg"
+                onClick={() => trackEvent('cta_click', { source: 'hero', target: 'calculator' })}
               >
-                Обсудить проект
+                Рассчитать стоимость
                 <ArrowRight className="h-5 w-5" />
               </Button>
               <Button

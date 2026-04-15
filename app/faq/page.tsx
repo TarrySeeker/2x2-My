@@ -16,15 +16,26 @@ const faqSchema = {
   })),
 }
 
-export const metadata: Metadata = {
-  title: 'Часто задаваемые вопросы',
-  description: 'Ответы на частые вопросы о работе рекламного агентства 2×2.',
-}
+import { buildMetadata } from '@/lib/seo/metadata'
+import { JsonLdScript, buildBreadcrumbList } from '@/lib/seo/json-ld'
+
+export const metadata: Metadata = buildMetadata({
+  title: 'FAQ — частые вопросы о рекламе, вывесках, печати в Ханты-Мансийске',
+  description:
+    'Ответы на частые вопросы: сроки изготовления, стоимость вывески, согласование, монтаж, доставка по ХМАО. Рекламная компания «2х2» Ханты-Мансийск.',
+  path: '/faq',
+})
 
 export default function FaqPage() {
   return (
     <main>
       <JsonLd data={faqSchema} />
+      <JsonLdScript
+        data={buildBreadcrumbList([
+          { name: 'Главная', url: '/' },
+          { name: 'FAQ', url: '/faq' },
+        ])}
+      />
       <ServicesHero
         badge="FAQ"
         title="Частые вопросы"

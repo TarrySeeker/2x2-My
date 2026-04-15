@@ -1,8 +1,9 @@
-name: Deploy to GitHub Pages
+name: Deploy to GitHub Pages (legacy, disabled)
 
+# ВАЖНО: этот workflow отключён — проект переехал с GitHub Pages на Timeweb VPS.
+# Боевой деплой описан в .github/workflows/deploy-vps.yml
+# Оставлено как архив на случай отката.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:

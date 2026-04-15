@@ -1,9 +1,9 @@
-import StudioClient from './StudioClient'
+import { notFound } from "next/navigation";
 
-export function generateStaticParams() {
-  return [{ index: [] }]
-}
-
+/**
+ * Sanity Studio удалён на Этапе 1. Роут /studio возвращает 404.
+ * Админка магазина будет в /admin/* (Этап 6).
+ */
 export default function StudioPage() {
-  return <StudioClient />
+  notFound();
 }

@@ -2,8 +2,18 @@ import type { Metadata, Viewport } from "next";
 import { Manrope, Rubik } from "next/font/google";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import JsonLd from "@/components/JsonLd";
-import { siteUrl } from "@/lib/siteConfig";
+import AnalyticsScripts from "@/components/analytics/AnalyticsScripts";
+import ShopModals from "@/components/shop/modals/ShopModals";
+import {
+  JsonLdScript,
+  buildLocalBusiness,
+  buildOrganization,
+  buildWebSite,
+} from "@/lib/seo/json-ld";
+import { SITE, absoluteUrl } from "@/lib/seo/site";
+import { ThemeProvider } from "@/providers/theme-provider";
+import { SupabaseProvider } from "@/providers/supabase-provider";
+import { ToastProvider } from "@/providers/toast-provider";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -20,104 +30,85 @@ const rubik = Rubik({
 });
 
 const googleVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION;
+const yandexVerification = process.env.NEXT_PUBLIC_YANDEX_VERIFICATION;
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  metadataBase: new URL(SITE.url),
   title: {
     default:
-      "2×2 — Рекламное агентство | Полиграфия, наружная реклама, фасады",
-    template: "%s | 2×2 Рекламное агентство",
+      "Рекламная компания 2х2 — полиграфия, вывески, наружная реклама в Ханты-Мансийске",
+    template: "%s | 2х2 Ханты-Мансийск",
   },
-  description:
-    "Рекламное агентство 2×2 — полиграфия, наружная реклама и оформление фасадов под ключ. Собственное производство, опыт 10+ лет, срочные заказы от 24 часов.",
-  keywords: [
-    "рекламное агентство",
-    "полиграфия",
-    "наружная реклама",
-    "оформление фасадов",
-    "вывески",
-    "баннеры",
-    "Ханты-Мансийск",
-    "Москва",
-  ],
-  authors: [{ name: "2×2 Рекламное агентство" }],
-  creator: "2×2",
+  description: SITE.description,
+  keywords: [...SITE.keywords],
+  applicationName: SITE.name,
+  authors: [{ name: SITE.name }],
+  creator: SITE.shortName,
+  publisher: SITE.name,
+  category: "business",
   openGraph: {
     type: "website",
-    locale: "ru_RU",
-    url: siteUrl,
-    siteName: "2×2 Рекламное агентство",
+    locale: SITE.locale,
+    url: SITE.url,
+    siteName: SITE.name,
     title:
-      "2×2 — Рекламное агентство | Полиграфия, наружная реклама, фасады",
-    description:
-      "Полиграфия, наружная реклама и оформление фасадов под ключ.",
+      "Рекламная компания 2х2 — полиграфия, вывески, наружная реклама в Ханты-Мансийске",
+    description: SITE.description,
     images: [
       {
-        url: `${siteUrl}/og-image.jpg`,
+        url: absoluteUrl(SITE.ogImage),
         width: 1200,
         height: 630,
-        alt: "2×2 Рекламное агентство",
+        alt: `${SITE.name} — ${SITE.slogan}`,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "2×2 — Рекламное агентство",
-    description:
-      "Полиграфия, наружная реклама и оформление фасадов под ключ.",
-    images: [`${siteUrl}/og-image.jpg`],
+    title: "Рекламная компания 2х2 — Ханты-Мансийск",
+    description: SITE.shortDescription,
+    images: [absoluteUrl(SITE.ogImage)],
   },
   robots: {
     index: true,
     follow: true,
-    googleBot: { index: true, follow: true },
-  },
-  ...(googleVerification
-    ? { verification: { google: googleVerification } }
-    : {}),
-  alternates: { canonical: siteUrl },
-};
-
-const organizationSchema = {
-  "@context": "https://schema.org",
-  "@type": "LocalBusiness",
-  name: "2×2 Рекламное агентство",
-  description:
-    "Рекламное агентство полного цикла: полиграфия, наружная реклама, оформление фасадов.",
-  url: siteUrl,
-  telephone: "+79044807740",
-  email: "Sj_alex86@mail.ru",
-  address: {
-    "@type": "PostalAddress",
-    streetAddress: "ул. Парковая, 92Б",
-    addressLocality: "Ханты-Мансийск",
-    addressRegion: "ХМАО — Югра",
-    addressCountry: "RU",
-    postalCode: "628011",
-  },
-  openingHoursSpecification: [
-    {
-      "@type": "OpeningHoursSpecification",
-      dayOfWeek: [
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-      ],
-      opens: "09:00",
-      closes: "19:00",
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
     },
-  ],
-  image: `${siteUrl}/og-image.jpg`,
-  priceRange: "₽₽",
+  },
+  alternates: {
+    canonical: SITE.url,
+    languages: { "ru-RU": SITE.url, "x-default": SITE.url },
+  },
+  verification: {
+    ...(googleVerification ? { google: googleVerification } : {}),
+    ...(yandexVerification ? { yandex: yandexVerification } : {}),
+  },
+  formatDetection: { telephone: true, email: true, address: true },
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+    shortcut: "/favicon.ico",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#FF6B00",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#FAFAFA" },
+    { media: "(prefers-color-scheme: dark)", color: "#09090B" },
+  ],
+  colorScheme: "dark light",
 };
 
 export default function RootLayout({
@@ -126,12 +117,25 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru" className={`${manrope.variable} ${rubik.variable} antialiased`}>
+    <html
+      lang="ru"
+      className={`${manrope.variable} ${rubik.variable} antialiased`}
+      suppressHydrationWarning
+    >
       <body className="flex min-h-screen min-w-0 flex-col">
-        <Header />
-        <JsonLd data={organizationSchema} />
-        <div className="flex-1">{children}</div>
-        <Footer />
+        <ThemeProvider>
+          <SupabaseProvider>
+            <Header />
+            <JsonLdScript
+              data={[buildOrganization(), buildLocalBusiness(), buildWebSite()]}
+            />
+            <div className="flex-1">{children}</div>
+            <Footer />
+            <ShopModals />
+            <ToastProvider />
+            <AnalyticsScripts />
+          </SupabaseProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

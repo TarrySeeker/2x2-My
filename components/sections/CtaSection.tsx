@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Phone, MessageCircle, Send } from 'lucide-react'
 import AnimatedSection from '@/components/ui/AnimatedSection'
+import { trackEvent, EVENTS } from '@/lib/analytics'
 
 function WavyText({ text }: { text: string }) {
   const words = text.split(' ')
@@ -97,6 +98,7 @@ export default function CtaSection({
                 x: hovered === 'phone' ? 'calc(-50% - 8px)' : 0,
               }}
               transition={{ duration: 0.35, ease: 'easeOut' }}
+              onClick={() => trackEvent(EVENTS.phone_click, { source: 'cta_section' })}
               onMouseEnter={() => setHovered('phone')}
               onMouseLeave={() => setHovered(null)}
             >
@@ -114,6 +116,7 @@ export default function CtaSection({
             </a>
             <a
               href="tel:+79044807740"
+              onClick={() => trackEvent(EVENTS.phone_click, { source: 'cta_section' })}
               className="flex items-center justify-center gap-2 rounded-lg border-2 border-white/40 px-6 py-3.5 text-center text-base font-semibold text-white transition-colors active:bg-white/10"
             >
               <Phone className="h-5 w-5 shrink-0" />

@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { asset } from '@/lib/asset'
+import TrackedLink from '@/components/ui/TrackedLink'
 
 export default function Footer() {
   const year = new Date().getFullYear()
@@ -82,12 +83,14 @@ export default function Footer() {
             </h3>
             <ul className="space-y-3 text-sm">
               <li>
-                <a
+                <TrackedLink
                   href="tel:+79044807740"
+                  event="phone_click"
+                  eventParams={{ source: 'footer' }}
                   className="text-gray-300 hover:text-brand-orange transition-colors"
                 >
                   +7-904-480-77-40
-                </a>
+                </TrackedLink>
               </li>
               <li>
                 <a

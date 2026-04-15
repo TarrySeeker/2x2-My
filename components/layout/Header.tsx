@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { Menu, X } from 'lucide-react'
 import { asset } from '@/lib/asset'
+import { trackEvent, EVENTS } from '@/lib/analytics'
 
 const navLinks = [
   { href: '/', label: 'Главная' },
@@ -60,7 +61,7 @@ export default function Header() {
               {l.label}
             </Link>
           ))}
-          <a href="tel:+79044807740" className="btn-primary text-sm py-2 px-4">
+          <a href="tel:+79044807740" onClick={() => trackEvent(EVENTS.phone_click, { source: 'header' })} className="btn-primary text-sm py-2 px-4">
             Позвонить
           </a>
         </nav>
@@ -93,7 +94,7 @@ export default function Header() {
             ))}
             <a
               href="tel:+79044807740"
-              onClick={() => setIsOpen(false)}
+              onClick={() => { trackEvent(EVENTS.phone_click, { source: 'header' }); setIsOpen(false); }}
               className="btn-primary text-sm py-3 text-center mt-2"
             >
               Позвонить

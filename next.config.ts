@@ -8,6 +8,8 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(process.cwd()),
   },
+  // D-044 — standalone для Docker-деплоя на Timeweb VPS.
+  // При статическом экспорте (GitHub Pages preview) переключаемся через env.
   ...(isStaticExport
     ? {
         output: "export",
@@ -15,7 +17,22 @@ const nextConfig: NextConfig = {
         images: { unoptimized: true },
         ...(basePath ? { basePath, assetPrefix: basePath } : {}),
       }
-    : {}),
+    : {
+        output: "standalone",
+        images: {
+          formats: ["image/avif", "image/webp"],
+          remotePatterns: [
+            {
+              protocol: "https",
+              hostname: "images.unsplash.com",
+            },
+            {
+              protocol: "https",
+              hostname: "*.supabase.co",
+            },
+          ],
+        },
+      }),
 };
 
 export default nextConfig;

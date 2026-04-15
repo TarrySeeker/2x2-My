@@ -1,8 +1,9 @@
-'use client'
+"use client";
 
-import { NextStudio } from 'next-sanity/studio'
-import config from '@/sanity.config'
-
+/**
+ * Sanity Studio удалён на Этапе 1. Stub-компонент оставлен
+ * для совместимости существующих импортов.
+ */
 export default function StudioClient() {
-  return <NextStudio config={config} />
+  return null;
 }

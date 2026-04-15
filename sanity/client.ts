@@ -1,20 +1,13 @@
-import { createClient, type SanityClient } from 'next-sanity'
-import { apiVersion, dataset, projectId } from './env'
+/**
+ * Sanity удалён на Этапе 1. Stub оставлен, чтобы существующие импорты
+ * (если где-то остались) не ломали сборку. sanityFetch всегда кидает ошибку —
+ * data-fetchers выше отлавливают её и падают на fallback.
+ */
+export const client: null = null;
 
-const isConfigured = Boolean(projectId) && projectId !== 'xxxxxxx'
-
-export const client: SanityClient | null = isConfigured
-  ? createClient({
-      projectId,
-      dataset,
-      apiVersion,
-      useCdn: true,
-    })
-  : null
-
-export async function sanityFetch<T>(query: string, params?: Record<string, unknown>): Promise<T> {
-  if (!client) {
-    throw new Error('Sanity is not configured')
-  }
-  return client.fetch<T>(query, params ?? {})
+export async function sanityFetch<T>(
+  _query: string,
+  _params?: Record<string, unknown>,
+): Promise<T> {
+  throw new Error("Sanity removed at Stage 1 — use @/lib/data/* instead");
 }
