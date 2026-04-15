@@ -51,6 +51,14 @@ export const EVENTS = {
   view_category: "view_category",
   search_submit: "search_submit",
   promo_applied: "promo_applied",
+
+  // Cart UI (Stage 3.1)
+  cart_view: "cart_view",
+  cart_icon_click: "cart_icon_click",
+  cart_item_remove: "cart_item_remove",
+  cart_clear: "cart_clear",
+  checkout_start: "checkout_start",
+  promo_apply: "promo_apply",
 } as const;
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS];

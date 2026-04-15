@@ -8,7 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("EVENTS registry", () => {
-  it("exposes 21 events as specified in metrics.md", async () => {
+  it("exposes 26 events as specified in metrics.md + Cart UI Stage 3.1", async () => {
     const { EVENTS } = await import("@/lib/analytics");
     const keys = Object.keys(EVENTS);
 
@@ -21,7 +21,7 @@ describe("EVENTS registry", () => {
     expect(keys).toContain("whatsapp_click");
     expect(keys).toContain("telegram_click");
 
-    // Микро-конверсии (14)
+    // Микро-конверсии (13)
     expect(keys).toContain("view_product");
     expect(keys).toContain("add_to_cart");
     expect(keys).toContain("remove_from_cart");
@@ -36,7 +36,15 @@ describe("EVENTS registry", () => {
     expect(keys).toContain("search_submit");
     expect(keys).toContain("promo_applied");
 
-    expect(keys.length).toBe(20); // 7 + 13 = 20 (в отчёте говорилось "21", но по факту 20 — сверим с реестром)
+    // Cart UI — Stage 3.1 (6)
+    expect(keys).toContain("cart_view");
+    expect(keys).toContain("cart_icon_click");
+    expect(keys).toContain("cart_item_remove");
+    expect(keys).toContain("cart_clear");
+    expect(keys).toContain("checkout_start");
+    expect(keys).toContain("promo_apply");
+
+    expect(keys.length).toBe(26); // 7 macro + 13 micro + 6 cart UI
   });
 
   it("every value equals its key (registry is self-referential)", async () => {

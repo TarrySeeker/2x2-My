@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Manrope, Rubik } from "next/font/google";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import CartDrawer from "@/components/shop/cart/CartDrawer";
 import AnalyticsScripts from "@/components/analytics/AnalyticsScripts";
 import ShopModals from "@/components/shop/modals/ShopModals";
 import {
@@ -126,6 +127,7 @@ export default function RootLayout({
         <ThemeProvider>
           <SupabaseProvider>
             <Header />
+            <CartDrawer />
             <JsonLdScript
               data={[buildOrganization(), buildLocalBusiness(), buildWebSite()]}
             />
