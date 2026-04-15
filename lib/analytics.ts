@@ -59,6 +59,12 @@ export const EVENTS = {
   cart_clear: "cart_clear",
   checkout_start: "checkout_start",
   promo_apply: "promo_apply",
+
+  // Checkout (Stage 3.2)
+  checkout_view: "checkout_view",
+  checkout_submit: "checkout_submit",
+  order_created: "order_created",
+  order_error: "order_error",
 } as const;
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS];

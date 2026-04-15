@@ -44,7 +44,13 @@ describe("EVENTS registry", () => {
     expect(keys).toContain("checkout_start");
     expect(keys).toContain("promo_apply");
 
-    expect(keys.length).toBe(26); // 7 macro + 13 micro + 6 cart UI
+    // Checkout — Stage 3.2 (4)
+    expect(keys).toContain("checkout_view");
+    expect(keys).toContain("checkout_submit");
+    expect(keys).toContain("order_created");
+    expect(keys).toContain("order_error");
+
+    expect(keys.length).toBe(30); // 7 macro + 13 micro + 6 cart UI + 4 checkout
   });
 
   it("every value equals its key (registry is self-referential)", async () => {
