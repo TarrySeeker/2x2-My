@@ -23,22 +23,10 @@ import {
   assignOrderAction,
   addCommentAction,
 } from "@/features/admin/actions/orders";
+import { VALID_TRANSITIONS } from "@/features/admin/constants/order-workflow";
 import OrderStatusStepper from "./OrderStatusStepper";
 import StatusBadge from "./StatusBadge";
 import ConfirmDialog from "./ConfirmDialog";
-
-/** Client-side transitions map */
-const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  new: ["confirmed", "cancelled"],
-  confirmed: ["in_production", "cancelled"],
-  in_production: ["ready", "cancelled"],
-  ready: ["shipped", "cancelled"],
-  shipped: ["delivered", "returned"],
-  delivered: ["completed", "returned"],
-  completed: [],
-  cancelled: [],
-  returned: [],
-};
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   new: "Новый",

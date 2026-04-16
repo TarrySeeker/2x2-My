@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 import { getProfile } from "@/features/auth/api";
 import { getNewOrdersCount } from "@/features/admin/api/orders";
+import { getPendingReviewsCount } from "@/features/admin/api/reviews";
 import AdminSidebar from "@/features/admin/components/AdminSidebar";
 import AdminBreadcrumbs from "@/features/admin/components/AdminBreadcrumbs";
 
@@ -26,10 +27,12 @@ export default async function AdminLayout({
     return <>{children}</>;
   }
 
-  const newOrdersCount =
-    profile.role === "owner" || profile.role === "manager"
-      ? await getNewOrdersCount()
-      : 0;
+  const isManagerOrOwner =
+    profile.role === "owner" || profile.role === "manager";
+
+  const [newOrdersCount, pendingReviewsCount] = isManagerOrOwner
+    ? await Promise.all([getNewOrdersCount(), getPendingReviewsCount()])
+    : [0, 0];
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
@@ -39,6 +42,7 @@ export default async function AdminLayout({
         profileRole={profile.role}
         profileAvatar={profile.avatar_url}
         newOrdersCount={newOrdersCount}
+        pendingReviewsCount={pendingReviewsCount}
       />
 
       {/* Main content */}

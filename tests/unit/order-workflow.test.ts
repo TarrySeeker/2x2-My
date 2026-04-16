@@ -1,19 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { OrderStatus } from "@/types/database";
-
-// Mirror of VALID_TRANSITIONS from features/admin/api/orders.ts
-// (server-only file — cannot import directly in tests)
-const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  new: ["confirmed", "cancelled"],
-  confirmed: ["in_production", "cancelled"],
-  in_production: ["ready", "cancelled"],
-  ready: ["shipped", "cancelled"],
-  shipped: ["delivered", "returned"],
-  delivered: ["completed", "returned"],
-  completed: [],
-  cancelled: [],
-  returned: [],
-};
+import { VALID_TRANSITIONS } from "@/features/admin/constants/order-workflow";
 
 const ALL_STATUSES: OrderStatus[] = [
   "new",

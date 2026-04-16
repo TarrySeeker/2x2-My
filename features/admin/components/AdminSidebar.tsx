@@ -46,7 +46,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Блог", href: "/admin/blog", icon: FileText, roles: ["owner", "manager", "content"] },
   { label: "Контент", href: "/admin/content", icon: Paintbrush, roles: ["owner", "manager", "content"] },
   { label: "SEO", href: "/admin/seo", icon: Search, roles: ["owner", "manager"] },
-  { label: "Настройки", href: "/admin/settings", icon: Settings, roles: ["owner"] },
+  { label: "Настройки", href: "/admin/settings", icon: Settings, roles: ["owner", "manager"] },
 ];
 
 interface AdminSidebarProps {
@@ -55,6 +55,7 @@ interface AdminSidebarProps {
   profileRole: UserRole;
   profileAvatar?: string | null;
   newOrdersCount?: number;
+  pendingReviewsCount?: number;
 }
 
 function ThemeToggle() {
@@ -201,6 +202,7 @@ export default function AdminSidebar({
   profileEmail,
   profileRole,
   newOrdersCount = 0,
+  pendingReviewsCount = 0,
 }: AdminSidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -213,6 +215,9 @@ export default function AdminSidebar({
   const badges: Record<string, number> = {};
   if (newOrdersCount > 0) {
     badges["/admin/orders"] = newOrdersCount;
+  }
+  if (pendingReviewsCount > 0) {
+    badges["/admin/reviews"] = pendingReviewsCount;
   }
 
   async function handleLogout() {

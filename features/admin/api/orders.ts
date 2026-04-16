@@ -9,20 +9,7 @@ import type {
   OrderFull,
   OrderItemWithProduct,
 } from "@/features/admin/types";
-
-// ── Workflow transitions ──
-
-const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  new: ["confirmed", "cancelled"],
-  confirmed: ["in_production", "cancelled"],
-  in_production: ["ready", "cancelled"],
-  ready: ["shipped", "cancelled"],
-  shipped: ["delivered", "returned"],
-  delivered: ["completed", "returned"],
-  completed: [],
-  cancelled: [],
-  returned: [],
-};
+import { VALID_TRANSITIONS } from "@/features/admin/constants/order-workflow";
 
 export { VALID_TRANSITIONS };
 
@@ -181,14 +168,19 @@ export async function updateOrderStatus(
     );
   }
 
-  // Update order status
-  const { error: updateError } = await supabase
+  // Update order status with optimistic locking (P2-003)
+  const { data: updated, error: updateError } = await supabase
     .from("orders")
     .update({ status: newStatus, updated_at: new Date().toISOString() })
-    .eq("id", orderId);
+    .eq("id", orderId)
+    .eq("status", currentStatus)
+    .select("id")
+    .single();
 
-  if (updateError) {
-    throw new Error(updateError.message);
+  if (updateError || !updated) {
+    throw new Error(
+      "Статус заказа был изменён другим пользователем. Обновите страницу.",
+    );
   }
 
   // Record in status history

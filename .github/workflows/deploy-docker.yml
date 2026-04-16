@@ -1,0 +1,35 @@
+name: Deploy to VPS (Docker)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-docker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy via SSH + Docker Compose
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: ${{ vars.PROD_URL || 'https://2x2hmao.ru' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /opt/shop
+            git pull origin main
+            docker compose up -d --build
+            sleep 5
+            wget -qO- http://localhost:3000/api/health | grep -q '"status":"healthy"' || (echo "health check failed"; exit 1)
