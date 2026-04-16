@@ -13,7 +13,6 @@ export const dynamic = "force-dynamic";
 const paymentCreateSchema = z.object({
   orderId: z.number().int().positive(),
   email: z.string().email().or(z.literal("")),
-  returnUrl: z.string().url().optional(),
 });
 
 export async function POST(request: NextRequest) {

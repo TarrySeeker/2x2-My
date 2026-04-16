@@ -52,7 +52,6 @@ export default function CheckoutPageClient() {
       installation: { required: false, address: "", date: "", notes: "" },
       payment: { method: "cash_on_delivery" },
       promoCode: promoCode ?? "",
-      promoDiscount: promoDiscount,
       customerComment: "",
       items: [],
     },

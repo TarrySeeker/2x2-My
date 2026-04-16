@@ -5,6 +5,7 @@ import Footer from "@/components/layout/Footer";
 import CartDrawer from "@/components/shop/cart/CartDrawer";
 import AnalyticsScripts from "@/components/analytics/AnalyticsScripts";
 import ShopModals from "@/components/shop/modals/ShopModals";
+import ShopShell from "@/components/layout/ShopShell";
 import {
   JsonLdScript,
   buildLocalBusiness,
@@ -126,14 +127,18 @@ export default function RootLayout({
       <body className="flex min-h-screen min-w-0 flex-col">
         <ThemeProvider>
           <SupabaseProvider>
-            <Header />
-            <CartDrawer />
-            <JsonLdScript
-              data={[buildOrganization(), buildLocalBusiness(), buildWebSite()]}
-            />
+            <ShopShell>
+              <Header />
+              <CartDrawer />
+              <JsonLdScript
+                data={[buildOrganization(), buildLocalBusiness(), buildWebSite()]}
+              />
+            </ShopShell>
             <div className="flex-1">{children}</div>
-            <Footer />
-            <ShopModals />
+            <ShopShell>
+              <Footer />
+              <ShopModals />
+            </ShopShell>
             <ToastProvider />
             <AnalyticsScripts />
           </SupabaseProvider>

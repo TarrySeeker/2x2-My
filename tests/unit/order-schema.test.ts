@@ -135,9 +135,19 @@ describe("orderSchema", () => {
       utm: { source: "yandex", medium: "cpc" },
       customerComment: "Прошу позвонить до 15:00",
       promoCode: "WELCOME10",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("P2-003: promoDiscount is stripped from parsed output (removed from schema)", () => {
+    const result = orderSchema.safeParse({
+      ...validPayload,
       promoDiscount: 500,
     });
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect("promoDiscount" in result.data).toBe(false);
+    }
   });
 
   it("rejects customerComment over 2000 chars", () => {

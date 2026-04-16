@@ -48,7 +48,6 @@ const _baseSchema = z.object({
     method: z.enum(["cash_on_delivery", "invoice", "cdek_pay"]),
   }),
   promoCode: z.string().optional(),
-  promoDiscount: z.number().min(0).default(0),
   customerComment: z.string().max(2000).optional(),
   items: z.array(orderItemSchema).min(1, "Корзина не может быть пустой"),
   utm: z
