@@ -81,4 +81,68 @@ describe("calculateTotals", () => {
     expect(result.installationCost).toBe(0);
     expect(result.total).toBe(1000);
   });
+
+  describe("deliveryCost parameter (stage 3.3)", () => {
+    it("uses explicit deliveryCost when provided", () => {
+      const result = calculateTotals({
+        items: [{ price: 2000, quantity: 1 }],
+        deliveryType: "cdek",
+        installationRequired: false,
+        promoDiscount: 0,
+        deliveryCost: 350,
+      });
+      expect(result.deliveryCost).toBe(350);
+      expect(result.total).toBe(2350);
+    });
+
+    it("overrides courier default when deliveryCost is explicit", () => {
+      const result = calculateTotals({
+        items: [{ price: 1000, quantity: 1 }],
+        deliveryType: "courier",
+        installationRequired: false,
+        promoDiscount: 0,
+        deliveryCost: 800,
+      });
+      expect(result.deliveryCost).toBe(800);
+      expect(result.total).toBe(1800);
+    });
+
+    it("uses explicit deliveryCost=0 (free delivery)", () => {
+      const result = calculateTotals({
+        items: [{ price: 5000, quantity: 1 }],
+        deliveryType: "cdek",
+        installationRequired: false,
+        promoDiscount: 0,
+        deliveryCost: 0,
+      });
+      expect(result.deliveryCost).toBe(0);
+      expect(result.total).toBe(5000);
+    });
+
+    it("applies promoDiscount with deliveryCost", () => {
+      const result = calculateTotals({
+        items: [{ price: 3000, quantity: 1 }],
+        deliveryType: "cdek",
+        installationRequired: false,
+        promoDiscount: 500,
+        deliveryCost: 400,
+      });
+      expect(result.subtotal).toBe(3000);
+      expect(result.deliveryCost).toBe(400);
+      expect(result.discountAmount).toBe(500);
+      expect(result.total).toBe(2900);
+    });
+
+    it("total never goes below 0 when promoDiscount > subtotal + delivery", () => {
+      const result = calculateTotals({
+        items: [{ price: 100, quantity: 1 }],
+        deliveryType: "cdek",
+        installationRequired: false,
+        promoDiscount: 99999,
+        deliveryCost: 200,
+      });
+      expect(result.discountAmount).toBe(100);
+      expect(result.total).toBe(Math.max(0, 100 + 200 - 100));
+    });
+  });
 });

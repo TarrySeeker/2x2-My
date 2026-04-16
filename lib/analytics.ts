@@ -65,6 +65,12 @@ export const EVENTS = {
   checkout_submit: "checkout_submit",
   order_created: "order_created",
   order_error: "order_error",
+
+  // СДЭК + CDEK Pay (Stage 3.3+3.4)
+  cdek_widget_open: "cdek_widget_open",
+  cdek_select_pvz: "cdek_select_pvz",
+  payment_create: "payment_create",
+  payment_redirect: "payment_redirect",
 } as const;
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS];

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,6 +17,19 @@ import PaymentSection from "./sections/PaymentSection";
 import CommentSection from "./sections/CommentSection";
 import OrderSummary from "./sections/OrderSummary";
 
+interface OrderResponse {
+  ok: true;
+  orderId: number;
+  orderNumber: string;
+  requiresPayment: boolean;
+}
+
+interface PaymentResponse {
+  ok: true;
+  payment_url: string;
+  order_number: string;
+}
+
 export default function CheckoutPageClient() {
   const router = useRouter();
   const hydrated = useHydrated();
@@ -28,6 +41,8 @@ export default function CheckoutPageClient() {
   const getSubtotal = useCartStore((s) => s.getSubtotal);
   const getTotal = useCartStore((s) => s.getTotal);
   const clearCart = useCartStore((s) => s.clearCart);
+
+  const [cdekDeliveryCost, setCdekDeliveryCost] = useState<number | null>(null);
 
   const methods = useForm<CheckoutFormValues>({
     resolver: zodResolver(orderSchema),
@@ -43,7 +58,17 @@ export default function CheckoutPageClient() {
     },
   });
 
-  const { handleSubmit, setValue, formState } = methods;
+  const { handleSubmit, setValue, watch, formState } = methods;
+
+  const deliveryType = watch("delivery.type");
+
+  useEffect(() => {
+    setCdekDeliveryCost(null);
+  }, [deliveryType]);
+
+  const handleCdekDeliveryCost = useCallback((cost: number) => {
+    setCdekDeliveryCost(cost);
+  }, []);
 
   useEffect(() => {
     if (!hydrated || items.length === 0) return;
@@ -88,9 +113,7 @@ export default function CheckoutPageClient() {
         body: JSON.stringify(data),
       });
 
-      const json = (await res.json()) as
-        | { ok: true; orderId: number; orderNumber: string }
-        | { error: string };
+      const json = (await res.json()) as OrderResponse | { error: string };
 
       if (!res.ok || !("ok" in json)) {
         const msg = "error" in json ? json.error : "Ошибка оформления заказа";
@@ -103,6 +126,30 @@ export default function CheckoutPageClient() {
         orderNumber: json.orderNumber,
         total: getTotal(),
       });
+
+      if (json.requiresPayment) {
+        trackEvent(EVENTS.payment_create, { orderNumber: json.orderNumber });
+
+        const payRes = await fetch("/api/payment/create", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            orderId: json.orderId,
+            email: data.customer.email || "",
+          }),
+        });
+
+        const payData = (await payRes.json()) as PaymentResponse | { error: string };
+
+        if ("payment_url" in payData && payData.payment_url) {
+          trackEvent(EVENTS.payment_redirect, { orderNumber: json.orderNumber });
+          window.location.href = payData.payment_url;
+          return;
+        }
+
+        toast.error("Не удалось создать платёж. Попробуйте другой способ оплаты.");
+        return;
+      }
 
       clearCart();
       router.push(`/checkout/success?order=${json.orderNumber}`);
@@ -141,7 +188,7 @@ export default function CheckoutPageClient() {
       >
         <div className="flex flex-col gap-6">
           <ContactSection />
-          <DeliverySection />
+          <DeliverySection onCdekSelect={handleCdekDeliveryCost} />
           <InstallationSection />
           <PaymentSection />
           <CommentSection />
@@ -151,9 +198,16 @@ export default function CheckoutPageClient() {
           <OrderSummary
             items={items}
             subtotal={getSubtotal()}
-            total={getTotal()}
             promoDiscount={promoDiscount}
             isSubmitting={formState.isSubmitting}
+            deliveryType={deliveryType}
+            deliveryCost={
+              deliveryType === "cdek"
+                ? cdekDeliveryCost
+                : deliveryType === "courier"
+                  ? 500
+                  : 0
+            }
           />
         </div>
       </form>

@@ -2,23 +2,45 @@
 
 import { Loader2 } from "lucide-react";
 import { formatRub } from "@/lib/format";
+import { calculateTotals } from "@/lib/checkout/totals";
 import type { CartItemData } from "@/store/cart";
 
 type Props = {
   items: CartItemData[];
   subtotal: number;
-  total: number;
   promoDiscount: number;
   isSubmitting: boolean;
+  deliveryType: "pickup" | "courier" | "cdek";
+  deliveryCost: number | null;
 };
 
 export default function OrderSummary({
   items,
   subtotal,
-  total,
   promoDiscount,
   isSubmitting,
+  deliveryType,
+  deliveryCost,
 }: Props) {
+  const resolvedDeliveryCost =
+    deliveryCost !== null
+      ? deliveryCost
+      : deliveryType === "courier"
+        ? 500
+        : deliveryType === "pickup"
+          ? 0
+          : undefined;
+
+  const totals = calculateTotals({
+    items: items.map((i) => ({ price: i.price, quantity: i.quantity })),
+    deliveryType,
+    installationRequired: false,
+    promoDiscount,
+    deliveryCost: resolvedDeliveryCost,
+  });
+
+  const showDeliveryPending = deliveryType === "cdek" && deliveryCost === null;
+
   return (
     <div className="flex flex-col gap-5 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
       <h3 className="font-display text-lg font-bold text-brand-dark">
@@ -54,17 +76,28 @@ export default function OrderSummary({
           <div className="flex justify-between text-green-600">
             <span>Скидка</span>
             <span className="font-semibold tabular-nums">
-              −{formatRub(promoDiscount)} ₽
+              −{formatRub(totals.discountAmount)} ₽
             </span>
           </div>
         )}
+
+        <div className="flex justify-between">
+          <span className="text-neutral-500">Доставка</span>
+          <span className="font-semibold tabular-nums text-brand-dark">
+            {showDeliveryPending
+              ? "рассчитается после выбора ПВЗ"
+              : totals.deliveryCost === 0
+                ? "Бесплатно"
+                : `${formatRub(totals.deliveryCost)} ₽`}
+          </span>
+        </div>
 
         <div className="mt-2 flex justify-between border-t border-neutral-100 pt-3">
           <span className="font-display text-base font-bold text-brand-dark">
             Итого
           </span>
           <span className="font-display text-xl font-bold tabular-nums text-brand-orange">
-            {formatRub(total)} ₽
+            {formatRub(totals.total)} ₽
           </span>
         </div>
       </div>

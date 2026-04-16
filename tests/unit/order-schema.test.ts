@@ -147,4 +147,72 @@ describe("orderSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  describe("delivery CDEK fields (stage 3.3)", () => {
+    it("accepts cdek delivery with tariffCode and pointCode", () => {
+      const result = orderSchema.safeParse({
+        ...validPayload,
+        delivery: {
+          type: "cdek" as const,
+          tariffCode: 136,
+          pointCode: "MSK-001",
+          pointAddress: "Москва, ул. Ленина 1",
+          cityCode: 44,
+          cost: 350,
+        },
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.delivery.tariffCode).toBe(136);
+        expect(result.data.delivery.pointCode).toBe("MSK-001");
+        expect(result.data.delivery.pointAddress).toBe("Москва, ул. Ленина 1");
+        expect(result.data.delivery.cityCode).toBe(44);
+        expect(result.data.delivery.cost).toBe(350);
+      }
+    });
+
+    it("allows cdek without optional fields", () => {
+      const result = orderSchema.safeParse({
+        ...validPayload,
+        delivery: { type: "cdek" as const },
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.delivery.tariffCode).toBeUndefined();
+        expect(result.data.delivery.pointCode).toBeUndefined();
+      }
+    });
+
+    it("rejects negative tariffCode", () => {
+      const result = orderSchema.safeParse({
+        ...validPayload,
+        delivery: { type: "cdek" as const, tariffCode: -1 },
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("rejects negative cityCode", () => {
+      const result = orderSchema.safeParse({
+        ...validPayload,
+        delivery: { type: "cdek" as const, cityCode: -5 },
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it("accepts zero delivery cost", () => {
+      const result = orderSchema.safeParse({
+        ...validPayload,
+        delivery: { type: "cdek" as const, cost: 0 },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects negative delivery cost", () => {
+      const result = orderSchema.safeParse({
+        ...validPayload,
+        delivery: { type: "cdek" as const, cost: -100 },
+      });
+      expect(result.success).toBe(false);
+    });
+  });
 });

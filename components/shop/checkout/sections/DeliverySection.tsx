@@ -3,7 +3,13 @@
 import { useFormContext } from "react-hook-form";
 import { MapPin, Truck, Package } from "lucide-react";
 import Input from "@/components/ui/Input";
+import CdekWidget from "@/components/shop/checkout/CdekWidget";
+import type { CdekSelectData } from "@/components/shop/checkout/CdekWidget";
 import type { CheckoutFormValues } from "../checkout-form-types";
+
+interface DeliverySectionProps {
+  onCdekSelect?: (deliverySum: number) => void;
+}
 
 const DELIVERY_OPTIONS = [
   {
@@ -12,7 +18,6 @@ const DELIVERY_OPTIONS = [
     hint: "Ханты-Мансийск, ул. Парковая 92 Б",
     price: "Бесплатно",
     icon: MapPin,
-    disabled: false,
   },
   {
     value: "courier" as const,
@@ -20,26 +25,37 @@ const DELIVERY_OPTIONS = [
     hint: "Доставка по городу",
     price: "500 ₽",
     icon: Truck,
-    disabled: false,
   },
   {
     value: "cdek" as const,
     label: "СДЭК (по России)",
-    hint: "Доступно в следующем обновлении",
+    hint: "Пункт выдачи или курьер",
     price: "",
     icon: Package,
-    disabled: true,
   },
 ] as const;
 
-export default function DeliverySection() {
+const DEFAULT_GOODS = [{ width: 20, height: 15, length: 30, weight: 1000 }];
+
+export default function DeliverySection({ onCdekSelect }: DeliverySectionProps) {
   const {
     register,
     watch,
+    setValue,
     formState: { errors },
   } = useFormContext<CheckoutFormValues>();
 
   const deliveryType = watch("delivery.type");
+  const tariffCode = watch("delivery.tariffCode");
+
+  const handleCdekSelect = (data: CdekSelectData) => {
+    setValue("delivery.tariffCode", data.tariffCode);
+    setValue("delivery.pointCode", data.pointCode ?? "");
+    setValue("delivery.pointAddress", data.pointAddress ?? "");
+    setValue("delivery.cityCode", data.cityCode);
+    setValue("delivery.cost", data.deliverySum);
+    onCdekSelect?.(data.deliverySum);
+  };
 
   return (
     <fieldset className="flex flex-col gap-5 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
@@ -59,7 +75,6 @@ export default function DeliverySection() {
                 checked
                   ? "border-brand-orange bg-brand-orange-soft shadow-sm"
                   : "border-neutral-200 bg-white hover:border-brand-orange/60",
-                opt.disabled ? "pointer-events-none opacity-50" : "",
               ].join(" ")}
             >
               <div className="flex items-start gap-3">
@@ -96,7 +111,6 @@ export default function DeliverySection() {
                 type="radio"
                 className="sr-only"
                 value={opt.value}
-                disabled={opt.disabled}
                 aria-label={`${opt.label} — ${opt.hint}`}
                 {...register("delivery.type")}
               />
@@ -113,6 +127,17 @@ export default function DeliverySection() {
           autoComplete="street-address"
           {...register("delivery.address")}
         />
+      )}
+
+      {deliveryType === "cdek" && (
+        <div className="flex flex-col gap-3">
+          <CdekWidget onSelect={handleCdekSelect} goods={DEFAULT_GOODS} />
+          {deliveryType === "cdek" && !tariffCode && (
+            <p className="text-xs text-red-500">
+              Выберите пункт выдачи или курьерскую доставку
+            </p>
+          )}
+        </div>
       )}
     </fieldset>
   );

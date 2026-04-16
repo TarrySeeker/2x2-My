@@ -10,21 +10,18 @@ const PAYMENT_OPTIONS = [
     label: "Оплата при получении",
     hint: "Наличными или переводом",
     icon: Banknote,
-    disabled: false,
   },
   {
     value: "invoice" as const,
     label: "Счёт для юрлиц",
     hint: "Счёт выставит менеджер",
     icon: FileText,
-    disabled: false,
   },
   {
     value: "cdek_pay" as const,
     label: "Онлайн картой (CDEK Pay)",
-    hint: "Доступно в следующем обновлении",
+    hint: "Карты, СБП, кошельки",
     icon: CreditCard,
-    disabled: true,
   },
 ] as const;
 
@@ -50,7 +47,6 @@ export default function PaymentSection() {
                 checked
                   ? "border-brand-orange bg-brand-orange-soft shadow-sm"
                   : "border-neutral-200 bg-white hover:border-brand-orange/60",
-                opt.disabled ? "pointer-events-none opacity-50" : "",
               ].join(" ")}
             >
               <span
@@ -80,7 +76,6 @@ export default function PaymentSection() {
                 type="radio"
                 className="sr-only"
                 value={opt.value}
-                disabled={opt.disabled}
                 aria-label={`${opt.label} — ${opt.hint}`}
                 {...register("payment.method")}
               />

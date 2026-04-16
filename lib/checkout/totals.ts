@@ -3,6 +3,7 @@ export interface TotalsInput {
   deliveryType: "pickup" | "courier" | "cdek";
   installationRequired: boolean;
   promoDiscount: number;
+  deliveryCost?: number;
 }
 
 export interface TotalsResult {
@@ -20,8 +21,11 @@ export function calculateTotals(params: TotalsInput): TotalsResult {
   );
 
   let deliveryCost = 0;
-  if (params.deliveryType === "courier") deliveryCost = 500;
-  // cdek delivery cost = 0 (placeholder, calculated via CDEK API in stage 3.3)
+  if (params.deliveryCost !== undefined) {
+    deliveryCost = params.deliveryCost;
+  } else if (params.deliveryType === "courier") {
+    deliveryCost = 500;
+  }
 
   const installationCost = 0; // placeholder for future pricing
 

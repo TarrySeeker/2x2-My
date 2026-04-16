@@ -50,7 +50,13 @@ describe("EVENTS registry", () => {
     expect(keys).toContain("order_created");
     expect(keys).toContain("order_error");
 
-    expect(keys.length).toBe(30); // 7 macro + 13 micro + 6 cart UI + 4 checkout
+    // СДЭК + CDEK Pay — Stage 3.3+3.4 (4 new, purchase_complete already in macro)
+    expect(keys).toContain("cdek_widget_open");
+    expect(keys).toContain("cdek_select_pvz");
+    expect(keys).toContain("payment_create");
+    expect(keys).toContain("payment_redirect");
+
+    expect(keys.length).toBe(34); // 7 macro + 13 micro + 6 cart UI + 4 checkout + 4 cdek/pay
   });
 
   it("every value equals its key (registry is self-referential)", async () => {

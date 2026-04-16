@@ -30,6 +30,11 @@ const _baseSchema = z.object({
   delivery: z.object({
     type: z.enum(["pickup", "courier", "cdek"]),
     address: z.string().max(500).optional(),
+    tariffCode: z.number().int().positive().optional(),
+    pointCode: z.string().max(50).optional(),
+    pointAddress: z.string().max(500).optional(),
+    cityCode: z.number().int().positive().optional(),
+    cost: z.number().nonnegative().optional(),
   }),
   installation: z
     .object({

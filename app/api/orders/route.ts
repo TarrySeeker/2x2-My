@@ -6,14 +6,115 @@ import { parseBody } from "@/lib/validation";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { orderSchema, type OrderInput } from "@/lib/checkout/order-schema";
 import { calculateTotals } from "@/lib/checkout/totals";
+import { cdekFetch, isCdekConfigured } from "@/lib/cdek";
+import { createCdekShipment } from "@/lib/cdek/shipment";
+import type { CdekCalculateResponse } from "@/lib/cdek/types";
 import type { InsertRow } from "@/lib/supabase/table-types";
-import type { Json } from "@/types/database";
+import type { Json, DeliveryAddress } from "@/types/database";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function toNullableString(val: string | undefined): string | null {
   return val && val.length > 0 ? val : null;
+}
+
+interface PromoResult {
+  promoDiscount: number;
+  promoCodeId: number | null;
+}
+
+async function verifyPromoCode(
+  supabase: ReturnType<typeof createAdminClient>,
+  code: string | undefined,
+  subtotal: number,
+): Promise<PromoResult> {
+  if (!code || code.trim().length === 0) {
+    return { promoDiscount: 0, promoCodeId: null };
+  }
+
+  const { data: promo, error } = await supabase
+    .from("promo_codes")
+    .select("*")
+    .eq("code", code.trim())
+    .eq("is_active", true)
+    .single();
+
+  if (error || !promo) {
+    return { promoDiscount: 0, promoCodeId: null };
+  }
+
+  const now = new Date().toISOString();
+  if (promo.valid_from && promo.valid_from > now) {
+    return { promoDiscount: 0, promoCodeId: null };
+  }
+  if (promo.valid_to && promo.valid_to < now) {
+    return { promoDiscount: 0, promoCodeId: null };
+  }
+
+  if (promo.max_uses !== null && promo.used_count >= promo.max_uses) {
+    return { promoDiscount: 0, promoCodeId: null };
+  }
+
+  if (promo.min_order_amount !== null && subtotal < promo.min_order_amount) {
+    return { promoDiscount: 0, promoCodeId: null };
+  }
+
+  let discount = 0;
+  if (promo.type === "percent") {
+    discount = Math.round((subtotal * promo.value) / 100);
+  } else {
+    discount = promo.value;
+  }
+
+  if (promo.max_discount_amount !== null && discount > promo.max_discount_amount) {
+    discount = promo.max_discount_amount;
+  }
+
+  discount = Math.min(discount, subtotal);
+
+  return { promoDiscount: discount, promoCodeId: promo.id };
+}
+
+async function calculateServerDeliveryCost(
+  input: OrderInput,
+): Promise<number> {
+  if (input.delivery.type === "pickup") return 0;
+  if (input.delivery.type === "courier") return 500;
+
+  if (
+    input.delivery.type === "cdek" &&
+    input.delivery.tariffCode &&
+    (input.delivery.pointCode || input.delivery.cityCode) &&
+    isCdekConfigured()
+  ) {
+    try {
+      const fromCode = Number(process.env.CDEK_FROM_LOCATION_CODE || "1104");
+      const toCityCode = input.delivery.cityCode ?? 44;
+
+      const result = await cdekFetch<CdekCalculateResponse>(
+        "/calculator/tariff",
+        {
+          method: "POST",
+          body: {
+            type: 1,
+            from_location: { code: fromCode },
+            to_location: { code: toCityCode },
+            tariff_code: input.delivery.tariffCode,
+            packages: [{ weight: 1000, length: 30, width: 20, height: 15 }],
+          },
+        },
+      );
+
+      if (result.delivery_sum > 0) {
+        return Math.round(result.delivery_sum);
+      }
+    } catch (err) {
+      console.error("[api/orders] CDEK tariff calc failed:", err);
+    }
+  }
+
+  return 0;
 }
 
 export async function POST(request: NextRequest) {
@@ -41,16 +142,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Safe: OrderInput is from the base schema; superRefine only adds
-  // cross-field checks without changing the data shape
   const input = parsed.data as OrderInput;
-
-  const totals = calculateTotals({
-    items: input.items,
-    deliveryType: input.delivery.type,
-    installationRequired: input.installation?.required ?? false,
-    promoDiscount: input.promoDiscount,
-  });
 
   if (!isSupabaseConfigured()) {
     return NextResponse.json(
@@ -61,6 +153,27 @@ export async function POST(request: NextRequest) {
 
   try {
     const supabase = createAdminClient();
+
+    const rawSubtotal = input.items.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0,
+    );
+
+    const { promoDiscount, promoCodeId } = await verifyPromoCode(
+      supabase,
+      input.promoCode,
+      rawSubtotal,
+    );
+
+    const deliveryCost = await calculateServerDeliveryCost(input);
+
+    const totals = calculateTotals({
+      items: input.items,
+      deliveryType: input.delivery.type,
+      installationRequired: input.installation?.required ?? false,
+      promoDiscount,
+      deliveryCost,
+    });
 
     const deliveryAddr = toNullableString(input.delivery.address);
 
@@ -81,14 +194,16 @@ export async function POST(request: NextRequest) {
       installation_cost: totals.installationCost,
       discount_amount: totals.discountAmount,
       total: totals.total,
-      promo_code_id: null,
+      promo_code_id: promoCodeId,
       promo_code: toNullableString(input.promoCode),
       delivery_type: input.delivery.type,
-      delivery_tariff_code: null,
+      delivery_tariff_code: input.delivery.tariffCode ?? null,
       delivery_tariff_name: null,
-      delivery_point_code: null,
-      delivery_point_address: null,
-      delivery_address: deliveryAddr ? { street: deliveryAddr } : null,
+      delivery_point_code: toNullableString(input.delivery.pointCode),
+      delivery_point_address: toNullableString(input.delivery.pointAddress),
+      delivery_address: deliveryAddr
+        ? ({ street: deliveryAddr } satisfies DeliveryAddress)
+        : null,
       delivery_period_min: null,
       delivery_period_max: null,
       cdek_order_uuid: null,
@@ -155,10 +270,42 @@ export async function POST(request: NextRequest) {
 
     if (historyError) throw historyError;
 
+    if (promoCodeId) {
+      const { data: currentPromo } = await supabase
+        .from("promo_codes")
+        .select("used_count")
+        .eq("id", promoCodeId)
+        .single();
+      if (currentPromo) {
+        await supabase
+          .from("promo_codes")
+          .update({ used_count: currentPromo.used_count + 1 })
+          .eq("id", promoCodeId);
+      }
+    }
+
+    const requiresPayment = input.payment.method === "cdek_pay";
+
+    if (!requiresPayment && input.delivery.type !== "pickup") {
+      createCdekShipment(orderId).catch((err) => {
+        console.error("[api/orders] CDEK shipment creation failed:", err);
+        supabase
+          .from("order_status_history")
+          .insert({
+            order_id: orderId,
+            status: "new" as const,
+            comment: `Ошибка создания СДЭК-заказа: ${err instanceof Error ? err.message : "Unknown"}`,
+            changed_by: null,
+          })
+          .then(() => {});
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       orderId: order.id,
       orderNumber: order.order_number,
+      requiresPayment,
     });
   } catch (err) {
     console.error("[api/orders] order creation failed:", err);

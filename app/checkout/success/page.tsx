@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CheckCircle, ArrowLeft } from "lucide-react";
+import { CheckCircle, Clock, ArrowLeft } from "lucide-react";
 import SuccessPhoneLink from "@/components/shop/checkout/SuccessPhoneLink";
+import SuccessCartClear from "@/components/shop/checkout/SuccessCartClear";
+import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
 
 export const metadata: Metadata = {
   title: "Заказ принят",
@@ -12,14 +14,44 @@ type Props = {
   searchParams: Promise<{ order?: string }>;
 };
 
+async function getOrderStatus(orderNumber: string): Promise<"paid" | "pending" | null> {
+  if (!isSupabaseConfigured()) return null;
+
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from("orders")
+      .select("payment_status")
+      .eq("order_number", orderNumber)
+      .single();
+
+    if (data?.payment_status === "paid") return "paid";
+    return "pending";
+  } catch {
+    return null;
+  }
+}
+
 export default async function CheckoutSuccessPage({ searchParams }: Props) {
   const params = await searchParams;
   const orderNumber = params.order;
+  const paymentStatus = orderNumber ? await getOrderStatus(orderNumber) : null;
+  const isPaid = paymentStatus === "paid";
 
   return (
     <main className="container flex flex-col items-center py-16 text-center md:py-24">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-50">
-        <CheckCircle className="h-10 w-10 text-green-500" strokeWidth={1.5} />
+      <div
+        className={[
+          "flex h-20 w-20 items-center justify-center rounded-full",
+          isPaid ? "bg-green-50" : "bg-amber-50",
+        ].join(" ")}
+      >
+        {isPaid ? (
+          <CheckCircle className="h-10 w-10 text-green-500" strokeWidth={1.5} />
+        ) : (
+          <Clock className="h-10 w-10 text-amber-500" strokeWidth={1.5} />
+        )}
       </div>
 
       <h1 className="mt-6 font-display text-3xl font-bold text-brand-dark md:text-4xl">
@@ -31,9 +63,12 @@ export default async function CheckoutSuccessPage({ searchParams }: Props) {
       </h1>
 
       <p className="mt-4 max-w-md text-neutral-500">
-        Менеджер «2х2» свяжется с вами в течение 15 минут в рабочее время
-        (Пн–Пт 09:00–19:00).
+        {isPaid
+          ? "Оплата прошла, заказ передан в обработку."
+          : "Заказ принят, менеджер «2х2» свяжется с вами в течение 15 минут в рабочее время (Пн–Пт 09:00–19:00)."}
       </p>
+
+      {orderNumber && <SuccessCartClear orderNumber={orderNumber} />}
 
       <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
         <Link
