@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
@@ -54,6 +54,7 @@ interface AdminSidebarProps {
   profileEmail: string;
   profileRole: UserRole;
   profileAvatar?: string | null;
+  newOrdersCount?: number;
 }
 
 function ThemeToggle() {
@@ -76,10 +77,11 @@ function SidebarContent({
   items,
   pathname,
   profileName,
-  profileEmail,
+  profileEmail: _profileEmail,
   profileRole,
   onLogout,
   loggingOut,
+  badges,
 }: {
   items: NavItem[];
   pathname: string;
@@ -88,6 +90,7 @@ function SidebarContent({
   profileRole: UserRole;
   onLogout: () => void;
   loggingOut: boolean;
+  badges?: Record<string, number>;
 }) {
   const roleLabels: Record<UserRole, string> = {
     owner: "Владелец",
@@ -118,6 +121,8 @@ function SidebarContent({
                 pathname.startsWith(item.href));
             const Icon = item.icon;
 
+            const badge = badges?.[item.href] ?? 0;
+
             return (
               <li key={item.href}>
                 <Link
@@ -142,6 +147,11 @@ function SidebarContent({
                   )}
                   <Icon className="relative z-10 h-4.5 w-4.5 shrink-0" />
                   <span className="relative z-10">{item.label}</span>
+                  {badge > 0 && (
+                    <span className="relative z-10 ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-orange px-1.5 text-[11px] font-bold text-white">
+                      {badge > 99 ? "99+" : badge}
+                    </span>
+                  )}
                   {isActive && (
                     <div className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-brand-orange" />
                   )}
@@ -190,15 +200,20 @@ export default function AdminSidebar({
   profileName,
   profileEmail,
   profileRole,
+  newOrdersCount = 0,
 }: AdminSidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
   const filteredItems = NAV_ITEMS.filter((item) =>
     item.roles.includes(profileRole),
   );
+
+  const badges: Record<string, number> = {};
+  if (newOrdersCount > 0) {
+    badges["/admin/orders"] = newOrdersCount;
+  }
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -230,6 +245,7 @@ export default function AdminSidebar({
           profileRole={profileRole}
           onLogout={handleLogout}
           loggingOut={loggingOut}
+          badges={badges}
         />
       </aside>
 
@@ -284,6 +300,7 @@ export default function AdminSidebar({
                   profileRole={profileRole}
                   onLogout={handleLogout}
                   loggingOut={loggingOut}
+                  badges={badges}
                 />
               </div>
             </motion.aside>

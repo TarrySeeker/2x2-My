@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import {
   getAdminProducts,
   deleteProduct,
@@ -7,28 +8,42 @@ import {
   bulkUpdateStatus,
   bulkDelete,
 } from "@/features/admin/api/products";
+import { requireAdmin } from "@/features/auth/api";
 import type { AdminProductFilters } from "@/features/admin/types";
-import type { ProductStatus } from "@/types/database";
+
+const idSchema = z.number().int().positive();
+const idsSchema = z.array(idSchema).min(1);
+const statusSchema = z.enum(["active", "draft", "archived"]);
 
 export async function fetchProductsAction(filters: AdminProductFilters) {
+  await requireAdmin();
   return getAdminProducts(filters);
 }
 
 export async function deleteProductAction(id: number) {
-  await deleteProduct(id);
+  await requireAdmin();
+  const validated = idSchema.parse(id);
+  await deleteProduct(validated);
 }
 
 export async function duplicateProductAction(id: number) {
-  return duplicateProduct(id);
+  await requireAdmin();
+  const validated = idSchema.parse(id);
+  return duplicateProduct(validated);
 }
 
 export async function bulkUpdateStatusAction(
   ids: number[],
-  status: ProductStatus,
+  status: string,
 ) {
-  await bulkUpdateStatus(ids, status);
+  await requireAdmin();
+  const validatedIds = idsSchema.parse(ids);
+  const validatedStatus = statusSchema.parse(status);
+  await bulkUpdateStatus(validatedIds, validatedStatus);
 }
 
 export async function bulkDeleteAction(ids: number[]) {
-  await bulkDelete(ids);
+  await requireAdmin();
+  const validatedIds = idsSchema.parse(ids);
+  await bulkDelete(validatedIds);
 }

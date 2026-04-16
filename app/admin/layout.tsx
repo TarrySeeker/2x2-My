@@ -1,5 +1,6 @@
 import { type ReactNode } from "react";
 import { getProfile } from "@/features/auth/api";
+import { getNewOrdersCount } from "@/features/admin/api/orders";
 import AdminSidebar from "@/features/admin/components/AdminSidebar";
 import AdminBreadcrumbs from "@/features/admin/components/AdminBreadcrumbs";
 
@@ -25,6 +26,11 @@ export default async function AdminLayout({
     return <>{children}</>;
   }
 
+  const newOrdersCount =
+    profile.role === "owner" || profile.role === "manager"
+      ? await getNewOrdersCount()
+      : 0;
+
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <AdminSidebar
@@ -32,6 +38,7 @@ export default async function AdminLayout({
         profileEmail={profile.email ?? ""}
         profileRole={profile.role}
         profileAvatar={profile.avatar_url}
+        newOrdersCount={newOrdersCount}
       />
 
       {/* Main content */}

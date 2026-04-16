@@ -16,6 +16,8 @@ const ALLOWED_TYPES = new Set([
   "image/svg+xml",
 ]);
 
+const ALLOWED_BUCKETS = new Set(["images", "blog"]);
+
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
 export async function POST(request: NextRequest) {
@@ -86,6 +88,14 @@ export async function POST(request: NextRequest) {
   }
 
   const bucket = (formData.get("bucket") as string) || "images";
+
+  if (!ALLOWED_BUCKETS.has(bucket)) {
+    return NextResponse.json(
+      { error: "Недопустимый bucket" },
+      { status: 400 },
+    );
+  }
+
   const pathPrefix = (formData.get("path") as string) || "uploads";
 
   // Generate unique filename
