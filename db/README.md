@@ -131,10 +131,27 @@ psql "$DATABASE_URL" -c "SELECT * FROM list_products(NULL, NULL, NULL, NULL, NUL
 | Email | `admin@2x2.ru` |
 | Role | `owner` |
 
-`password_hash` в seed — заранее заготовленный bcrypt-хеш cost=10.
-В цепочке 2 (Lucia Auth) хеш будет пересчитан настоящим
-вызовом `bcrypt.hash()` из приложения, чтобы убедиться в его валидности
-для библиотеки, выбранной разработчиком (`bcryptjs` / `@node-rs/bcrypt`).
+`password_hash` в seed — bcrypt-хеш cost=12, сгенерирован через
+`scripts/generate-admin-hash.mjs` (библиотека `bcryptjs@3.x`).
+
+Пересоздать hash (например, при смене пароля для локалки):
+
+```bash
+node scripts/generate-admin-hash.mjs            # "admin123"
+node scripts/generate-admin-hash.mjs newpass    # свой пароль
+```
+
+Результат вставить в `db/seed.sql` вместо текущего значения
+`users.password_hash`. Приложение проверяет пароль через
+`bcrypt.compare()` в `features/auth/api.ts#signInAction`.
+
+> В проде пароль `admin123` **использовать нельзя** — это тестовый
+> пароль. Перед деплоем смените его через админку (после релиза
+> UI управления пользователями) или вручную:
+>
+> ```sql
+> UPDATE users SET password_hash = '<новый_hash>' WHERE username='admin';
+> ```
 
 ## Полный сброс БД (dev)
 

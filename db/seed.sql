@@ -24,18 +24,23 @@ BEGIN;
 -- ------------------------------------------------------------
 -- 1. Admin user
 -- ------------------------------------------------------------
--- ВНИМАНИЕ: password_hash — заготовленный bcrypt-хеш для пароля
--- 'admin123' (cost=10). В цепочке 2 при настройке Lucia этот хеш
--- будет пересчитан настоящим вызовом bcrypt.hash() из приложения.
--- Текущий хеш валиден и принимается стандартными bcrypt-библиотеками.
+-- password_hash — bcrypt-хеш для пароля 'admin123' (cost=12).
+-- Сгенерирован через scripts/generate-admin-hash.mjs
+-- (bcryptjs@3.x, cost=12 — дефолт для production-проектов).
+-- Проверен bcrypt.compare('admin123', hash) === true.
+--
+-- Пересоздать (если скомпрометирован или нужно поменять пароль):
+--   node scripts/generate-admin-hash.mjs [newPassword]
+-- Только для тестового окружения; прод-пароль выставить через
+-- admin-API перед первым деплоем.
 INSERT INTO users (id, username, email, full_name, password_hash, role, is_active)
 VALUES (
   'usr_admin',
   'admin',
   'admin@2x2.ru',
   'Администратор 2х2',
-  -- bcrypt('admin123', cost=10)
-  '$2b$10$CwTycUXWue0Thq9StjUM0uJ8DsGqg0RkeaKqK5EeI3ZaVY5kQXdYK',
+  -- bcrypt('admin123', cost=12)
+  '$2b$12$iw8rvSuTAGZ7k35PB49JX.3uZ/RjWPA45LNPeO9ZqoYqWAFW/WL/G',
   'owner',
   true
 )

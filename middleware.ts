@@ -1,24 +1,48 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * STUB middleware (TODO LUCIA — цепочка 2).
- * Раньше middleware рефрешил Supabase-сессию и защищал /admin/*.
- * Сейчас просто пропускает все запросы.
+ * Edge middleware.
  *
- * После Lucia v3:
- *   - читать sessionId из cookie
- *   - валидировать в БД (`sessions` таблица)
- *   - редиректить неавторизованных с /admin/* на /admin/login
+ * Задача: не пускать неавторизованных пользователей в /admin/*.
+ * НЕ валидируем сессию в БД — Edge runtime не умеет работать с
+ * postgres-js (нужен Node). Полная проверка делается в
+ * `requireAdmin()` / `getCurrentUser()` на каждой странице (Node runtime).
+ *
+ * Проверяем только факт наличия cookie `auth_session`. Если cookie
+ * отсутствует — редирект на /admin/login. Это защищает от лишнего
+ * рендера админских страниц неавторизованными посетителями, но не
+ * заменяет валидацию сессии (злоумышленник может подставить мусорный
+ * cookie — страница упадёт в redirect уже из requireAdmin).
+ *
+ * Имя cookie — должно совпадать с `SESSION_COOKIE_NAME` из
+ * `lib/auth/cookies.ts`. Захардкожено, т.к. тот модуль помечен
+ * `server-only` и не импортируется из Edge runtime.
  */
-export async function middleware(_request: NextRequest) {
+const SESSION_COOKIE_NAME = "auth_session";
+
+export function middleware(request: NextRequest): NextResponse {
+  const { pathname } = request.nextUrl;
+
+  // Логин не защищаем (иначе петля).
+  if (pathname === "/admin/login" || pathname.startsWith("/admin/login/")) {
+    return NextResponse.next();
+  }
+
+  if (!pathname.startsWith("/admin")) {
+    return NextResponse.next();
+  }
+
+  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  if (!token) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin/login";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Игнорируем статические файлы и изображения.
-     */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  matcher: ["/admin/:path*"],
 };

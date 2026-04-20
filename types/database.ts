@@ -1,9 +1,18 @@
 /**
- * Типы БД Supabase — рукописные.
- * После поднятия реального Supabase можно регенерировать через:
- *   npx supabase gen types typescript --project-id <id> > types/database.ts
+ * Типы БД проекта «2х2» — рукописные.
  *
- * Соответствует supabase/migrations/*.sql.
+ * Источник истины — SQL-миграции в `db/migrations/`:
+ *   001_extensions_and_enums.sql   — ENUM-типы
+ *   002_schema.sql                 — все доменные таблицы
+ *   003_triggers_and_functions.sql — RPC-функции (Functions ниже)
+ *   004_lucia_auth.sql             — users + sessions (Lucia v3)
+ *
+ * Миграция chain 1 перевела проект с Supabase на чистый PostgreSQL:
+ *  - Удалена таблица `profiles` (было `id UUID → auth.users`).
+ *  - Появились `users` (TEXT id, username, password_hash, role …)
+ *    и `sessions` (id = sha256(token)) — см. `lib/auth/lucia.ts`.
+ *  - Колонки, ссылающиеся на пользователей (orders.customer_id,
+ *    blog_posts.author_id, audit_log.user_id и т. д.), имеют тип TEXT.
  */
 
 export type Json =
@@ -15,7 +24,7 @@ export type Json =
   | Json[];
 
 // ============================================================
-// ENUM-типы
+// ENUM-типы (001_extensions_and_enums.sql)
 // ============================================================
 export type UserRole = "owner" | "manager" | "content";
 export type ProductStatus = "active" | "draft" | "archived";
@@ -117,12 +126,16 @@ export interface DeliveryAddress {
 export interface Database {
   public: {
     Tables: {
-      profiles: {
+      // ────────────────────────────────────────────────────
+      // LUCIA AUTH (004_lucia_auth.sql)
+      // ────────────────────────────────────────────────────
+      users: {
         Row: {
           id: string;
-          email: string;
+          username: string;
+          email: string | null;
           full_name: string | null;
-          phone: string | null;
+          password_hash: string;
           role: UserRole;
           avatar_url: string | null;
           is_active: boolean;
@@ -131,19 +144,38 @@ export interface Database {
         };
         Insert: {
           id: string;
-          email: string;
+          username: string;
+          email?: string | null;
           full_name?: string | null;
-          phone?: string | null;
+          password_hash: string;
           role?: UserRole;
           avatar_url?: string | null;
           is_active?: boolean;
           created_at?: string;
           updated_at?: string;
         };
-        Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
+        Update: Partial<Database["public"]["Tables"]["users"]["Insert"]>;
         Relationships: [];
       };
 
+      sessions: {
+        Row: {
+          id: string;
+          user_id: string;
+          expires_at: string;
+        };
+        Insert: {
+          id: string;
+          user_id: string;
+          expires_at: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sessions"]["Insert"]>;
+        Relationships: [];
+      };
+
+      // ────────────────────────────────────────────────────
+      // CATALOG (002_schema.sql)
+      // ────────────────────────────────────────────────────
       categories: {
         Row: {
           id: number;
@@ -505,6 +537,8 @@ export interface Database {
           seo_description: string | null;
           views_count: number;
           search_vector: unknown | null;
+          published_at: string | null;
+          category_label: string | null;
           created_at: string;
           updated_at: string;
         };

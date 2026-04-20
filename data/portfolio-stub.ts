@@ -198,6 +198,8 @@ export function toPortfolioItemShape(stub: PortfolioStub): PortfolioItem {
     seo_description: null,
     views_count: 0,
     search_vector: null,
+    published_at: null,
+    category_label: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };

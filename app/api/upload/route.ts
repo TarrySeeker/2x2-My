@@ -1,37 +1,46 @@
 import "server-only";
 
 import { NextRequest, NextResponse } from "next/server";
+
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
-import { getSession } from "@/features/auth/api";
+import { isResponse, requireAdmin } from "@/lib/auth/admin";
+import { isS3Configured, uploadFile } from "@/lib/storage/s3";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * Whitelist MIME-типов. НЕ добавлять SVG — в нём можно спрятать
+ * JavaScript, что превратит бакет в XSS-платформу. Если нужен SVG,
+ * рендерить через отдельный санитайзер (dompurify на сервере) перед
+ * аплоадом.
+ */
 const ALLOWED_TYPES = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
-  "image/svg+xml",
+  "image/avif",
 ]);
 
-const ALLOWED_BUCKETS = new Set(["images", "blog"]);
-const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_FOLDERS = new Set([
+  "uploads",
+  "products",
+  "portfolio",
+  "blog",
+  "banners",
+  "avatars",
+]);
 
-/**
- * STUB Storage (TODO S3 — цепочка 3).
- *
- * Раньше файлы уходили в Supabase Storage. После миграции на чистый PostgreSQL
- * Storage недоступен. Временно возвращаем placeholder-URL, оставляя валидацию
- * на месте — чтобы тесты проходили и UI корректно обрабатывал результат.
- *
- * В цепочке 3 здесь будет:
- *   - S3-совместимый клиент (Timeweb Cloud Storage / minio)
- *   - подпись presigned URL или прямая загрузка
- *   - возврат реального public URL
- */
-export async function POST(request: NextRequest) {
+const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  // 1. Auth first — никаких внешних проверок без валидной сессии.
+  const auth = await requireAdmin();
+  if (isResponse(auth)) return auth;
+
+  // 2. Rate-limit по IP — чтобы даже админ не положил бакет.
   const ip = getClientIp(request.headers);
-  const rl = rateLimit(`upload:${ip}`, 20, 60_000);
+  const rl = rateLimit(`upload:${ip}`, 30, 60_000);
   if (!rl.success) {
     return NextResponse.json(
       { error: "Слишком много запросов, попробуйте позже" },
@@ -39,11 +48,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+  // 3. S3 должен быть настроен.
+  if (!isS3Configured()) {
+    return NextResponse.json(
+      { error: "Хранилище файлов не настроено" },
+      { status: 503 },
+    );
   }
 
+  // 4. Парсим multipart.
   let formData: FormData;
   try {
     formData = await request.formData();
@@ -55,9 +68,20 @@ export async function POST(request: NextRequest) {
   }
 
   const file = formData.get("file");
-  if (!file || !(file instanceof File)) {
+  if (!(file instanceof File)) {
     return NextResponse.json(
-      { error: "Файл не найден в запросе" },
+      { error: "Файл не найден в запросе (поле 'file')" },
+      { status: 400 },
+    );
+  }
+
+  if (file.size === 0) {
+    return NextResponse.json({ error: "Файл пустой" }, { status: 400 });
+  }
+
+  if (file.size > MAX_SIZE_BYTES) {
+    return NextResponse.json(
+      { error: "Размер файла превышает 10 МБ" },
       { status: 400 },
     );
   }
@@ -65,38 +89,38 @@ export async function POST(request: NextRequest) {
   if (!ALLOWED_TYPES.has(file.type)) {
     return NextResponse.json(
       {
-        error: `Недопустимый тип файла: ${file.type}. Разрешены: JPG, PNG, WebP, SVG`,
+        error: `Недопустимый тип файла: ${file.type || "неизвестен"}. Разрешены: JPG, PNG, WebP, AVIF`,
       },
       { status: 400 },
     );
   }
 
-  if (file.size > MAX_SIZE) {
+  // 5. Папка — только из whitelist.
+  const folderRaw = formData.get("folder");
+  const folder =
+    typeof folderRaw === "string" && ALLOWED_FOLDERS.has(folderRaw)
+      ? folderRaw
+      : "uploads";
+
+  // 6. Uploader.
+  try {
+    const result = await uploadFile(file, {
+      folder,
+      contentType: file.type,
+    });
+
+    return NextResponse.json({
+      url: result.url,
+      key: result.key,
+      bucket: result.bucket,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    // Логируем на сервере, наружу отдаём generic.
+    console.error("[upload] S3 upload failed:", message);
     return NextResponse.json(
-      { error: "Размер файла превышает 5 МБ" },
-      { status: 400 },
+      { error: "Не удалось загрузить файл. Повторите позже." },
+      { status: 500 },
     );
   }
-
-  const bucket = (formData.get("bucket") as string) || "images";
-  if (!ALLOWED_BUCKETS.has(bucket)) {
-    return NextResponse.json(
-      { error: "Недопустимый bucket" },
-      { status: 400 },
-    );
-  }
-
-  const pathPrefix = (formData.get("path") as string) || "uploads";
-  const ext = file.name.split(".").pop() ?? "jpg";
-  const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const storagePath = `${bucket}/${pathPrefix}/${uniqueName}`;
-
-  // TODO S3 (цепочка 3): реальная загрузка в Timeweb Cloud Storage / minio.
-  const placeholderUrl = `/uploads/placeholder.png?path=${encodeURIComponent(storagePath)}`;
-
-  return NextResponse.json({
-    url: placeholderUrl,
-    path: storagePath,
-    stub: true,
-  });
 }

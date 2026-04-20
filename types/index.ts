@@ -9,7 +9,15 @@ export type Tables = Database["public"]["Tables"];
 // ============================================================
 // Строчные типы (Row)
 // ============================================================
-export type Profile = Tables["profiles"]["Row"];
+export type User = Tables["users"]["Row"];
+export type Session = Tables["sessions"]["Row"];
+/**
+ * Legacy alias — ранее таблица называлась `profiles` (Supabase).
+ * После миграции chain 1 таблица называется `users` (Lucia v3).
+ * Алиас оставлен для совместимости с существующим кодом
+ * (BlogPostWithRelations.author: Profile и т. п.).
+ */
+export type Profile = User;
 export type Category = Tables["categories"]["Row"];
 export type Product = Tables["products"]["Row"];
 export type ProductImage = Tables["product_images"]["Row"];
