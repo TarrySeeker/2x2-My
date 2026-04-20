@@ -1,131 +1,98 @@
 import "server-only";
 
-import { createAdminClient } from "@/lib/supabase/admin";
-import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
-import type { Row, InsertRow } from "@/lib/supabase/table-types";
+import { sql, type Tx } from "@/lib/db/client";
+import type { Row } from "@/lib/db/table-types";
 import type { BannerInput } from "@/features/admin/types";
 
-// ── List banners ──
+type BannerRow = Row<"banners">;
 
-export async function getBanners(): Promise<Row<"banners">[]> {
-  if (!isSupabaseConfigured()) return [];
-
-  const supabase = createAdminClient();
-
-  const { data } = await supabase
-    .from("banners")
-    .select("*")
-    .order("sort_order", { ascending: true });
-
-  return data ?? [];
+export async function getBanners(): Promise<BannerRow[]> {
+  try {
+    const rows = await sql<BannerRow[]>`
+      SELECT *
+      FROM banners
+      ORDER BY sort_order ASC
+    `;
+    return rows;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getBanners] DB request failed:", err);
+    }
+    return [];
+  }
 }
-
-// ── Create banner ──
 
 export async function createBanner(
   data: BannerInput,
 ): Promise<{ id: number }> {
-  const supabase = createAdminClient();
+  const lastRows = await sql<{ sort_order: number }[]>`
+    SELECT sort_order
+    FROM banners
+    ORDER BY sort_order DESC
+    LIMIT 1
+  `;
+  const nextOrder = (lastRows[0]?.sort_order ?? 0) + 1;
 
-  // Get max sort_order for auto-positioning
-  const { data: lastBanner } = await supabase
-    .from("banners")
-    .select("sort_order")
-    .order("sort_order", { ascending: false })
-    .limit(1)
-    .single();
-
-  const nextOrder = (lastBanner?.sort_order ?? 0) + 1;
-
-  const insertData: InsertRow<"banners"> = {
-    title: data.title ?? null,
-    subtitle: data.subtitle ?? null,
-    description: data.description ?? null,
-    image_url: data.image_url,
-    mobile_image_url: data.mobile_image_url ?? null,
-    link: data.link ?? null,
-    button_text: data.button_text ?? null,
-    badge: data.badge ?? null,
-    position: data.position,
-    sort_order: nextOrder,
-    is_active: data.is_active,
-    active_from: data.active_from ?? null,
-    active_to: data.active_to ?? null,
-  };
-
-  const { data: banner, error } = await supabase
-    .from("banners")
-    .insert(insertData)
-    .select("id")
-    .single();
-
-  if (error || !banner) {
-    throw new Error(error?.message ?? "Не удалось создать баннер");
-  }
-
-  return { id: banner.id };
+  const rows = await sql<{ id: number }[]>`
+    INSERT INTO banners (
+      title, subtitle, description, image_url, mobile_image_url,
+      link, button_text, badge, position, sort_order, is_active,
+      active_from, active_to
+    )
+    VALUES (
+      ${data.title ?? null},
+      ${data.subtitle ?? null},
+      ${data.description ?? null},
+      ${data.image_url},
+      ${data.mobile_image_url ?? null},
+      ${data.link ?? null},
+      ${data.button_text ?? null},
+      ${data.badge ?? null},
+      ${data.position},
+      ${nextOrder},
+      ${data.is_active},
+      ${data.active_from ?? null},
+      ${data.active_to ?? null}
+    )
+    RETURNING id
+  `;
+  const inserted = rows[0];
+  if (!inserted) throw new Error("Не удалось создать баннер");
+  return { id: inserted.id };
 }
-
-// ── Update banner ──
 
 export async function updateBanner(
   id: number,
   data: BannerInput,
 ): Promise<void> {
-  const supabase = createAdminClient();
-
-  const { error } = await supabase
-    .from("banners")
-    .update({
-      title: data.title ?? null,
-      subtitle: data.subtitle ?? null,
-      description: data.description ?? null,
-      image_url: data.image_url,
-      mobile_image_url: data.mobile_image_url ?? null,
-      link: data.link ?? null,
-      button_text: data.button_text ?? null,
-      badge: data.badge ?? null,
-      position: data.position,
-      is_active: data.is_active,
-      active_from: data.active_from ?? null,
-      active_to: data.active_to ?? null,
-    })
-    .eq("id", id);
-
-  if (error) throw new Error(error.message);
+  await sql`
+    UPDATE banners
+    SET
+      title = ${data.title ?? null},
+      subtitle = ${data.subtitle ?? null},
+      description = ${data.description ?? null},
+      image_url = ${data.image_url},
+      mobile_image_url = ${data.mobile_image_url ?? null},
+      link = ${data.link ?? null},
+      button_text = ${data.button_text ?? null},
+      badge = ${data.badge ?? null},
+      position = ${data.position},
+      is_active = ${data.is_active},
+      active_from = ${data.active_from ?? null},
+      active_to = ${data.active_to ?? null}
+    WHERE id = ${id}
+  `;
 }
-
-// ── Delete banner ──
 
 export async function deleteBanner(id: number): Promise<void> {
-  const supabase = createAdminClient();
-
-  const { error } = await supabase
-    .from("banners")
-    .delete()
-    .eq("id", id);
-
-  if (error) throw new Error(error.message);
+  await sql`DELETE FROM banners WHERE id = ${id}`;
 }
 
-// ── Reorder banners ──
-
 export async function reorderBanners(ids: number[]): Promise<void> {
-  const supabase = createAdminClient();
-
-  // Update sort_order for each banner based on position in array
-  const updates = ids.map((id, index) =>
-    supabase
-      .from("banners")
-      .update({ sort_order: index })
-      .eq("id", id),
-  );
-
-  const results = await Promise.all(updates);
-
-  for (const result of results) {
-    if (result.error) {
-      throw new Error(result.error.message);
+  if (ids.length === 0) return;
+  await sql.begin(async (tx: Tx) => {
+    for (let i = 0; i < ids.length; i++) {
+      await tx`UPDATE banners SET sort_order = ${i} WHERE id = ${ids[i]}`;
     }
-  }
+  });
 }

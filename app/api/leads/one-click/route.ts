@@ -1,11 +1,10 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
+import { sql } from "@/lib/db/client";
 import { parseBody, oneClickSchema } from "@/lib/validation";
 import { sendNotification } from "@/lib/notifications";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
-import type { InsertRow } from "@/lib/supabase/table-types";
+import type { Json } from "@/types/database";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -57,41 +56,43 @@ export async function POST(request: NextRequest) {
 
   let leadId: number | null = null;
 
-  if (isSupabaseConfigured()) {
-    try {
-      const supabase = createAdminClient();
-      const { data, error } = await supabase
-        .from("leads")
-        .insert({
-          source: "one_click",
-          customer_name: input.name,
-          customer_phone: input.phone,
-          customer_email: null,
-          product_id: input.product_id ?? null,
-          context: {
-            product_name: input.product_name ?? null,
-            comment: input.comment ?? null,
-          },
-          page_url: pageUrl,
-          utm_source: utm.utm_source ?? null,
-          utm_medium: utm.utm_medium ?? null,
-          utm_campaign: utm.utm_campaign ?? null,
-          utm_content: utm.utm_content ?? null,
-          utm_term: utm.utm_term ?? null,
-          referer,
-          user_agent: userAgent,
-          status: "new",
-          manager_comment: null,
-          assigned_to: null,
-        } as unknown as InsertRow<"leads">)
-        .select("id")
-        .single();
+  try {
+    const context: Json = {
+      product_name: input.product_name ?? null,
+      comment: input.comment ?? null,
+    };
 
-      if (error) throw error;
-      leadId = (data as { id: number } | null)?.id ?? null;
-    } catch (err) {
-      console.warn("[api/leads/one-click] supabase insert failed:", err);
-    }
+    const rows = await sql<{ id: number }[]>`
+      INSERT INTO leads (
+        source, customer_name, customer_phone, customer_email,
+        product_id, context,
+        page_url, utm_source, utm_medium, utm_campaign, utm_content, utm_term,
+        referer, user_agent, status, manager_comment, assigned_to
+      )
+      VALUES (
+        'one_click',
+        ${input.name},
+        ${input.phone},
+        NULL,
+        ${input.product_id ?? null},
+        ${sql.json(context as unknown as Parameters<typeof sql.json>[0])},
+        ${pageUrl},
+        ${utm.utm_source ?? null},
+        ${utm.utm_medium ?? null},
+        ${utm.utm_campaign ?? null},
+        ${utm.utm_content ?? null},
+        ${utm.utm_term ?? null},
+        ${referer},
+        ${userAgent},
+        'new',
+        NULL,
+        NULL
+      )
+      RETURNING id
+    `;
+    leadId = rows[0]?.id ?? null;
+  } catch (err) {
+    console.warn("[api/leads/one-click] DB insert failed:", err);
   }
 
   try {

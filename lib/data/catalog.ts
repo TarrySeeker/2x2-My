@@ -1,7 +1,7 @@
 import "server-only";
 
-import { createClient } from "@/lib/supabase/server";
-import { trySupabase } from "@/lib/data/try-supabase";
+import { sql } from "@/lib/db/client";
+import type { Row } from "@/lib/db/table-types";
 import type {
   CategoryTreeItem,
   Product,
@@ -9,7 +9,13 @@ import type {
   ProductSort,
   ProductWithRelations,
 } from "@/types";
-import type { Database, ProductPricingMode } from "@/types/database";
+import type { ProductPricingMode } from "@/types/database";
+
+type CategoryRow = Row<"categories">;
+type ProductImageRow = Row<"product_images">;
+type ProductVariantRow = Row<"product_variants">;
+type ProductParameterRow = Row<"product_parameters">;
+type CalculatorConfigRow = Row<"calculator_configs">;
 import {
   DEMO_CATEGORY_TREE,
   DEMO_FACETS,
@@ -28,7 +34,7 @@ export type PriceCalculationResult = PriceCalculationResultType;
 
 /**
  * Параметры для RPC list_products.
- * Совпадают с сигнатурой SQL-функции из миграции 00003_catalog_phase2.sql.
+ * Совпадают с сигнатурой SQL-функции из миграции 003_triggers_and_functions.sql.
  */
 export interface ListProductsParams {
   categorySlug?: string | null;
@@ -99,49 +105,49 @@ export async function listProducts(
     } satisfies CatalogListResult;
   })();
 
-  return trySupabase(
-    async () => {
-      const supabase = await createClient();
-      const { data, error } = await supabase.rpc("list_products", {
-        p_category_slug: params.categorySlug ?? null,
-        p_pricing_mode: params.pricingMode ?? null,
-        p_price_min: params.priceMin ?? null,
-        p_price_max: params.priceMax ?? null,
-        p_search: params.search ?? null,
-        p_sort: sortKey,
-        p_limit: perPage,
-        p_offset: offset,
-      });
-      if (error) throw error;
-      const rows = (data ?? []) as CatalogListItem[];
-      const total = rows[0]?.total_count ?? 0;
-      return {
-        items: rows,
-        total: Number(total),
-        page,
-        perPage,
-        pageCount: Math.max(1, Math.ceil(Number(total) / perPage)),
-      } satisfies CatalogListResult;
-    },
-    fallback,
-    "listProducts",
-  );
+  try {
+    const rows = await sql<CatalogListItem[]>`
+      SELECT *
+      FROM list_products(
+        ${params.categorySlug ?? null},
+        ${params.pricingMode ?? null},
+        ${params.priceMin ?? null},
+        ${params.priceMax ?? null},
+        ${params.search ?? null},
+        ${sortKey},
+        ${perPage}::int,
+        ${offset}::int
+      )
+    `;
+    const total = rows[0]?.total_count ?? 0;
+    return {
+      items: rows,
+      total: Number(total),
+      page,
+      perPage,
+      pageCount: Math.max(1, Math.ceil(Number(total) / perPage)),
+    } satisfies CatalogListResult;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[listProducts] DB request failed, using demo:", err);
+    }
+    return fallback;
+  }
 }
 
 /**
  * RPC get_category_tree + graceful demo-fallback.
  */
 export async function getCategoryTree(): Promise<CategoryTreeItem[]> {
-  return trySupabase(
-    async () => {
-      const supabase = await createClient();
-      const { data, error } = await supabase.rpc("get_category_tree");
-      if (error) throw error;
-      return (data ?? []) as CategoryTreeItem[];
-    },
-    DEMO_CATEGORY_TREE,
-    "getCategoryTree",
-  );
+  try {
+    const rows = await sql<CategoryTreeItem[]>`SELECT * FROM get_category_tree()`;
+    return rows.length > 0 ? rows : DEMO_CATEGORY_TREE;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getCategoryTree] DB request failed, using demo:", err);
+    }
+    return DEMO_CATEGORY_TREE;
+  }
 }
 
 /**
@@ -151,93 +157,93 @@ export async function getProductFacets(args: {
   categoryId?: number | null;
   search?: string | null;
 } = {}): Promise<ProductFacets> {
-  return trySupabase(
-    async () => {
-      const supabase = await createClient();
-      const { data, error } = await supabase.rpc("get_product_facets", {
-        p_category_id: args.categoryId ?? null,
-        p_search: args.search ?? null,
-      });
-      if (error) throw error;
-      return (data ?? DEMO_FACETS) as ProductFacets;
-    },
-    DEMO_FACETS,
-    "getProductFacets",
-  );
+  try {
+    const rows = await sql<{ get_product_facets: ProductFacets }[]>`
+      SELECT get_product_facets(
+        ${args.categoryId ?? null}::bigint,
+        ${args.search ?? null}
+      ) AS get_product_facets
+    `;
+    return rows[0]?.get_product_facets ?? DEMO_FACETS;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getProductFacets] DB request failed, using demo:", err);
+    }
+    return DEMO_FACETS;
+  }
 }
 
 /**
  * Полное получение товара с картинками, параметрами и калькулятором.
- * Не RPC, а selectы — поэтому выполняем вручную.
  */
 export async function getProductBySlugWithRelations(
   slug: string,
 ): Promise<ProductWithRelations | null> {
   const fallback = DEMO_PRODUCT_DETAILS[slug] ?? null;
 
-  return trySupabase(
-    async () => {
-      const supabase = await createClient();
+  try {
+    const productRows = await sql<Product[]>`
+      SELECT *
+      FROM products
+      WHERE slug = ${slug}
+        AND status = 'active'
+        AND deleted_at IS NULL
+      LIMIT 1
+    `;
 
-      const { data: product, error: productErr } = await supabase
-        .from("products")
-        .select("*")
-        .eq("slug", slug)
-        .eq("status", "active")
-        .is("deleted_at", null)
-        .maybeSingle();
+    const product = productRows[0];
+    if (!product) return null;
 
-      if (productErr) throw productErr;
-      if (!product) return null;
-
-      const [
-        { data: category },
-        { data: images },
-        { data: variants },
-        { data: parameters },
-        { data: calculator },
-      ] = await Promise.all([
-        supabase
-          .from("categories")
-          .select("*")
-          .eq("id", product.category_id ?? -1)
-          .maybeSingle(),
-        supabase
-          .from("product_images")
-          .select("*")
-          .eq("product_id", product.id)
-          .order("sort_order", { ascending: true }),
-        supabase
-          .from("product_variants")
-          .select("*")
-          .eq("product_id", product.id)
-          .eq("is_active", true)
-          .order("sort_order", { ascending: true }),
-        supabase
-          .from("product_parameters")
-          .select("*")
-          .eq("product_id", product.id)
-          .order("sort_order", { ascending: true }),
-        supabase
-          .from("calculator_configs")
-          .select("*")
-          .eq("product_id", product.id)
-          .eq("is_active", true)
-          .maybeSingle(),
+    const [categoryRows, imagesRows, variantsRows, parametersRows, calculatorRows] =
+      await Promise.all([
+        sql<CategoryRow[]>`
+          SELECT *
+          FROM categories
+          WHERE id = ${product.category_id ?? -1}
+          LIMIT 1
+        `,
+        sql<ProductImageRow[]>`
+          SELECT *
+          FROM product_images
+          WHERE product_id = ${product.id}
+          ORDER BY sort_order ASC
+        `,
+        sql<ProductVariantRow[]>`
+          SELECT *
+          FROM product_variants
+          WHERE product_id = ${product.id}
+            AND is_active = true
+          ORDER BY sort_order ASC
+        `,
+        sql<ProductParameterRow[]>`
+          SELECT *
+          FROM product_parameters
+          WHERE product_id = ${product.id}
+          ORDER BY sort_order ASC
+        `,
+        sql<CalculatorConfigRow[]>`
+          SELECT *
+          FROM calculator_configs
+          WHERE product_id = ${product.id}
+            AND is_active = true
+          LIMIT 1
+        `,
       ]);
 
-      return {
-        ...product,
-        category: category ?? null,
-        images: images ?? [],
-        variants: variants ?? [],
-        parameters: parameters ?? [],
-        calculator: calculator ?? null,
-      } as ProductWithRelations;
-    },
-    fallback,
-    "getProductBySlugWithRelations",
-  );
+    return {
+      ...product,
+      category: categoryRows[0] ?? null,
+      images: imagesRows ?? [],
+      variants: variantsRows ?? [],
+      parameters: parametersRows ?? [],
+      calculator: calculatorRows[0] ?? null,
+    } as ProductWithRelations;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getProductBySlugWithRelations] DB request failed:", err);
+    }
+    return fallback;
+  }
 }
 
 /**
@@ -290,19 +296,18 @@ export async function getRelatedProducts(
       deleted_at: null,
     })) as Product[];
 
-  return trySupabase(
-    async () => {
-      const supabase = await createClient();
-      const { data, error } = await supabase.rpc("get_related_products", {
-        p_product_id: productId,
-        p_limit: limit,
-      });
-      if (error) throw error;
-      return (data ?? []) as Product[];
-    },
-    fallback,
-    "getRelatedProducts",
-  );
+  try {
+    const rows = await sql<Product[]>`
+      SELECT *
+      FROM get_related_products(${productId}::bigint, ${limit}::int)
+    `;
+    return rows.length > 0 ? rows : fallback;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getRelatedProducts] DB request failed, using demo:", err);
+    }
+    return fallback;
+  }
 }
 
 /**
@@ -317,17 +322,18 @@ export async function calculateProductPrice(args: {
     args.params,
   );
 
-  return trySupabase(
-    async () => {
-      const supabase = await createClient();
-      const { data, error } = await supabase.rpc("calculate_product_price", {
-        p_product_id: args.productId,
-        p_params: args.params as Database["public"]["Functions"]["calculate_product_price"]["Args"]["p_params"],
-      });
-      if (error) throw error;
-      return (data as unknown as PriceCalculationResult) ?? fallback;
-    },
-    fallback,
-    "calculateProductPrice",
-  );
+  try {
+    const rows = await sql<{ calculate_product_price: PriceCalculationResult }[]>`
+      SELECT calculate_product_price(
+        ${args.productId}::bigint,
+        ${sql.json(args.params)}::jsonb
+      ) AS calculate_product_price
+    `;
+    return rows[0]?.calculate_product_price ?? fallback;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[calculateProductPrice] DB request failed, using demo:", err);
+    }
+    return fallback;
+  }
 }

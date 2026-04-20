@@ -33,7 +33,7 @@ import {
 import { toast } from "sonner";
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
-import type { Row } from "@/lib/supabase/table-types";
+import type { Row } from "@/lib/db/table-types";
 import { transliterate } from "@/lib/transliterate";
 import { blogCategorySchema, type BlogCategoryFormData } from "@/features/admin/schemas/blog";
 import {

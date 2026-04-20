@@ -1,118 +1,91 @@
 import "server-only";
 
-import { createAdminClient } from "@/lib/supabase/admin";
-import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
-import type { Row, InsertRow } from "@/lib/supabase/table-types";
+import { sql, type Tx } from "@/lib/db/client";
+import type { Row } from "@/lib/db/table-types";
 import type { MenuItemInput } from "@/features/admin/types";
 
-// ── List menu items by position ──
+type MenuItemRow = Row<"menu_items">;
 
 export async function getMenuItems(
   position: "header" | "footer",
-): Promise<Row<"menu_items">[]> {
-  if (!isSupabaseConfigured()) return [];
-
-  const supabase = createAdminClient();
-
-  const { data } = await supabase
-    .from("menu_items")
-    .select("*")
-    .eq("position", position)
-    .order("sort_order", { ascending: true });
-
-  return data ?? [];
+): Promise<MenuItemRow[]> {
+  try {
+    const rows = await sql<MenuItemRow[]>`
+      SELECT *
+      FROM menu_items
+      WHERE position = ${position}
+      ORDER BY sort_order ASC
+    `;
+    return rows;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getMenuItems] DB request failed:", err);
+    }
+    return [];
+  }
 }
-
-// ── Create menu item ──
 
 export async function createMenuItem(
   data: MenuItemInput,
 ): Promise<{ id: number }> {
-  const supabase = createAdminClient();
-
-  const insertData: InsertRow<"menu_items"> = {
-    parent_id: data.parent_id ?? null,
-    position: data.position,
-    title: data.title,
-    url: data.url,
-    icon: data.icon ?? null,
-    sort_order: data.sort_order,
-    is_active: data.is_active,
-    open_in_new_tab: data.open_in_new_tab,
-  };
-
-  const { data: item, error } = await supabase
-    .from("menu_items")
-    .insert(insertData)
-    .select("id")
-    .single();
-
-  if (error || !item) {
-    throw new Error(error?.message ?? "Не удалось создать пункт меню");
-  }
-
-  return { id: item.id };
+  const rows = await sql<{ id: number }[]>`
+    INSERT INTO menu_items (
+      parent_id, position, title, url, icon,
+      sort_order, is_active, open_in_new_tab
+    )
+    VALUES (
+      ${data.parent_id ?? null},
+      ${data.position},
+      ${data.title},
+      ${data.url},
+      ${data.icon ?? null},
+      ${data.sort_order},
+      ${data.is_active},
+      ${data.open_in_new_tab}
+    )
+    RETURNING id
+  `;
+  const inserted = rows[0];
+  if (!inserted) throw new Error("Не удалось создать пункт меню");
+  return { id: inserted.id };
 }
-
-// ── Update menu item ──
 
 export async function updateMenuItem(
   id: number,
   data: MenuItemInput,
 ): Promise<void> {
-  const supabase = createAdminClient();
-
-  const { error } = await supabase
-    .from("menu_items")
-    .update({
-      parent_id: data.parent_id ?? null,
-      position: data.position,
-      title: data.title,
-      url: data.url,
-      icon: data.icon ?? null,
-      sort_order: data.sort_order,
-      is_active: data.is_active,
-      open_in_new_tab: data.open_in_new_tab,
-    })
-    .eq("id", id);
-
-  if (error) throw new Error(error.message);
+  await sql`
+    UPDATE menu_items
+    SET
+      parent_id = ${data.parent_id ?? null},
+      position = ${data.position},
+      title = ${data.title},
+      url = ${data.url},
+      icon = ${data.icon ?? null},
+      sort_order = ${data.sort_order},
+      is_active = ${data.is_active},
+      open_in_new_tab = ${data.open_in_new_tab}
+    WHERE id = ${id}
+  `;
 }
-
-// ── Delete menu item ──
 
 export async function deleteMenuItem(id: number): Promise<void> {
-  const supabase = createAdminClient();
-
-  const { error } = await supabase
-    .from("menu_items")
-    .delete()
-    .eq("id", id);
-
-  if (error) throw new Error(error.message);
+  await sql`DELETE FROM menu_items WHERE id = ${id}`;
 }
-
-// ── Reorder menu items ──
 
 export async function reorderMenuItems(
   position: string,
   ids: number[],
 ): Promise<void> {
-  const supabase = createAdminClient();
-
-  const updates = ids.map((id, index) =>
-    supabase
-      .from("menu_items")
-      .update({ sort_order: index })
-      .eq("id", id)
-      .eq("position", position),
-  );
-
-  const results = await Promise.all(updates);
-
-  for (const result of results) {
-    if (result.error) {
-      throw new Error(result.error.message);
+  if (ids.length === 0) return;
+  await sql.begin(async (tx: Tx) => {
+    for (let i = 0; i < ids.length; i++) {
+      await tx`
+        UPDATE menu_items
+        SET sort_order = ${i}
+        WHERE id = ${ids[i]}
+          AND position = ${position}
+      `;
     }
-  }
+  });
 }

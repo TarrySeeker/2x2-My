@@ -1,107 +1,87 @@
 import "server-only";
 
-import { createAdminClient } from "@/lib/supabase/admin";
-import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
-import type { Row, InsertRow } from "@/lib/supabase/table-types";
+import { sql } from "@/lib/db/client";
+import type { Row } from "@/lib/db/table-types";
 import type { PageInput } from "@/features/admin/types";
 
-// ── List pages ──
+type PageRow = Row<"pages">;
 
-export async function getPages(): Promise<Row<"pages">[]> {
-  if (!isSupabaseConfigured()) return [];
-
-  const supabase = createAdminClient();
-
-  const { data } = await supabase
-    .from("pages")
-    .select("*")
-    .order("sort_order", { ascending: true });
-
-  return data ?? [];
+export async function getPages(): Promise<PageRow[]> {
+  try {
+    const rows = await sql<PageRow[]>`
+      SELECT *
+      FROM pages
+      ORDER BY sort_order ASC
+    `;
+    return rows;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getPages] DB request failed:", err);
+    }
+    return [];
+  }
 }
 
-// ── Get single page ──
-
-export async function getPageById(id: number): Promise<Row<"pages"> | null> {
-  if (!isSupabaseConfigured()) return null;
-
-  const supabase = createAdminClient();
-
-  const { data } = await supabase
-    .from("pages")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  return data;
+export async function getPageById(id: number): Promise<PageRow | null> {
+  try {
+    const rows = await sql<PageRow[]>`
+      SELECT * FROM pages WHERE id = ${id} LIMIT 1
+    `;
+    return rows[0] ?? null;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getPageById] DB request failed:", err);
+    }
+    return null;
+  }
 }
-
-// ── Create page ──
 
 export async function createPage(data: PageInput): Promise<{ id: number }> {
-  const supabase = createAdminClient();
-
-  const insertData: InsertRow<"pages"> = {
-    title: data.title,
-    slug: data.slug,
-    content: data.content,
-    excerpt: data.excerpt ?? null,
-    cover_url: data.cover_url ?? null,
-    seo_title: data.seo_title ?? null,
-    seo_description: data.seo_description ?? null,
-    seo_keywords: data.seo_keywords ?? null,
-    is_active: data.is_active,
-    show_in_footer: data.show_in_footer,
-    sort_order: data.sort_order,
-  };
-
-  const { data: page, error } = await supabase
-    .from("pages")
-    .insert(insertData)
-    .select("id")
-    .single();
-
-  if (error || !page) {
-    throw new Error(error?.message ?? "Не удалось создать страницу");
-  }
-
-  return { id: page.id };
+  const rows = await sql<{ id: number }[]>`
+    INSERT INTO pages (
+      title, slug, content, excerpt, cover_url,
+      seo_title, seo_description, seo_keywords,
+      is_active, show_in_footer, sort_order
+    )
+    VALUES (
+      ${data.title},
+      ${data.slug},
+      ${data.content},
+      ${data.excerpt ?? null},
+      ${data.cover_url ?? null},
+      ${data.seo_title ?? null},
+      ${data.seo_description ?? null},
+      ${data.seo_keywords ?? null},
+      ${data.is_active},
+      ${data.show_in_footer},
+      ${data.sort_order}
+    )
+    RETURNING id
+  `;
+  const inserted = rows[0];
+  if (!inserted) throw new Error("Не удалось создать страницу");
+  return { id: inserted.id };
 }
-
-// ── Update page ──
 
 export async function updatePage(id: number, data: PageInput): Promise<void> {
-  const supabase = createAdminClient();
-
-  const { error } = await supabase
-    .from("pages")
-    .update({
-      title: data.title,
-      slug: data.slug,
-      content: data.content,
-      excerpt: data.excerpt ?? null,
-      cover_url: data.cover_url ?? null,
-      seo_title: data.seo_title ?? null,
-      seo_description: data.seo_description ?? null,
-      seo_keywords: data.seo_keywords ?? null,
-      is_active: data.is_active,
-      show_in_footer: data.show_in_footer,
-      sort_order: data.sort_order,
-    })
-    .eq("id", id);
-
-  if (error) throw new Error(error.message);
+  await sql`
+    UPDATE pages
+    SET
+      title = ${data.title},
+      slug = ${data.slug},
+      content = ${data.content},
+      excerpt = ${data.excerpt ?? null},
+      cover_url = ${data.cover_url ?? null},
+      seo_title = ${data.seo_title ?? null},
+      seo_description = ${data.seo_description ?? null},
+      seo_keywords = ${data.seo_keywords ?? null},
+      is_active = ${data.is_active},
+      show_in_footer = ${data.show_in_footer},
+      sort_order = ${data.sort_order}
+    WHERE id = ${id}
+  `;
 }
 
-// ── Delete page ──
-
 export async function deletePage(id: number): Promise<void> {
-  const supabase = createAdminClient();
-
-  const { error } = await supabase
-    .from("pages")
-    .delete()
-    .eq("id", id);
-
-  if (error) throw new Error(error.message);
+  await sql`DELETE FROM pages WHERE id = ${id}`;
 }

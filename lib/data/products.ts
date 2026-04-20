@@ -1,7 +1,6 @@
 import "server-only";
 
-import { createClient } from "@/lib/supabase/server";
-import { trySupabase } from "@/lib/data/try-supabase";
+import { sql } from "@/lib/db/client";
 import type { Product, ProductFilters } from "@/types";
 
 /**
@@ -11,37 +10,37 @@ import type { Product, ProductFilters } from "@/types";
 export async function getProducts(
   _filters: ProductFilters = {},
 ): Promise<Product[]> {
-  return trySupabase(
-    async () => {
-      const supabase = await createClient();
-      const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .eq("status", "active")
-        .order("sort_order", { ascending: true })
-        .limit(24);
-      if (error) throw error;
-      return (data ?? []) as Product[];
-    },
-    [],
-    "getProducts",
-  );
+  try {
+    const rows = await sql<Product[]>`
+      SELECT *
+      FROM products
+      WHERE status = 'active'
+      ORDER BY sort_order ASC
+      LIMIT 24
+    `;
+    return rows;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getProducts] DB request failed, returning empty:", err);
+    }
+    return [];
+  }
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
-  return trySupabase(
-    async () => {
-      const supabase = await createClient();
-      const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .eq("slug", slug)
-        .eq("status", "active")
-        .maybeSingle();
-      if (error) throw error;
-      return (data as Product | null) ?? null;
-    },
-    null,
-    "getProductBySlug",
-  );
+  try {
+    const rows = await sql<Product[]>`
+      SELECT *
+      FROM products
+      WHERE slug = ${slug}
+        AND status = 'active'
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getProductBySlug] DB request failed:", err);
+    }
+    return null;
+  }
 }

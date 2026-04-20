@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "framer-motion";
-import type { Row } from "@/lib/supabase/table-types";
+import type { Row } from "@/lib/db/table-types";
 import { transliterate } from "@/lib/transliterate";
 import { pageSchema, type PageFormData } from "@/features/admin/schemas/page";
 import {

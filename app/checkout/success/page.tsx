@@ -3,7 +3,6 @@ import Link from "next/link";
 import { CheckCircle, Clock, ArrowLeft } from "lucide-react";
 import SuccessPhoneLink from "@/components/shop/checkout/SuccessPhoneLink";
 import SuccessCartClear from "@/components/shop/checkout/SuccessCartClear";
-import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
 
 export const metadata: Metadata = {
   title: "Заказ принят",
@@ -15,18 +14,16 @@ type Props = {
 };
 
 async function getOrderStatus(orderNumber: string): Promise<"paid" | "pending" | null> {
-  if (!isSupabaseConfigured()) return null;
-
   try {
-    const { createAdminClient } = await import("@/lib/supabase/admin");
-    const supabase = createAdminClient();
-    const { data } = await supabase
-      .from("orders")
-      .select("payment_status")
-      .eq("order_number", orderNumber)
-      .single();
-
-    if (data?.payment_status === "paid") return "paid";
+    const { sql } = await import("@/lib/db/client");
+    const rows = await sql<{ payment_status: string }[]>`
+      SELECT payment_status FROM orders
+      WHERE order_number = ${orderNumber}
+      LIMIT 1
+    `;
+    const row = rows[0];
+    if (!row) return null;
+    if (row.payment_status === "paid") return "paid";
     return "pending";
   } catch {
     return null;

@@ -14,7 +14,7 @@ import {
   createCategoryAction,
   updateCategoryAction,
 } from "@/features/admin/actions/categories";
-import type { Row } from "@/lib/supabase/table-types";
+import type { Row } from "@/lib/db/table-types";
 
 type CategoryFlat = Row<"categories">;
 

@@ -32,7 +32,7 @@ import {
 import { toast } from "sonner";
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
-import type { Row } from "@/lib/supabase/table-types";
+import type { Row } from "@/lib/db/table-types";
 import { menuItemSchema, type MenuItemFormData } from "@/features/admin/schemas/menu";
 import {
   createMenuItemAction,

@@ -21,7 +21,7 @@ import { toast } from "sonner";
 import clsx from "clsx";
 import type { ProductWithImage } from "@/features/admin/types";
 import type { ProductStatus } from "@/types/database";
-import type { Row } from "@/lib/supabase/table-types";
+import type { Row } from "@/lib/db/table-types";
 import {
   fetchProductsAction,
   deleteProductAction,

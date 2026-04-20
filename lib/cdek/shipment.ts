@@ -1,8 +1,12 @@
 import "server-only";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { sql } from "@/lib/db/client";
 import { cdekFetch, isCdekConfigured } from "./client";
 import type { CdekOrderRequest, CdekOrderResponse } from "./types";
 import type { DeliveryAddress } from "@/types/database";
+import type { Row } from "@/lib/db/table-types";
+
+type OrderRow = Row<"orders">;
+type OrderItemRow = Row<"order_items">;
 
 const CDEK_FROM_LOCATION_CODE = Number(
   process.env.CDEK_FROM_LOCATION_CODE || "1104",
@@ -23,17 +27,11 @@ export async function createCdekShipment(
     return { success: false, error: "CDEK not configured" };
   }
 
-  const supabase = createAdminClient();
-
-  const { data: order, error: orderError } = await supabase
-    .from("orders")
-    .select("*")
-    .eq("id", orderId)
-    .single();
-
-  if (orderError || !order) {
-    return { success: false, error: `Order not found: ${orderId}` };
-  }
+  const orderRows = await sql<OrderRow[]>`
+    SELECT * FROM orders WHERE id = ${orderId} LIMIT 1
+  `;
+  const order = orderRows[0];
+  if (!order) return { success: false, error: `Order not found: ${orderId}` };
 
   if (order.delivery_type === "pickup") {
     return { success: true };
@@ -47,12 +45,12 @@ export async function createCdekShipment(
     };
   }
 
-  const { data: items, error: itemsError } = await supabase
-    .from("order_items")
-    .select("*")
-    .eq("order_id", orderId);
-
-  if (itemsError || !items) {
+  const items = await sql<OrderItemRow[]>`
+    SELECT *
+    FROM order_items
+    WHERE order_id = ${orderId}
+  `;
+  if (items.length === 0) {
     return { success: false, error: "Order items not found" };
   }
 
@@ -81,7 +79,7 @@ export async function createCdekShipment(
         length: 30,
         width: 20,
         height: 15,
-        items: items.map((item) => ({
+        items: items.map((item: OrderItemRow) => ({
           name: item.name,
           ware_key: item.sku ?? `ITEM-${item.id}`,
           payment: { value: 0 },
@@ -126,13 +124,13 @@ export async function createCdekShipment(
       return { success: false, error: errMsg };
     }
 
-    await supabase
-      .from("orders")
-      .update({
-        cdek_order_uuid: uuid,
-        cdek_tracking_url: `https://cdek.ru/track?order_id=${uuid}`,
-      })
-      .eq("id", orderId);
+    await sql`
+      UPDATE orders
+      SET
+        cdek_order_uuid = ${uuid},
+        cdek_tracking_url = ${`https://cdek.ru/track?order_id=${uuid}`}
+      WHERE id = ${orderId}
+    `;
 
     return {
       success: true,

@@ -1,7 +1,6 @@
 import "server-only";
 
-import { createClient } from "@/lib/supabase/server";
-import { trySupabase } from "@/lib/data/try-supabase";
+import { sql } from "@/lib/db/client";
 import type { Banner } from "@/types";
 
 export interface HomeHeroContent {
@@ -20,26 +19,23 @@ const HERO_FALLBACK: HomeHeroContent = {
 
 /**
  * Возвращает контент hero-секции главной.
- * Этап 1: hero статичен в HeroYna/HeroSection, этот fetcher — заготовка
- * для будущего CMS-управления (Этап 6 admin/content).
  */
 export async function getHomeHero(): Promise<HomeHeroContent> {
-  return trySupabase(
-    async () => {
-      const supabase = await createClient();
-      const { data, error } = await supabase
-        .from("settings")
-        .select("value")
-        .eq("key", "home.hero")
-        .maybeSingle();
-      if (error) throw error;
-      if (!data) return HERO_FALLBACK;
-      const row = data as { value: unknown } | null;
-      return (row?.value as HomeHeroContent) ?? HERO_FALLBACK;
-    },
-    HERO_FALLBACK,
-    "getHomeHero",
-  );
+  try {
+    const rows = await sql<{ value: unknown }[]>`
+      SELECT value
+      FROM settings
+      WHERE key = 'home.hero'
+      LIMIT 1
+    `;
+    if (rows.length === 0) return HERO_FALLBACK;
+    return (rows[0]?.value as HomeHeroContent) ?? HERO_FALLBACK;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getHomeHero] DB request failed, using fallback:", err);
+    }
+    return HERO_FALLBACK;
+  }
 }
 
 /**
@@ -47,19 +43,19 @@ export async function getHomeHero(): Promise<HomeHeroContent> {
  * Fallback — пустой массив, секция сама рендерит статический контент.
  */
 export async function getHomeBanners(): Promise<Banner[]> {
-  return trySupabase(
-    async () => {
-      const supabase = await createClient();
-      const { data, error } = await supabase
-        .from("banners")
-        .select("*")
-        .eq("is_active", true)
-        .eq("position", "home.promo")
-        .order("sort_order", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as Banner[];
-    },
-    [],
-    "getHomeBanners",
-  );
+  try {
+    const rows = await sql<Banner[]>`
+      SELECT *
+      FROM banners
+      WHERE is_active = true
+        AND position = 'home.promo'
+      ORDER BY sort_order ASC
+    `;
+    return rows;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getHomeBanners] DB request failed:", err);
+    }
+    return [];
+  }
 }

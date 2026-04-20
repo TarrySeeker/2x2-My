@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { transliterate } from "@/lib/transliterate";
 import { blogPostSchema, type BlogPostFormData } from "@/features/admin/schemas/blog";
 import type { BlogPostFull } from "@/features/admin/types";
-import type { Row } from "@/lib/supabase/table-types";
+import type { Row } from "@/lib/db/table-types";
 import {
   createBlogPostAction,
   updateBlogPostAction,

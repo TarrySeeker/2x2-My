@@ -1,7 +1,6 @@
 import "server-only";
 
-import { createClient } from "@/lib/supabase/server";
-import { trySupabase } from "@/lib/data/try-supabase";
+import { sql } from "@/lib/db/client";
 import type { PortfolioItem } from "@/types";
 import {
   PORTFOLIO_STUB,
@@ -11,7 +10,7 @@ import {
 
 /**
  * Возвращает опубликованные работы портфолио.
- * Этап 1: стаб из data/portfolio-stub.ts. При настроенном Supabase — чтение из БД.
+ * Этап 1: стаб из data/portfolio-stub.ts. При наличии БД — чтение из portfolio_items.
  */
 export async function getPortfolio(): Promise<PortfolioItem[]> {
   const fallback: PortfolioItem[] = PORTFOLIO_STUB.filter(
@@ -20,20 +19,20 @@ export async function getPortfolio(): Promise<PortfolioItem[]> {
     .sort((a, b) => a.sort_order - b.sort_order)
     .map(toPortfolioItemShape);
 
-  return trySupabase(
-    async () => {
-      const supabase = await createClient();
-      const { data, error } = await supabase
-        .from("portfolio_items")
-        .select("*")
-        .eq("is_published", true)
-        .order("sort_order", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as PortfolioItem[];
-    },
-    fallback,
-    "getPortfolio",
-  );
+  try {
+    const rows = await sql<PortfolioItem[]>`
+      SELECT *
+      FROM portfolio_items
+      WHERE is_published = true
+      ORDER BY sort_order ASC
+    `;
+    return rows.length > 0 ? rows : fallback;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getPortfolio] DB request failed, using stub:", err);
+    }
+    return fallback;
+  }
 }
 
 /**

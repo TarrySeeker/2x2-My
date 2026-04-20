@@ -902,9 +902,6 @@ export interface Database {
     Views: Record<string, never>;
 
     Functions: {
-      is_admin: { Args: Record<string, never>; Returns: boolean };
-      is_content_manager: { Args: Record<string, never>; Returns: boolean };
-      is_owner: { Args: Record<string, never>; Returns: boolean };
       search_products: {
         Args: {
           q: string;
@@ -989,6 +986,7 @@ export interface Database {
       };
       log_admin_action: {
         Args: {
+          p_user_id: string;
           p_action: string;
           p_table_name?: string | null;
           p_record_id?: string | null;

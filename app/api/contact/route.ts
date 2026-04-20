@@ -1,11 +1,9 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
+import { sql } from "@/lib/db/client";
 import { parseBody, contactSchema } from "@/lib/validation";
 import { sendNotification } from "@/lib/notifications";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
-import type { InsertRow } from "@/lib/supabase/table-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,20 +33,24 @@ export async function POST(request: NextRequest) {
 
     const input = parsed.data;
 
-    if (isSupabaseConfigured()) {
-      try {
-        const supabase = createAdminClient();
-        await supabase.from("contact_requests").insert({
-          name: input.name,
-          email: input.email,
-          phone: input.phone,
-          subject: input.subject ?? null,
-          message: input.message,
-          status: "new",
-        } as unknown as InsertRow<"contact_requests">);
-      } catch (err) {
-        console.warn("[contact] supabase insert failed:", err);
-      }
+    const email = (input.email ?? null) as string | null;
+    const phone = (input.phone ?? null) as string | null;
+    const subject = (input.subject ?? null) as string | null;
+
+    try {
+      await sql`
+        INSERT INTO contact_requests (name, email, phone, subject, message, status)
+        VALUES (
+          ${input.name},
+          ${email},
+          ${phone},
+          ${subject},
+          ${input.message},
+          'new'
+        )
+      `;
+    } catch (err) {
+      console.warn("[contact] DB insert failed:", err);
     }
 
     await sendNotification("contact_form", { customer_name: input.name });

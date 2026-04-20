@@ -1,41 +1,40 @@
 import "server-only";
 
-import { createClient } from "@/lib/supabase/server";
-import { trySupabase } from "@/lib/data/try-supabase";
+import { sql } from "@/lib/db/client";
 import type { Category } from "@/types";
 
 export async function getCategories(): Promise<Category[]> {
-  return trySupabase(
-    async () => {
-      const supabase = await createClient();
-      const { data, error } = await supabase
-        .from("categories")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as Category[];
-    },
-    [],
-    "getCategories",
-  );
+  try {
+    const rows = await sql<Category[]>`
+      SELECT *
+      FROM categories
+      WHERE is_active = true
+      ORDER BY sort_order ASC
+    `;
+    return rows;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getCategories] DB request failed:", err);
+    }
+    return [];
+  }
 }
 
 export async function getCategoryBySlug(
   slug: string,
 ): Promise<Category | null> {
-  return trySupabase(
-    async () => {
-      const supabase = await createClient();
-      const { data, error } = await supabase
-        .from("categories")
-        .select("*")
-        .eq("slug", slug)
-        .maybeSingle();
-      if (error) throw error;
-      return (data as Category | null) ?? null;
-    },
-    null,
-    "getCategoryBySlug",
-  );
+  try {
+    const rows = await sql<Category[]>`
+      SELECT *
+      FROM categories
+      WHERE slug = ${slug}
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getCategoryBySlug] DB request failed:", err);
+    }
+    return null;
+  }
 }

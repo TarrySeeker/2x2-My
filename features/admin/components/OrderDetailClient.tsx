@@ -50,7 +50,7 @@ const DELIVERY_LABELS: Record<string, string> = {
 
 interface OrderDetailClientProps {
   order: OrderFull;
-  managers: { id: string; full_name: string | null; email: string }[];
+  managers: { id: string; full_name: string | null; email: string | null }[];
 }
 
 export default function OrderDetailClient({

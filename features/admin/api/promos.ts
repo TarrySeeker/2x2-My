@@ -1,38 +1,62 @@
 import "server-only";
 
-import { createAdminClient } from "@/lib/supabase/admin";
-import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
+import { sql } from "@/lib/db/client";
+import type { Row } from "@/lib/db/table-types";
 import type { PromoFilters } from "@/features/admin/schemas/promo";
+
+type PromoRow = Row<"promo_codes">;
 
 // ── List with filters ──
 
-export async function getPromoCodes(filters: PromoFilters) {
-  if (!isSupabaseConfigured()) return { data: [], total: 0 };
+export async function getPromoCodes(
+  filters: PromoFilters,
+): Promise<{ data: PromoRow[]; total: number }> {
+  try {
+    const { status, page, per_page } = filters;
+    const offset = (page - 1) * per_page;
+    const now = new Date().toISOString();
 
-  const supabase = createAdminClient();
-  const { status, page, per_page } = filters;
+    // Построим условие статуса
+    let statusClause: "active" | "inactive" | "expired" | null = null;
+    if (status === "active" || status === "inactive" || status === "expired") {
+      statusClause = status;
+    }
 
-  let query = supabase
-    .from("promo_codes")
-    .select("*", { count: "exact" })
-    .order("created_at", { ascending: false })
-    .range((page - 1) * per_page, page * per_page - 1);
+    const totalRows = await sql<{ count: number }[]>`
+      SELECT COUNT(*)::int AS count
+      FROM promo_codes
+      WHERE
+        CASE ${statusClause ?? ""}
+          WHEN 'active' THEN is_active = true AND (valid_to IS NULL OR valid_to > ${now}::timestamptz)
+          WHEN 'inactive' THEN is_active = false
+          WHEN 'expired' THEN valid_to < ${now}::timestamptz
+          ELSE true
+        END
+    `;
+    const total = totalRows[0]?.count ?? 0;
 
-  const now = new Date().toISOString();
+    const rows = await sql<PromoRow[]>`
+      SELECT *
+      FROM promo_codes
+      WHERE
+        CASE ${statusClause ?? ""}
+          WHEN 'active' THEN is_active = true AND (valid_to IS NULL OR valid_to > ${now}::timestamptz)
+          WHEN 'inactive' THEN is_active = false
+          WHEN 'expired' THEN valid_to < ${now}::timestamptz
+          ELSE true
+        END
+      ORDER BY created_at DESC
+      LIMIT ${per_page}
+      OFFSET ${offset}
+    `;
 
-  if (status === "active") {
-    query = query
-      .eq("is_active", true)
-      .or(`valid_to.is.null,valid_to.gt.${now}`);
-  } else if (status === "inactive") {
-    query = query.eq("is_active", false);
-  } else if (status === "expired") {
-    query = query.lt("valid_to", now);
+    return { data: rows, total };
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getPromoCodes] DB request failed:", err);
+    }
+    return { data: [], total: 0 };
   }
-
-  const { data, count } = await query;
-
-  return { data: data ?? [], total: count ?? 0 };
 }
 
 // ── Create ──
@@ -48,31 +72,34 @@ export async function createPromoCode(input: {
   is_active: boolean;
   valid_from?: string | null;
   valid_to?: string | null;
-}) {
-  const supabase = createAdminClient();
-
-  const { data, error } = await supabase
-    .from("promo_codes")
-    .insert({
-      code: input.code,
-      description: input.description ?? null,
-      type: input.type,
-      value: input.value,
-      min_order_amount: input.min_order_amount ?? null,
-      max_discount_amount: input.max_discount_amount ?? null,
-      max_uses: input.max_uses ?? null,
-      max_uses_per_user: null,
-      applies_to_category_ids: [],
-      applies_to_product_ids: [],
-      is_active: input.is_active,
-      valid_from: input.valid_from ?? null,
-      valid_to: input.valid_to ?? null,
-    })
-    .select()
-    .single();
-
-  if (error) throw new Error(error.message);
-  return data;
+}): Promise<PromoRow> {
+  const rows = await sql<PromoRow[]>`
+    INSERT INTO promo_codes (
+      code, description, type, value,
+      min_order_amount, max_discount_amount, max_uses, max_uses_per_user,
+      applies_to_category_ids, applies_to_product_ids,
+      is_active, valid_from, valid_to
+    )
+    VALUES (
+      ${input.code},
+      ${input.description ?? null},
+      ${input.type},
+      ${input.value},
+      ${input.min_order_amount ?? null},
+      ${input.max_discount_amount ?? null},
+      ${input.max_uses ?? null},
+      NULL,
+      ${sql.array([] as number[], 1016)},
+      ${sql.array([] as number[], 1016)},
+      ${input.is_active},
+      ${input.valid_from ?? null},
+      ${input.valid_to ?? null}
+    )
+    RETURNING *
+  `;
+  const inserted = rows[0];
+  if (!inserted) throw new Error("Не удалось создать промокод");
+  return inserted;
 }
 
 // ── Update ──
@@ -91,39 +118,63 @@ export async function updatePromoCode(
     valid_from?: string | null;
     valid_to?: string | null;
   },
-) {
-  const supabase = createAdminClient();
+): Promise<PromoRow> {
+  // Загружаем текущие значения, перезаписываем заданными
+  const existingRows = await sql<PromoRow[]>`
+    SELECT * FROM promo_codes WHERE id = ${id} LIMIT 1
+  `;
+  const existing = existingRows[0];
+  if (!existing) throw new Error("Промокод не найден");
 
-  const { data, error } = await supabase
-    .from("promo_codes")
-    .update({ ...input, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
-    .single();
+  const merged = {
+    code: input.code ?? existing.code,
+    description: input.description ?? existing.description,
+    type: input.type ?? existing.type,
+    value: input.value ?? existing.value,
+    min_order_amount: input.min_order_amount ?? existing.min_order_amount,
+    max_discount_amount:
+      input.max_discount_amount ?? existing.max_discount_amount,
+    max_uses: input.max_uses ?? existing.max_uses,
+    is_active: input.is_active ?? existing.is_active,
+    valid_from: input.valid_from ?? existing.valid_from,
+    valid_to: input.valid_to ?? existing.valid_to,
+  };
 
-  if (error) throw new Error(error.message);
-  return data;
+  const rows = await sql<PromoRow[]>`
+    UPDATE promo_codes
+    SET
+      code = ${merged.code},
+      description = ${merged.description},
+      type = ${merged.type},
+      value = ${merged.value},
+      min_order_amount = ${merged.min_order_amount},
+      max_discount_amount = ${merged.max_discount_amount},
+      max_uses = ${merged.max_uses},
+      is_active = ${merged.is_active},
+      valid_from = ${merged.valid_from},
+      valid_to = ${merged.valid_to},
+      updated_at = NOW()
+    WHERE id = ${id}
+    RETURNING *
+  `;
+  const updated = rows[0];
+  if (!updated) throw new Error("Промокод не найден");
+  return updated;
 }
 
 // ── Delete ──
 
-export async function deletePromoCode(id: number) {
-  const supabase = createAdminClient();
-
-  const { error } = await supabase.from("promo_codes").delete().eq("id", id);
-
-  if (error) throw new Error(error.message);
+export async function deletePromoCode(id: number): Promise<void> {
+  await sql`DELETE FROM promo_codes WHERE id = ${id}`;
 }
 
 // ── Check uniqueness ──
 
 export async function checkCodeUniqueness(code: string): Promise<boolean> {
-  const supabase = createAdminClient();
-
-  const { count } = await supabase
-    .from("promo_codes")
-    .select("*", { count: "exact", head: true })
-    .eq("code", code.toUpperCase());
-
-  return (count ?? 0) === 0;
+  const rows = await sql<{ count: number }[]>`
+    SELECT COUNT(*)::int AS count
+    FROM promo_codes
+    WHERE code = ${code.toUpperCase()}
+  `;
+  return (rows[0]?.count ?? 0) === 0;
 }

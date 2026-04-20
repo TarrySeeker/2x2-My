@@ -1,8 +1,7 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
+import { sql } from "@/lib/db/client";
 import { parseBody } from "@/lib/validation";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { createPayment, isCdekPayConfigured } from "@/lib/cdek-pay/client";
@@ -32,13 +31,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!isSupabaseConfigured()) {
-    return NextResponse.json(
-      { error: "Сервис временно недоступен" },
-      { status: 503 },
-    );
-  }
-
   let body: unknown;
   try {
     body = await request.json();
@@ -57,19 +49,23 @@ export async function POST(request: NextRequest) {
   const { orderId, email } = parsed.data;
 
   try {
-    const supabase = createAdminClient();
-
-    const { data: order, error: orderError } = await supabase
-      .from("orders")
-      .select("id, order_number, total, payment_method, payment_status")
-      .eq("id", orderId)
-      .single();
-
-    if (orderError || !order) {
-      return NextResponse.json(
-        { error: "Заказ не найден" },
-        { status: 404 },
-      );
+    const orderRows = await sql<
+      {
+        id: number;
+        order_number: string | null;
+        total: number;
+        payment_method: string | null;
+        payment_status: string;
+      }[]
+    >`
+      SELECT id, order_number, total, payment_method, payment_status
+      FROM orders
+      WHERE id = ${orderId}
+      LIMIT 1
+    `;
+    const order = orderRows[0];
+    if (!order) {
+      return NextResponse.json({ error: "Заказ не найден" }, { status: 404 });
     }
 
     if (order.payment_method !== "cdek_pay") {
@@ -86,10 +82,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: items } = await supabase
-      .from("order_items")
-      .select("name, price, quantity")
-      .eq("order_id", orderId);
+    interface ItemRow {
+      name: string;
+      price: number;
+      quantity: number;
+    }
+    const items: ItemRow[] = await sql<ItemRow[]>`
+      SELECT name, price, quantity
+      FROM order_items
+      WHERE order_id = ${orderId}
+    `;
 
     const baseUrl =
       process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -98,23 +100,23 @@ export async function POST(request: NextRequest) {
     const result = await createPayment({
       order_number: orderNumber,
       email: email || "no-reply@2x2hmao.ru",
-      amount: order.total,
-      goods: (items ?? []).map((i) => ({
+      amount: Number(order.total),
+      goods: items.map((i: ItemRow) => ({
         name: i.name,
-        price: i.price,
+        price: Number(i.price),
         quantity: i.quantity,
       })),
       success_url: `${baseUrl}/checkout/success?order=${orderNumber}`,
       fail_url: `${baseUrl}/checkout?error=payment`,
     });
 
-    await supabase
-      .from("orders")
-      .update({
-        payment_url: result.payment_url,
-        payment_order_number: result.order_number,
-      })
-      .eq("id", orderId);
+    await sql`
+      UPDATE orders
+      SET
+        payment_url = ${result.payment_url},
+        payment_order_number = ${result.order_number}
+      WHERE id = ${orderId}
+    `;
 
     return NextResponse.json({
       ok: true,

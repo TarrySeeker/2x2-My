@@ -23,7 +23,7 @@ import { toast } from "sonner";
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
 import type { SeoEntity, SeoTemplates } from "@/features/admin/types";
-import type { Row } from "@/lib/supabase/table-types";
+import type { Row } from "@/lib/db/table-types";
 import {
   redirectSchema,
   type RedirectFormData,

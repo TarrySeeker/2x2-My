@@ -1,51 +1,50 @@
 import "server-only";
 
-import { createAdminClient } from "@/lib/supabase/admin";
-import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
+import { sql } from "@/lib/db/client";
 import type { SettingsUpdate } from "@/features/admin/types";
 
-// ── Get all settings ──
-
 export async function getSettings(): Promise<Record<string, unknown>> {
-  if (!isSupabaseConfigured()) return {};
-
-  const supabase = createAdminClient();
-
-  const { data } = await supabase
-    .from("settings")
-    .select("key, value")
-    .order("key", { ascending: true });
-
-  const result: Record<string, unknown> = {};
-  for (const row of data ?? []) {
-    result[row.key] = row.value;
+  try {
+    const rows = await sql<{ key: string; value: unknown }[]>`
+      SELECT key, value
+      FROM settings
+      ORDER BY key ASC
+    `;
+    const result: Record<string, unknown> = {};
+    for (const row of rows) {
+      result[row.key] = row.value;
+    }
+    return result;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getSettings] DB request failed:", err);
+    }
+    return {};
   }
-
-  return result;
 }
-
-// ── Update settings ──
 
 export async function updateSettings(
   updates: SettingsUpdate[],
 ): Promise<void> {
-  const supabase = createAdminClient();
-
   for (const update of updates) {
-    const { error } = await supabase
-      .from("settings")
-      .upsert(
-        {
-          key: update.key,
-          value: update.value,
-          description: null,
-          is_public: false,
-        },
-        { onConflict: "key" },
+    try {
+      await sql`
+        INSERT INTO settings (key, value, description, is_public)
+        VALUES (
+          ${update.key},
+          ${sql.json(update.value ?? null)},
+          NULL,
+          false
+        )
+        ON CONFLICT (key) DO UPDATE
+        SET value = EXCLUDED.value
+      `;
+    } catch (err) {
+      throw new Error(
+        `Не удалось обновить настройку «${update.key}»: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
       );
-
-    if (error) {
-      throw new Error(`Не удалось обновить настройку «${update.key}»: ${error.message}`);
     }
   }
 }

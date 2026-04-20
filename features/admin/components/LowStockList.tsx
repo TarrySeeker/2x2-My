@@ -1,4 +1,4 @@
-import type { Row } from "@/lib/supabase/table-types";
+import type { Row } from "@/lib/db/table-types";
 import clsx from "clsx";
 
 type ProductRow = Row<"products">;

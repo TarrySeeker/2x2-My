@@ -1,7 +1,6 @@
 import "server-only";
 
-import { createAdminClient } from "@/lib/supabase/admin";
-import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
+import { sql, type Tx } from "@/lib/db/client";
 import type {
   AdminProductFilters,
   ProductWithImage,
@@ -9,12 +8,17 @@ import type {
 } from "@/features/admin/types";
 import type { ProductFormData } from "@/features/admin/schemas/product";
 import type { ProductStatus, Json } from "@/types/database";
-import type { InsertRow, UpdateRow } from "@/lib/supabase/table-types";
+import type { Row } from "@/lib/db/table-types";
+
+type ProductRow = Row<"products">;
+type ProductImageRow = Row<"product_images">;
+type ProductVariantRow = Row<"product_variants">;
+type CategoryRow = Row<"categories">;
 
 type AttributeValue = string | number | boolean | null;
 type AttributeMap = Record<string, AttributeValue>;
 
-/** Safely convert JSON from DB to flat key-value attributes map. */
+/** Безопасное приведение JSON из БД к плоской map атрибутов. */
 function toAttributeMap(json: Json): AttributeMap {
   if (typeof json === "object" && json !== null && !Array.isArray(json)) {
     const result: AttributeMap = {};
@@ -38,116 +42,133 @@ function toAttributeMap(json: Json): AttributeMap {
 export async function getAdminProducts(
   filters: AdminProductFilters,
 ): Promise<{ data: ProductWithImage[]; total: number }> {
-  if (!isSupabaseConfigured()) return { data: [], total: 0 };
+  try {
+    const { page, perPage, search, status, categoryId } = filters;
+    const offset = (page - 1) * perPage;
+    const like = search ? `%${search}%` : null;
+    const statusArg = (status ?? null) as string | null;
+    const catArg = categoryId ?? null;
 
-  const supabase = createAdminClient();
-  const { page, perPage, search, status, categoryId } = filters;
+    const totalRows = await sql<{ count: number }[]>`
+      SELECT COUNT(*)::int AS count
+      FROM products
+      WHERE deleted_at IS NULL
+        AND (${like}::text IS NULL OR name ILIKE ${like})
+        AND (${statusArg}::text IS NULL OR status::text = ${statusArg})
+        AND (${catArg}::bigint IS NULL OR category_id = ${catArg})
+    `;
+    const total = totalRows[0]?.count ?? 0;
 
-  let query = supabase
-    .from("products")
-    .select("*", { count: "exact" })
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .range((page - 1) * perPage, page * perPage - 1);
+    const products = await sql<ProductRow[]>`
+      SELECT *
+      FROM products
+      WHERE deleted_at IS NULL
+        AND (${like}::text IS NULL OR name ILIKE ${like})
+        AND (${statusArg}::text IS NULL OR status::text = ${statusArg})
+        AND (${catArg}::bigint IS NULL OR category_id = ${catArg})
+      ORDER BY created_at DESC
+      LIMIT ${perPage}
+      OFFSET ${offset}
+    `;
 
-  if (search) {
-    query = query.ilike("name", `%${search}%`);
-  }
-  if (status) {
-    query = query.eq("status", status);
-  }
-  if (categoryId) {
-    query = query.eq("category_id", categoryId);
-  }
+    if (products.length === 0) return { data: [], total };
 
-  const { data: products, count } = await query;
+    const productIds = products.map((p: ProductRow) => p.id);
+    const categoryIds = [
+      ...new Set(
+        products.map((p: ProductRow) => p.category_id).filter(Boolean),
+      ),
+    ] as number[];
 
-  if (!products) return { data: [], total: 0 };
+    const images = await sql<{ product_id: number; url: string }[]>`
+      SELECT product_id, url
+      FROM product_images
+      WHERE product_id IN ${sql(productIds)}
+        AND is_primary = true
+    `;
 
-  // Fetch primary images and category names in parallel
-  const productIds = products.map((p) => p.id);
-  const categoryIds = [
-    ...new Set(products.map((p) => p.category_id).filter(Boolean)),
-  ] as number[];
+    const imageMap = new Map<number, string>();
+    for (const img of images) imageMap.set(img.product_id, img.url);
 
-  const { data: images } = await supabase
-    .from("product_images")
-    .select("product_id, url")
-    .in("product_id", productIds)
-    .eq("is_primary", true);
-
-  const imageMap = new Map<number, string>();
-  for (const img of images ?? []) {
-    imageMap.set(img.product_id, img.url);
-  }
-
-  const categoryMap = new Map<number, string>();
-  if (categoryIds.length > 0) {
-    const { data: cats } = await supabase
-      .from("categories")
-      .select("id, name")
-      .in("id", categoryIds);
-    for (const cat of cats ?? []) {
-      categoryMap.set(cat.id, cat.name);
+    const categoryMap = new Map<number, string>();
+    if (categoryIds.length > 0) {
+      const cats = await sql<{ id: number; name: string }[]>`
+        SELECT id, name
+        FROM categories
+        WHERE id IN ${sql(categoryIds)}
+      `;
+      for (const c of cats) categoryMap.set(c.id, c.name);
     }
+
+    const result: ProductWithImage[] = products.map((p: ProductRow) => ({
+      ...p,
+      primary_image_url: imageMap.get(p.id) ?? null,
+      category_name: p.category_id
+        ? (categoryMap.get(p.category_id) ?? null)
+        : null,
+    }));
+
+    return { data: result, total };
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getAdminProducts] DB request failed:", err);
+    }
+    return { data: [], total: 0 };
   }
-
-  const result: ProductWithImage[] = products.map((p) => ({
-    ...p,
-    primary_image_url: imageMap.get(p.id) ?? null,
-    category_name: p.category_id ? (categoryMap.get(p.category_id) ?? null) : null,
-  }));
-
-  return { data: result, total: count ?? 0 };
 }
 
 // ── Get single product ──
 
 export async function getProductById(id: number): Promise<ProductFull | null> {
-  if (!isSupabaseConfigured()) return null;
+  try {
+    const productRows = await sql<ProductRow[]>`
+      SELECT *
+      FROM products
+      WHERE id = ${id}
+        AND deleted_at IS NULL
+      LIMIT 1
+    `;
+    const product = productRows[0];
+    if (!product) return null;
 
-  const supabase = createAdminClient();
+    const [images, variants] = await Promise.all([
+      sql<ProductImageRow[]>`
+        SELECT *
+        FROM product_images
+        WHERE product_id = ${id}
+        ORDER BY sort_order ASC
+      `,
+      sql<ProductVariantRow[]>`
+        SELECT *
+        FROM product_variants
+        WHERE product_id = ${id}
+        ORDER BY sort_order ASC
+      `,
+    ]);
 
-  const [productRes, imagesRes, variantsRes] = await Promise.all([
-    supabase
-      .from("products")
-      .select("*")
-      .eq("id", id)
-      .is("deleted_at", null)
-      .single(),
-    supabase
-      .from("product_images")
-      .select("*")
-      .eq("product_id", id)
-      .order("sort_order", { ascending: true }),
-    supabase
-      .from("product_variants")
-      .select("*")
-      .eq("product_id", id)
-      .order("sort_order", { ascending: true }),
-  ]);
+    let category: ProductFull["category"] = null;
+    if (product.category_id) {
+      const catRows = await sql<CategoryRow[]>`
+        SELECT *
+        FROM categories
+        WHERE id = ${product.category_id}
+        LIMIT 1
+      `;
+      category = catRows[0] ?? null;
+    }
 
-  if (!productRes.data) return null;
-
-  const product = productRes.data;
-
-  // Fetch category separately to avoid FK join type issues
-  let category: ProductFull["category"] = null;
-  if (product.category_id) {
-    const { data: cat } = await supabase
-      .from("categories")
-      .select("*")
-      .eq("id", product.category_id)
-      .single();
-    category = cat;
+    return {
+      ...product,
+      images,
+      variants,
+      category,
+    };
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getProductById] DB request failed:", err);
+    }
+    return null;
   }
-
-  return {
-    ...product,
-    images: imagesRes.data ?? [],
-    variants: variantsRes.data ?? [],
-    category,
-  };
 }
 
 // ── Create ──
@@ -155,88 +176,101 @@ export async function getProductById(id: number): Promise<ProductFull | null> {
 export async function createProduct(
   data: ProductFormData,
 ): Promise<{ id: number }> {
-  const supabase = createAdminClient();
+  const { images, variants, ...p } = data;
 
-  const { images, variants, ...productData } = data;
+  const result = await sql.begin(async (tx: Tx) => {
+    const productRows = await tx<{ id: number }[]>`
+      INSERT INTO products (
+        name, slug, category_id, status, pricing_mode,
+        short_description, description, price, old_price, cost_price,
+        price_from, unit, sku, barcode, stock, track_stock,
+        weight, dimensions, brand,
+        is_featured, is_new, is_on_sale, has_installation, lead_time_days,
+        attributes, tags,
+        seo_title, seo_description, seo_keywords, sort_order, deleted_at
+      )
+      VALUES (
+        ${p.name},
+        ${p.slug},
+        ${p.category_id ?? null},
+        ${p.status},
+        ${p.pricing_mode},
+        ${p.short_description ?? null},
+        ${p.description ?? null},
+        ${p.price},
+        ${p.old_price ?? null},
+        ${p.cost_price ?? null},
+        ${p.price_from},
+        ${p.unit ?? null},
+        ${p.sku ?? null},
+        ${p.barcode ?? null},
+        ${p.stock},
+        ${p.track_stock},
+        ${p.weight ?? null},
+        ${tx.json(p.dimensions ?? null)},
+        ${p.brand ?? null},
+        ${p.is_featured},
+        ${p.is_new},
+        ${p.is_on_sale},
+        ${p.has_installation},
+        ${p.lead_time_days ?? null},
+        ${tx.json(p.attributes ?? {})},
+        ${p.tags ?? []},
+        ${p.seo_title ?? null},
+        ${p.seo_description ?? null},
+        ${p.seo_keywords ?? null},
+        ${p.sort_order},
+        NULL
+      )
+      RETURNING id
+    `;
+    const productId = productRows[0]?.id;
+    if (!productId) throw new Error("Не удалось создать товар");
 
-  const insertData: InsertRow<"products"> = {
-    name: productData.name,
-    slug: productData.slug,
-    category_id: productData.category_id ?? null,
-    status: productData.status,
-    pricing_mode: productData.pricing_mode,
-    short_description: productData.short_description ?? null,
-    description: productData.description ?? null,
-    price: productData.price,
-    old_price: productData.old_price ?? null,
-    cost_price: productData.cost_price ?? null,
-    price_from: productData.price_from,
-    unit: productData.unit ?? null,
-    sku: productData.sku ?? null,
-    barcode: productData.barcode ?? null,
-    stock: productData.stock,
-    track_stock: productData.track_stock,
-    weight: productData.weight ?? null,
-    dimensions: productData.dimensions ?? null,
-    brand: productData.brand ?? null,
-    is_featured: productData.is_featured,
-    is_new: productData.is_new,
-    is_on_sale: productData.is_on_sale,
-    has_installation: productData.has_installation,
-    lead_time_days: productData.lead_time_days ?? null,
-    attributes: productData.attributes ?? {},
-    tags: productData.tags ?? [],
-    seo_title: productData.seo_title ?? null,
-    seo_description: productData.seo_description ?? null,
-    seo_keywords: productData.seo_keywords ?? null,
-    sort_order: productData.sort_order,
-    deleted_at: null,
-  };
+    if (images.length > 0) {
+      for (const img of images) {
+        await tx`
+          INSERT INTO product_images (
+            product_id, url, alt_text, sort_order, is_primary
+          )
+          VALUES (
+            ${productId},
+            ${img.url},
+            ${img.alt_text ?? null},
+            ${img.sort_order},
+            ${img.is_primary}
+          )
+        `;
+      }
+    }
 
-  const { data: product, error } = await supabase
-    .from("products")
-    .insert(insertData)
-    .select("id")
-    .single();
+    if (variants.length > 0) {
+      for (const v of variants) {
+        await tx`
+          INSERT INTO product_variants (
+            product_id, name, sku, price, old_price, stock,
+            attributes, image_url, sort_order, is_active
+          )
+          VALUES (
+            ${productId},
+            ${v.name},
+            ${v.sku ?? null},
+            ${v.price ?? null},
+            ${v.old_price ?? null},
+            ${v.stock},
+            ${tx.json(v.attributes ?? {})},
+            ${v.image_url ?? null},
+            ${v.sort_order},
+            ${v.is_active}
+          )
+        `;
+      }
+    }
 
-  if (error || !product) {
-    throw new Error(error?.message ?? "Не удалось создать товар");
-  }
+    return { id: productId };
+  });
 
-  // Insert images
-  if (images.length > 0) {
-    const imageInserts: InsertRow<"product_images">[] = images.map((img) => ({
-      product_id: product.id,
-      url: img.url,
-      alt_text: img.alt_text ?? null,
-      sort_order: img.sort_order,
-      is_primary: img.is_primary,
-    }));
-
-    await supabase.from("product_images").insert(imageInserts);
-  }
-
-  // Insert variants
-  if (variants.length > 0) {
-    const variantInserts: InsertRow<"product_variants">[] = variants.map(
-      (v) => ({
-        product_id: product.id,
-        name: v.name,
-        sku: v.sku ?? null,
-        price: v.price ?? null,
-        old_price: v.old_price ?? null,
-        stock: v.stock,
-        attributes: v.attributes ?? {},
-        image_url: v.image_url ?? null,
-        sort_order: v.sort_order,
-        is_active: v.is_active,
-      }),
-    );
-
-    await supabase.from("product_variants").insert(variantInserts);
-  }
-
-  return { id: product.id };
+  return result;
 }
 
 // ── Update ──
@@ -245,107 +279,102 @@ export async function updateProduct(
   id: number,
   data: ProductFormData,
 ): Promise<void> {
-  const supabase = createAdminClient();
+  const { images, variants, ...p } = data;
 
-  const { images, variants, ...productData } = data;
+  await sql.begin(async (tx: Tx) => {
+    await tx`
+      UPDATE products
+      SET
+        name = ${p.name},
+        slug = ${p.slug},
+        category_id = ${p.category_id ?? null},
+        status = ${p.status},
+        pricing_mode = ${p.pricing_mode},
+        short_description = ${p.short_description ?? null},
+        description = ${p.description ?? null},
+        price = ${p.price},
+        old_price = ${p.old_price ?? null},
+        cost_price = ${p.cost_price ?? null},
+        price_from = ${p.price_from},
+        unit = ${p.unit ?? null},
+        sku = ${p.sku ?? null},
+        barcode = ${p.barcode ?? null},
+        stock = ${p.stock},
+        track_stock = ${p.track_stock},
+        weight = ${p.weight ?? null},
+        dimensions = ${tx.json(p.dimensions ?? null)},
+        brand = ${p.brand ?? null},
+        is_featured = ${p.is_featured},
+        is_new = ${p.is_new},
+        is_on_sale = ${p.is_on_sale},
+        has_installation = ${p.has_installation},
+        lead_time_days = ${p.lead_time_days ?? null},
+        attributes = ${tx.json(p.attributes ?? {})},
+        tags = ${p.tags ?? []},
+        seo_title = ${p.seo_title ?? null},
+        seo_description = ${p.seo_description ?? null},
+        seo_keywords = ${p.seo_keywords ?? null},
+        sort_order = ${p.sort_order}
+      WHERE id = ${id}
+    `;
 
-  const updateData: UpdateRow<"products"> = {
-    name: productData.name,
-    slug: productData.slug,
-    category_id: productData.category_id ?? null,
-    status: productData.status,
-    pricing_mode: productData.pricing_mode,
-    short_description: productData.short_description ?? null,
-    description: productData.description ?? null,
-    price: productData.price,
-    old_price: productData.old_price ?? null,
-    cost_price: productData.cost_price ?? null,
-    price_from: productData.price_from,
-    unit: productData.unit ?? null,
-    sku: productData.sku ?? null,
-    barcode: productData.barcode ?? null,
-    stock: productData.stock,
-    track_stock: productData.track_stock,
-    weight: productData.weight ?? null,
-    dimensions: productData.dimensions ?? null,
-    brand: productData.brand ?? null,
-    is_featured: productData.is_featured,
-    is_new: productData.is_new,
-    is_on_sale: productData.is_on_sale,
-    has_installation: productData.has_installation,
-    lead_time_days: productData.lead_time_days ?? null,
-    attributes: productData.attributes ?? {},
-    tags: productData.tags ?? [],
-    seo_title: productData.seo_title ?? null,
-    seo_description: productData.seo_description ?? null,
-    seo_keywords: productData.seo_keywords ?? null,
-    sort_order: productData.sort_order,
-  };
+    await tx`DELETE FROM product_images WHERE product_id = ${id}`;
+    if (images.length > 0) {
+      for (const img of images) {
+        await tx`
+          INSERT INTO product_images (
+            product_id, url, alt_text, sort_order, is_primary
+          )
+          VALUES (
+            ${id},
+            ${img.url},
+            ${img.alt_text ?? null},
+            ${img.sort_order},
+            ${img.is_primary}
+          )
+        `;
+      }
+    }
 
-  const { error } = await supabase
-    .from("products")
-    .update(updateData)
-    .eq("id", id);
-
-  if (error) throw new Error(error.message);
-
-  // Replace images: delete old, insert new
-  await supabase.from("product_images").delete().eq("product_id", id);
-
-  if (images.length > 0) {
-    const imageInserts: InsertRow<"product_images">[] = images.map((img) => ({
-      product_id: id,
-      url: img.url,
-      alt_text: img.alt_text ?? null,
-      sort_order: img.sort_order,
-      is_primary: img.is_primary,
-    }));
-
-    await supabase.from("product_images").insert(imageInserts);
-  }
-
-  // Replace variants: delete old, insert new
-  await supabase.from("product_variants").delete().eq("product_id", id);
-
-  if (variants.length > 0) {
-    const variantInserts: InsertRow<"product_variants">[] = variants.map(
-      (v) => ({
-        product_id: id,
-        name: v.name,
-        sku: v.sku ?? null,
-        price: v.price ?? null,
-        old_price: v.old_price ?? null,
-        stock: v.stock,
-        attributes: v.attributes ?? {},
-        image_url: v.image_url ?? null,
-        sort_order: v.sort_order,
-        is_active: v.is_active,
-      }),
-    );
-
-    await supabase.from("product_variants").insert(variantInserts);
-  }
+    await tx`DELETE FROM product_variants WHERE product_id = ${id}`;
+    if (variants.length > 0) {
+      for (const v of variants) {
+        await tx`
+          INSERT INTO product_variants (
+            product_id, name, sku, price, old_price, stock,
+            attributes, image_url, sort_order, is_active
+          )
+          VALUES (
+            ${id},
+            ${v.name},
+            ${v.sku ?? null},
+            ${v.price ?? null},
+            ${v.old_price ?? null},
+            ${v.stock},
+            ${tx.json(v.attributes ?? {})},
+            ${v.image_url ?? null},
+            ${v.sort_order},
+            ${v.is_active}
+          )
+        `;
+      }
+    }
+  });
 }
 
-// ── Delete ──
+// ── Delete (soft) ──
 
 export async function deleteProduct(id: number): Promise<void> {
-  const supabase = createAdminClient();
-
-  // Soft delete
-  const { error } = await supabase
-    .from("products")
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("id", id);
-
-  if (error) throw new Error(error.message);
+  await sql`
+    UPDATE products
+    SET deleted_at = NOW()
+    WHERE id = ${id}
+  `;
 }
 
 // ── Duplicate ──
 
-export async function duplicateProduct(
-  id: number,
-): Promise<{ id: number }> {
+export async function duplicateProduct(id: number): Promise<{ id: number }> {
   const product = await getProductById(id);
   if (!product) throw new Error("Товар не найден");
 
@@ -412,24 +441,18 @@ export async function bulkUpdateStatus(
   status: ProductStatus,
 ): Promise<void> {
   if (ids.length === 0) return;
-
-  const supabase = createAdminClient();
-  const { error } = await supabase
-    .from("products")
-    .update({ status })
-    .in("id", ids);
-
-  if (error) throw new Error(error.message);
+  await sql`
+    UPDATE products
+    SET status = ${status}
+    WHERE id IN ${sql(ids)}
+  `;
 }
 
 export async function bulkDelete(ids: number[]): Promise<void> {
   if (ids.length === 0) return;
-
-  const supabase = createAdminClient();
-  const { error } = await supabase
-    .from("products")
-    .update({ deleted_at: new Date().toISOString() })
-    .in("id", ids);
-
-  if (error) throw new Error(error.message);
+  await sql`
+    UPDATE products
+    SET deleted_at = NOW()
+    WHERE id IN ${sql(ids)}
+  `;
 }

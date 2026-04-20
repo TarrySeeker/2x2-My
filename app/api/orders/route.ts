@@ -1,7 +1,6 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
+import { sql, type Tx } from "@/lib/db/client";
 import { parseBody } from "@/lib/validation";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { orderSchema, type OrderInput } from "@/lib/checkout/order-schema";
@@ -9,11 +8,13 @@ import { calculateTotals } from "@/lib/checkout/totals";
 import { cdekFetch, isCdekConfigured } from "@/lib/cdek";
 import { createCdekShipment } from "@/lib/cdek/shipment";
 import type { CdekCalculateResponse } from "@/lib/cdek/types";
-import type { InsertRow } from "@/lib/supabase/table-types";
+import type { Row } from "@/lib/db/table-types";
 import type { Json, DeliveryAddress } from "@/types/database";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+type PromoCodeRow = Row<"promo_codes">;
 
 function toNullableString(val: string | undefined): string | null {
   return val && val.length > 0 ? val : null;
@@ -25,7 +26,6 @@ interface PromoResult {
 }
 
 async function verifyPromoCode(
-  supabase: ReturnType<typeof createAdminClient>,
   code: string | undefined,
   subtotal: number,
 ): Promise<PromoResult> {
@@ -33,16 +33,15 @@ async function verifyPromoCode(
     return { promoDiscount: 0, promoCodeId: null };
   }
 
-  const { data: promo, error } = await supabase
-    .from("promo_codes")
-    .select("*")
-    .eq("code", code.trim())
-    .eq("is_active", true)
-    .single();
-
-  if (error || !promo) {
-    return { promoDiscount: 0, promoCodeId: null };
-  }
+  const rows = await sql<PromoCodeRow[]>`
+    SELECT *
+    FROM promo_codes
+    WHERE code = ${code.trim()}
+      AND is_active = true
+    LIMIT 1
+  `;
+  const promo = rows[0];
+  if (!promo) return { promoDiscount: 0, promoCodeId: null };
 
   const now = new Date().toISOString();
   if (promo.valid_from && promo.valid_from > now) {
@@ -51,11 +50,9 @@ async function verifyPromoCode(
   if (promo.valid_to && promo.valid_to < now) {
     return { promoDiscount: 0, promoCodeId: null };
   }
-
   if (promo.max_uses !== null && promo.used_count >= promo.max_uses) {
     return { promoDiscount: 0, promoCodeId: null };
   }
-
   if (promo.min_order_amount !== null && subtotal < promo.min_order_amount) {
     return { promoDiscount: 0, promoCodeId: null };
   }
@@ -67,12 +64,14 @@ async function verifyPromoCode(
     discount = promo.value;
   }
 
-  if (promo.max_discount_amount !== null && discount > promo.max_discount_amount) {
+  if (
+    promo.max_discount_amount !== null &&
+    discount > promo.max_discount_amount
+  ) {
     discount = promo.max_discount_amount;
   }
 
   discount = Math.min(discount, subtotal);
-
   return { promoDiscount: discount, promoCodeId: promo.id };
 }
 
@@ -144,23 +143,13 @@ export async function POST(request: NextRequest) {
 
   const input = parsed.data as OrderInput;
 
-  if (!isSupabaseConfigured()) {
-    return NextResponse.json(
-      { error: "Сервис временно недоступен" },
-      { status: 503 },
-    );
-  }
-
   try {
-    const supabase = createAdminClient();
-
     const rawSubtotal = input.items.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0,
     );
 
     const { promoDiscount, promoCodeId } = await verifyPromoCode(
-      supabase,
       input.promoCode,
       rawSubtotal,
     );
@@ -176,135 +165,134 @@ export async function POST(request: NextRequest) {
     });
 
     const deliveryAddr = toNullableString(input.delivery.address);
+    const deliveryAddressJson: DeliveryAddress | null = deliveryAddr
+      ? ({ street: deliveryAddr } satisfies DeliveryAddress)
+      : null;
 
-    const orderData: InsertRow<"orders"> = {
-      type: "cart",
-      status: "new",
-      customer_id: null,
-      customer_name: input.customer.name,
-      customer_email: toNullableString(input.customer.email),
-      customer_phone: input.customer.phone,
-      is_b2b: input.customer.isB2B,
-      company_name: toNullableString(input.customer.company?.name),
-      company_inn: toNullableString(input.customer.company?.inn),
-      company_kpp: toNullableString(input.customer.company?.kpp),
-      company_address: toNullableString(input.customer.company?.address),
-      subtotal: totals.subtotal,
-      delivery_cost: totals.deliveryCost,
-      installation_cost: totals.installationCost,
-      discount_amount: totals.discountAmount,
-      total: totals.total,
-      promo_code_id: promoCodeId,
-      promo_code: toNullableString(input.promoCode),
-      delivery_type: input.delivery.type,
-      delivery_tariff_code: input.delivery.tariffCode ?? null,
-      delivery_tariff_name: null,
-      delivery_point_code: toNullableString(input.delivery.pointCode),
-      delivery_point_address: toNullableString(input.delivery.pointAddress),
-      delivery_address: deliveryAddr
-        ? ({ street: deliveryAddr } satisfies DeliveryAddress)
-        : null,
-      delivery_period_min: null,
-      delivery_period_max: null,
-      cdek_order_uuid: null,
-      cdek_order_number: null,
-      cdek_tracking_url: null,
-      installation_required: input.installation?.required ?? false,
-      installation_address: toNullableString(input.installation?.address),
-      installation_date: toNullableString(input.installation?.date),
-      installation_notes: toNullableString(input.installation?.notes),
-      payment_method: input.payment.method,
-      payment_status: "pending",
-      payment_order_number: null,
-      payment_url: null,
-      paid_at: null,
-      manager_comment: null,
-      customer_comment: toNullableString(input.customerComment),
-      assigned_to: null,
-      source: "web",
-      utm_source: toNullableString(input.utm?.source),
-      utm_medium: toNullableString(input.utm?.medium),
-      utm_campaign: toNullableString(input.utm?.campaign),
-    };
+    const orderResult = await sql.begin(async (tx: Tx) => {
+      const orderRows = await tx<{ id: number; order_number: string | null }[]>`
+        INSERT INTO orders (
+          type, status, customer_id,
+          customer_name, customer_email, customer_phone,
+          is_b2b, company_name, company_inn, company_kpp, company_address,
+          subtotal, delivery_cost, installation_cost, discount_amount, total,
+          promo_code_id, promo_code,
+          delivery_type, delivery_tariff_code, delivery_tariff_name,
+          delivery_point_code, delivery_point_address, delivery_address,
+          delivery_period_min, delivery_period_max,
+          cdek_order_uuid, cdek_order_number, cdek_tracking_url,
+          installation_required, installation_address, installation_date, installation_notes,
+          payment_method, payment_status, payment_order_number, payment_url, paid_at,
+          manager_comment, customer_comment, assigned_to,
+          source, utm_source, utm_medium, utm_campaign
+        )
+        VALUES (
+          'cart', 'new', NULL,
+          ${input.customer.name},
+          ${toNullableString(input.customer.email)},
+          ${input.customer.phone},
+          ${input.customer.isB2B},
+          ${toNullableString(input.customer.company?.name)},
+          ${toNullableString(input.customer.company?.inn)},
+          ${toNullableString(input.customer.company?.kpp)},
+          ${toNullableString(input.customer.company?.address)},
+          ${totals.subtotal},
+          ${totals.deliveryCost},
+          ${totals.installationCost},
+          ${totals.discountAmount},
+          ${totals.total},
+          ${promoCodeId},
+          ${toNullableString(input.promoCode)},
+          ${input.delivery.type},
+          ${input.delivery.tariffCode ?? null},
+          NULL,
+          ${toNullableString(input.delivery.pointCode)},
+          ${toNullableString(input.delivery.pointAddress)},
+          ${tx.json(deliveryAddressJson as unknown as Parameters<typeof tx.json>[0])},
+          NULL, NULL,
+          NULL, NULL, NULL,
+          ${input.installation?.required ?? false},
+          ${toNullableString(input.installation?.address)},
+          ${toNullableString(input.installation?.date)},
+          ${toNullableString(input.installation?.notes)},
+          ${input.payment.method},
+          'pending',
+          NULL, NULL, NULL,
+          NULL,
+          ${toNullableString(input.customerComment)},
+          NULL,
+          'web',
+          ${toNullableString(input.utm?.source)},
+          ${toNullableString(input.utm?.medium)},
+          ${toNullableString(input.utm?.campaign)}
+        )
+        RETURNING id, order_number
+      `;
 
-    const { data: order, error: orderError } = await supabase
-      .from("orders")
-      .insert(orderData)
-      .select("id, order_number")
-      .single();
+      const order = orderRows[0];
+      if (!order) throw new Error("INSERT orders returned no row");
 
-    if (orderError) throw orderError;
-
-    const orderId = order.id;
-
-    const orderItems: InsertRow<"order_items">[] = input.items.map((item) => ({
-      order_id: orderId,
-      product_id: item.productId,
-      variant_id: item.variantId ?? null,
-      name: item.name,
-      sku: item.sku ?? null,
-      price: item.price,
-      quantity: item.quantity,
-      total: item.price * item.quantity,
-      image_url: item.imageUrl ?? null,
-      attributes: (item.attributes ?? {}) as Json,
-      calc_params: null,
-    }));
-
-    const { error: itemsError } = await supabase
-      .from("order_items")
-      .insert(orderItems);
-
-    if (itemsError) throw itemsError;
-
-    const historyRow: InsertRow<"order_status_history"> = {
-      order_id: orderId,
-      status: "new",
-      comment: "Создано через сайт",
-      changed_by: null,
-    };
-
-    const { error: historyError } = await supabase
-      .from("order_status_history")
-      .insert(historyRow);
-
-    if (historyError) throw historyError;
-
-    if (promoCodeId) {
-      const { data: currentPromo } = await supabase
-        .from("promo_codes")
-        .select("used_count")
-        .eq("id", promoCodeId)
-        .single();
-      if (currentPromo) {
-        await supabase
-          .from("promo_codes")
-          .update({ used_count: currentPromo.used_count + 1 })
-          .eq("id", promoCodeId);
+      // Items
+      for (const item of input.items) {
+        await tx`
+          INSERT INTO order_items (
+            order_id, product_id, variant_id, name, sku,
+            price, quantity, total, image_url, attributes, calc_params
+          )
+          VALUES (
+            ${order.id},
+            ${item.productId},
+            ${item.variantId ?? null},
+            ${item.name},
+            ${item.sku ?? null},
+            ${item.price},
+            ${item.quantity},
+            ${item.price * item.quantity},
+            ${item.imageUrl ?? null},
+            ${tx.json((item.attributes ?? {}) as unknown as Parameters<typeof tx.json>[0])},
+            NULL
+          )
+        `;
       }
-    }
+
+      // Status history
+      await tx`
+        INSERT INTO order_status_history (order_id, status, comment, changed_by)
+        VALUES (${order.id}, 'new', 'Создано через сайт', NULL)
+      `;
+
+      if (promoCodeId) {
+        await tx`
+          UPDATE promo_codes
+          SET used_count = used_count + 1
+          WHERE id = ${promoCodeId}
+        `;
+      }
+
+      return order;
+    });
 
     const requiresPayment = input.payment.method === "cdek_pay";
 
     if (!requiresPayment && input.delivery.type !== "pickup") {
-      createCdekShipment(orderId).catch((err) => {
+      createCdekShipment(orderResult.id).catch((err) => {
         console.error("[api/orders] CDEK shipment creation failed:", err);
-        supabase
-          .from("order_status_history")
-          .insert({
-            order_id: orderId,
-            status: "new" as const,
-            comment: `Ошибка создания СДЭК-заказа: ${err instanceof Error ? err.message : "Unknown"}`,
-            changed_by: null,
-          })
-          .then(() => {});
+        sql`
+          INSERT INTO order_status_history (order_id, status, comment, changed_by)
+          VALUES (
+            ${orderResult.id},
+            'new',
+            ${`Ошибка создания СДЭК-заказа: ${err instanceof Error ? err.message : "Unknown"}`},
+            NULL
+          )
+        `.catch(() => {});
       });
     }
 
     return NextResponse.json({
       ok: true,
-      orderId: order.id,
-      orderNumber: order.order_number,
+      orderId: orderResult.id,
+      orderNumber: orderResult.order_number,
       requiresPayment,
     });
   } catch (err) {

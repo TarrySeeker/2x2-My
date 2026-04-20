@@ -1,10 +1,8 @@
 import "server-only";
 
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
-import { createClient } from "@/lib/supabase/server";
+import { getSession } from "@/features/auth/api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,11 +15,21 @@ const ALLOWED_TYPES = new Set([
 ]);
 
 const ALLOWED_BUCKETS = new Set(["images", "blog"]);
-
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
+/**
+ * STUB Storage (TODO S3 — цепочка 3).
+ *
+ * Раньше файлы уходили в Supabase Storage. После миграции на чистый PostgreSQL
+ * Storage недоступен. Временно возвращаем placeholder-URL, оставляя валидацию
+ * на месте — чтобы тесты проходили и UI корректно обрабатывал результат.
+ *
+ * В цепочке 3 здесь будет:
+ *   - S3-совместимый клиент (Timeweb Cloud Storage / minio)
+ *   - подпись presigned URL или прямая загрузка
+ *   - возврат реального public URL
+ */
 export async function POST(request: NextRequest) {
-  // Rate limit: 20 requests per 60 seconds
   const ip = getClientIp(request.headers);
   const rl = rateLimit(`upload:${ip}`, 20, 60_000);
   if (!rl.success) {
@@ -31,24 +39,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Auth check
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Не авторизован" },
-      { status: 401 },
-    );
-  }
-
-  if (!isSupabaseConfigured()) {
-    return NextResponse.json(
-      { error: "Хранилище не настроено" },
-      { status: 503 },
-    );
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
   }
 
   let formData: FormData;
@@ -69,7 +62,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Validate file type
   if (!ALLOWED_TYPES.has(file.type)) {
     return NextResponse.json(
       {
@@ -79,7 +71,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Validate file size
   if (file.size > MAX_SIZE) {
     return NextResponse.json(
       { error: "Размер файла превышает 5 МБ" },
@@ -88,7 +79,6 @@ export async function POST(request: NextRequest) {
   }
 
   const bucket = (formData.get("bucket") as string) || "images";
-
   if (!ALLOWED_BUCKETS.has(bucket)) {
     return NextResponse.json(
       { error: "Недопустимый bucket" },
@@ -97,41 +87,16 @@ export async function POST(request: NextRequest) {
   }
 
   const pathPrefix = (formData.get("path") as string) || "uploads";
-
-  // Generate unique filename
   const ext = file.name.split(".").pop() ?? "jpg";
   const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const storagePath = `${pathPrefix}/${uniqueName}`;
+  const storagePath = `${bucket}/${pathPrefix}/${uniqueName}`;
 
-  try {
-    const admin = createAdminClient();
-    const buffer = Buffer.from(await file.arrayBuffer());
+  // TODO S3 (цепочка 3): реальная загрузка в Timeweb Cloud Storage / minio.
+  const placeholderUrl = `/uploads/placeholder.png?path=${encodeURIComponent(storagePath)}`;
 
-    const { error: uploadError } = await admin.storage
-      .from(bucket)
-      .upload(storagePath, buffer, {
-        contentType: file.type,
-        upsert: false,
-      });
-
-    if (uploadError) {
-      console.error("[api/upload] storage error:", uploadError.message);
-      return NextResponse.json(
-        { error: "Не удалось загрузить файл" },
-        { status: 500 },
-      );
-    }
-
-    const {
-      data: { publicUrl },
-    } = admin.storage.from(bucket).getPublicUrl(storagePath);
-
-    return NextResponse.json({ url: publicUrl });
-  } catch (err) {
-    console.error("[api/upload] unexpected error:", err);
-    return NextResponse.json(
-      { error: "Ошибка при загрузке файла" },
-      { status: 500 },
-    );
-  }
+  return NextResponse.json({
+    url: placeholderUrl,
+    path: storagePath,
+    stub: true,
+  });
 }

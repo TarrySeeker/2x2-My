@@ -1,4 +1,4 @@
-import type { Row } from "@/lib/supabase/table-types";
+import type { Row } from "@/lib/db/table-types";
 import type { ProductStatus, OrderStatus, OrderType, PostStatus, Json } from "@/types/database";
 
 // ── Dashboard ──
@@ -73,7 +73,7 @@ export interface OrderItemWithProduct extends Row<"order_items"> {
 export interface OrderFull extends Row<"orders"> {
   items: OrderItemWithProduct[];
   status_history: Row<"order_status_history">[];
-  assigned_profile: { id: string; full_name: string | null; email: string } | null;
+  assigned_profile: { id: string; full_name: string | null; email: string | null } | null;
 }
 
 // ── Customers ──

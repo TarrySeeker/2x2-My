@@ -1,11 +1,10 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
+import { sql } from "@/lib/db/client";
 import { parseBody, calcRequestSchema } from "@/lib/validation";
 import { sendNotification } from "@/lib/notifications";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
-import type { InsertRow } from "@/lib/supabase/table-types";
+import type { Json } from "@/types/database";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,38 +38,45 @@ export async function POST(request: NextRequest) {
   let requestId: number | null = null;
   let requestNumber: string | null = null;
 
-  if (isSupabaseConfigured()) {
-    try {
-      const supabase = createAdminClient();
-      const { data, error } = await supabase
-        .from("calculation_requests")
-        .insert({
-          product_id: input.product_id ?? null,
-          category_id: input.category_id ?? null,
-          customer_name: input.customer_name,
-          customer_phone: input.customer_phone,
-          customer_email: input.customer_email ?? null,
-          company_name: input.company_name ?? null,
-          params: input.params,
-          attachments: input.attachments,
-          comment: input.comment ?? null,
-          source_url: sourceUrl,
-          status: "new",
-          manager_comment: null,
-          quoted_amount: null,
-          quoted_at: null,
-          assigned_to: null,
-        } as unknown as InsertRow<"calculation_requests">)
-        .select("id, request_number")
-        .single();
+  try {
+    const customerEmail = (input.customer_email ?? null) as string | null;
+    const companyName = (input.company_name ?? null) as string | null;
+    const comment = (input.comment ?? null) as string | null;
+    const productId = (input.product_id ?? null) as number | null;
+    const categoryId = (input.category_id ?? null) as number | null;
+    const params = (input.params ?? {}) as Record<string, unknown>;
+    const attachments = (input.attachments ?? []) as unknown[];
 
-      if (error) throw error;
-      const row = data as { id: number; request_number: string | null } | null;
-      requestId = row?.id ?? null;
-      requestNumber = row?.request_number ?? null;
-    } catch (err) {
-      console.warn("[api/leads/quote] supabase insert failed:", err);
-    }
+    const rows = await sql<{ id: number; request_number: string | null }[]>`
+      INSERT INTO calculation_requests (
+        product_id, category_id,
+        customer_name, customer_phone, customer_email,
+        company_name, params, attachments, comment,
+        source_url, status, manager_comment,
+        quoted_amount, quoted_at, assigned_to
+      )
+      VALUES (
+        ${productId},
+        ${categoryId},
+        ${input.customer_name},
+        ${input.customer_phone},
+        ${customerEmail},
+        ${companyName},
+        ${sql.json(params as unknown as Parameters<typeof sql.json>[0])},
+        ${sql.json(attachments as unknown as Parameters<typeof sql.json>[0])},
+        ${comment},
+        ${sourceUrl},
+        'new',
+        NULL,
+        NULL, NULL, NULL
+      )
+      RETURNING id, request_number
+    `;
+    const row = rows[0];
+    requestId = row?.id ?? null;
+    requestNumber = row?.request_number ?? null;
+  } catch (err) {
+    console.warn("[api/leads/quote] DB insert failed:", err);
   }
 
   try {

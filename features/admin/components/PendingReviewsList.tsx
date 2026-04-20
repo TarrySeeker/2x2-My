@@ -1,7 +1,7 @@
 "use client";
 
 import { Star } from "lucide-react";
-import type { Row } from "@/lib/supabase/table-types";
+import type { Row } from "@/lib/db/table-types";
 import clsx from "clsx";
 
 type ReviewRow = Row<"reviews">;

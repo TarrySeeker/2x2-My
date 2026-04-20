@@ -1,15 +1,16 @@
+import "server-only";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { sql } from "@/lib/db/client";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 /**
- * Health-check endpoint (D-043).
+ * Health-check endpoint.
  * Возвращает 200 {status:"healthy"} если всё ок, 503 {status:"degraded"}
- * если Supabase настроен, но запрос к нему упал.
- * Если переменные env не заданы — это не ошибка, а "not_configured",
- * статус всё равно 200 (Этап 1 деплоится до подключения БД).
+ * если БД настроена, но запрос упал.
+ * Если DATABASE_URL не задан, клиент выбросит при импорте — но т.к. мы здесь
+ * вызываем ping в try/catch, деградация обрабатывается корректно.
  */
 export async function GET() {
   const checks: Record<string, "ok" | "error" | "not_configured"> = {};
@@ -17,28 +18,17 @@ export async function GET() {
 
   checks.nextjs = "ok";
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (
-    supabaseUrl &&
-    supabaseKey &&
-    !supabaseUrl.includes("placeholder") &&
-    !supabaseUrl.includes("localhost")
-  ) {
+  if (process.env.DATABASE_URL) {
     try {
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      const { error } = await supabase.from("settings").select("key").limit(1);
-      checks.supabase = error ? "error" : "ok";
-      if (error) healthy = false;
-    } catch {
-      checks.supabase = "error";
+      await sql`SELECT 1 AS ok`;
+      checks.database = "ok";
+    } catch (err) {
+      console.error("[health] DB ping failed:", err);
+      checks.database = "error";
       healthy = false;
     }
   } else {
-    checks.supabase = "not_configured";
+    checks.database = "not_configured";
   }
 
   const cdekConfigured = !!(

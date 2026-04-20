@@ -1,10 +1,8 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
+import { sql } from "@/lib/db/client";
 import type { CdekWebhookPayload } from "@/lib/cdek";
 import type { OrderStatus } from "@/types/database";
-import type { InsertRow, UpdateRow } from "@/lib/supabase/table-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,6 +21,11 @@ const CDEK_TO_ORDER_STATUS: Record<string, OrderStatus> = {
   "18": "delivered",
   "20": "cancelled",
 };
+
+interface OrderRow {
+  id: number;
+  status: string;
+}
 
 export async function POST(request: NextRequest) {
   if (CDEK_ALLOWED_IPS.length > 0) {
@@ -56,56 +59,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    if (!isSupabaseConfigured()) {
-      // На Этапе 1 БД ещё не подключена — просто логируем и отвечаем ок.
-      console.log(
-        "[cdek/webhook] demo-mode, skip DB update",
-        payload.uuid,
-        statusCode,
-        newStatus,
-      );
-      return NextResponse.json({ ok: true, demo: true });
-    }
-
-    const supabase = createAdminClient();
-
-    let query = supabase.from("orders").select("id, status").limit(1);
+    let orders: OrderRow[] = [];
     if (attributes.cdek_number) {
-      query = query.eq("cdek_order_number", attributes.cdek_number);
+      orders = await sql<OrderRow[]>`
+        SELECT id, status FROM orders
+        WHERE cdek_order_number = ${attributes.cdek_number}
+        LIMIT 1
+      `;
     } else if (attributes.number) {
-      query = query.eq("order_number", attributes.number);
+      orders = await sql<OrderRow[]>`
+        SELECT id, status FROM orders
+        WHERE order_number = ${attributes.number}
+        LIMIT 1
+      `;
     }
 
-    const { data: orders } = await query;
-    const order = orders?.[0] as
-      | { id: number; status: string }
-      | undefined;
+    let order = orders[0];
+    if (!order && payload.uuid) {
+      const byUuid = await sql<OrderRow[]>`
+        SELECT id, status FROM orders
+        WHERE cdek_order_uuid = ${payload.uuid}
+        LIMIT 1
+      `;
+      order = byUuid[0];
+    }
 
     if (!order) {
-      const { data: ordersUuid } = await supabase
-        .from("orders")
-        .select("id, status")
-        .eq("cdek_order_uuid", payload.uuid)
-        .limit(1);
-      const orderUuid = ordersUuid?.[0] as
-        | { id: number; status: string }
-        | undefined;
-      if (!orderUuid) {
-        return NextResponse.json({ ok: true, note: "order not found" });
-      }
-      await updateOrderStatus(
-        supabase,
-        orderUuid.id,
-        orderUuid.status,
-        newStatus,
-        statusCode,
-        attributes.cdek_number,
-      );
-      return NextResponse.json({ ok: true });
+      return NextResponse.json({ ok: true, note: "order not found" });
     }
 
     await updateOrderStatus(
-      supabase,
       order.id,
       order.status,
       newStatus,
@@ -121,7 +104,6 @@ export async function POST(request: NextRequest) {
 }
 
 async function updateOrderStatus(
-  supabase: ReturnType<typeof createAdminClient>,
   orderId: number,
   currentStatus: string,
   newStatus: OrderStatus,
@@ -131,20 +113,28 @@ async function updateOrderStatus(
   const finalStatuses = ["completed", "cancelled", "returned"];
   if (finalStatuses.includes(currentStatus)) return;
 
-  const updates: Record<string, unknown> = { status: newStatus };
-  if (cdekNumber) updates.cdek_order_number = cdekNumber;
+  if (cdekNumber) {
+    await sql`
+      UPDATE orders
+      SET status = ${newStatus},
+          cdek_order_number = ${cdekNumber}
+      WHERE id = ${orderId}
+    `;
+  } else {
+    await sql`
+      UPDATE orders
+      SET status = ${newStatus}
+      WHERE id = ${orderId}
+    `;
+  }
 
-  await supabase
-    .from("orders")
-    .update(updates as UpdateRow<"orders">)
-    .eq("id", orderId);
-
-  await supabase.from("order_status_history").insert({
-    order_id: orderId,
-    status: newStatus,
-    comment: `СДЭК статус: ${cdekStatusCode}${
-      cdekNumber ? `, номер: ${cdekNumber}` : ""
-    }`,
-    changed_by: null,
-  } as unknown as InsertRow<"order_status_history">);
+  await sql`
+    INSERT INTO order_status_history (order_id, status, comment, changed_by)
+    VALUES (
+      ${orderId},
+      ${newStatus},
+      ${`СДЭК статус: ${cdekStatusCode}${cdekNumber ? `, номер: ${cdekNumber}` : ""}`},
+      NULL
+    )
+  `;
 }

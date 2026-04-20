@@ -15,7 +15,7 @@ import {
   updateProductAction,
 } from "@/features/admin/actions/product-form";
 import { fetchCategoriesFlatAction } from "@/features/admin/actions/categories";
-import type { Row } from "@/lib/supabase/table-types";
+import type { Row } from "@/lib/db/table-types";
 import ImageUploader, { type ImageItem } from "./ImageUploader";
 import RichTextEditor from "./RichTextEditor";
 import SerpPreview from "./SerpPreview";

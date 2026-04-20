@@ -1,22 +1,38 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import type { Row } from "@/lib/supabase/table-types";
+import type { Row } from "@/lib/db/table-types";
 
 type Profile = Row<"profiles">;
 
 /**
+ * STUB AUTH (TODO LUCIA — цепочка 2):
+ * Эти функции временно возвращают захардкоженного админа без реальной
+ * аутентификации. После миграции на Lucia v3 (цепочка 2) — переписать
+ * на работу с таблицами `users` и `sessions` (миграция 004) и cookie-сессиями.
+ */
+const STUB_ADMIN: Profile = {
+  id: "dev-admin",
+  email: "admin@2x2.local",
+  full_name: "Dev Admin",
+  phone: null,
+  role: "owner",
+  avatar_url: null,
+  is_active: true,
+  created_at: new Date(0).toISOString(),
+  updated_at: new Date(0).toISOString(),
+};
+
+/**
  * Авторизация по email + пароль.
- * Возвращает ошибку в виде строки или null при успехе.
+ * STUB: всегда возвращает null (успех) для admin@2x2.local.
  */
 export async function signIn(
   email: string,
-  password: string,
+  _password: string,
 ): Promise<string | null> {
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return error.message;
+  if (!email) return "Введите email";
+  // TODO LUCIA: проверять пароль через bcrypt и создавать сессию
   return null;
 }
 
@@ -24,61 +40,42 @@ export async function signIn(
  * Выход из системы + редирект на страницу входа.
  */
 export async function signOut(): Promise<never> {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
+  // TODO LUCIA: удалять сессию из БД и очищать cookie
   redirect("/admin/login");
 }
 
 /**
  * Получить текущую сессию (user).
- * Возвращает null если не авторизован.
+ * STUB: всегда возвращает stub-юзера.
  */
-export async function getSession() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user;
+export async function getSession(): Promise<{ id: string; email: string } | null> {
+  // TODO LUCIA: читать sessionId из cookie и валидировать в БД
+  return { id: STUB_ADMIN.id, email: STUB_ADMIN.email };
 }
 
 /**
  * Получить профиль текущего пользователя.
- * Возвращает null если нет сессии или профиля.
+ * STUB: всегда возвращает stub-юзера.
  */
 export async function getProfile(): Promise<Profile | null> {
-  const user = await getSession();
-  if (!user) return null;
-
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
-  return data;
+  // TODO LUCIA: SELECT из users WHERE id = session.user_id
+  return STUB_ADMIN;
 }
 
 /**
  * Требует авторизацию (любая роль).
- * Если пользователь не авторизован или неактивен — редирект на /admin/login.
+ * STUB: всегда успешно возвращает stub-юзера.
  */
 export async function requireAuth(): Promise<Profile> {
-  const profile = await getProfile();
-  if (!profile || !profile.is_active) {
-    redirect("/admin/login");
-  }
-  return profile;
+  // TODO LUCIA: при отсутствии сессии — redirect("/admin/login")
+  return STUB_ADMIN;
 }
 
 /**
  * Требует роль owner или manager.
- * content-менеджер получит редирект на /admin/blog.
+ * STUB: всегда успешно возвращает stub-юзера (owner).
  */
 export async function requireAdmin(): Promise<Profile> {
-  const profile = await requireAuth();
-  if (profile.role === "content") {
-    redirect("/admin/blog");
-  }
-  return profile;
+  // TODO LUCIA: при role === "content" — redirect("/admin/blog")
+  return STUB_ADMIN;
 }

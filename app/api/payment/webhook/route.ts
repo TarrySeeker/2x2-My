@@ -1,11 +1,9 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
+import { sql } from "@/lib/db/client";
 import { verifyWebhookSignature } from "@/lib/cdek-pay/client";
 import { createCdekShipment } from "@/lib/cdek/shipment";
 import type { PaymentStatus } from "@/lib/cdek-pay/types";
-import type { UpdateRow } from "@/lib/supabase/table-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,22 +33,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  const signature = typeof payload.signature === "string" ? payload.signature : "";
+  const signature =
+    typeof payload.signature === "string" ? payload.signature : "";
   if (!signature || !verifyWebhookSignature(payload, signature)) {
     console.warn("[payment/webhook] Invalid signature");
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
-  if (!isSupabaseConfigured()) {
-    return NextResponse.json({ ok: true });
-  }
-
-  const orderNumber = typeof payload.order_number === "string"
-    ? payload.order_number
-    : "";
-  const rawStatus = typeof payload.payment_status === "string"
-    ? payload.payment_status
-    : "";
+  const orderNumber =
+    typeof payload.order_number === "string" ? payload.order_number : "";
+  const rawStatus =
+    typeof payload.payment_status === "string" ? payload.payment_status : "";
 
   if (!orderNumber || !rawStatus) {
     console.warn("[payment/webhook] Missing order_number or status");
@@ -60,32 +53,49 @@ export async function POST(request: NextRequest) {
   const paymentStatus = mapPaymentStatus(rawStatus);
 
   try {
-    const supabase = createAdminClient();
-
-    const { data: order, error: orderError } = await supabase
-      .from("orders")
-      .select("id, payment_status, cdek_order_uuid, delivery_type")
-      .eq("payment_order_number", orderNumber)
-      .single();
-
-    if (orderError || !order) {
+    const orderRows = await sql<
+      {
+        id: number;
+        payment_status: string;
+        cdek_order_uuid: string | null;
+        delivery_type: string | null;
+      }[]
+    >`
+      SELECT id, payment_status, cdek_order_uuid, delivery_type
+      FROM orders
+      WHERE payment_order_number = ${orderNumber}
+      LIMIT 1
+    `;
+    const order = orderRows[0];
+    if (!order) {
       console.warn(`[payment/webhook] Order not found: ${orderNumber}`);
       return NextResponse.json({ ok: true });
     }
 
-    const updateData: UpdateRow<"orders"> = {
-      payment_status: paymentStatus,
-      ...(paymentStatus === "paid" ? { paid_at: new Date().toISOString() } : {}),
-    };
+    if (paymentStatus === "paid") {
+      await sql`
+        UPDATE orders
+        SET payment_status = ${paymentStatus},
+            paid_at = NOW()
+        WHERE id = ${order.id}
+      `;
+    } else {
+      await sql`
+        UPDATE orders
+        SET payment_status = ${paymentStatus}
+        WHERE id = ${order.id}
+      `;
+    }
 
-    await supabase.from("orders").update(updateData).eq("id", order.id);
-
-    await supabase.from("order_status_history").insert({
-      order_id: order.id,
-      status: paymentStatus === "paid" ? ("confirmed" as const) : ("new" as const),
-      comment: `Оплата: ${paymentStatus}`,
-      changed_by: null,
-    });
+    await sql`
+      INSERT INTO order_status_history (order_id, status, comment, changed_by)
+      VALUES (
+        ${order.id},
+        ${paymentStatus === "paid" ? "confirmed" : "new"},
+        ${`Оплата: ${paymentStatus}`},
+        NULL
+      )
+    `;
 
     if (
       paymentStatus === "paid" &&
