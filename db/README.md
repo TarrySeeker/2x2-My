@@ -11,6 +11,8 @@ self-hosted стек для работы из РФ без VPN.
 
 ```
 db/
+├── init/
+│   └── 00_apply_migrations.sh         shell-обёртка для postgres init-folder
 ├── migrations/
 │   ├── 001_extensions_and_enums.sql   расширения + ENUM-типы
 │   ├── 002_schema.sql                 все таблицы + индексы (без RLS)
@@ -20,34 +22,43 @@ db/
 └── README.md                          этот файл
 ```
 
-## Применение миграций (локально)
+## Применение миграций (локально, через docker compose)
 
-### 1. Запустить PostgreSQL в Docker
-
-```bash
-docker run --name 2x2-pg \
-  -e POSTGRES_PASSWORD=dev \
-  -e POSTGRES_DB=shop \
-  -p 5432:5432 \
-  -d postgres:15
-```
-
-### 2. Применить миграции по порядку
+### 1. Запустить инфраструктуру
 
 ```bash
-export DATABASE_URL="postgres://postgres:dev@localhost:5432/shop"
-
-for f in db/migrations/*.sql; do
-  echo "=== $f ==="
-  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
-done
+# из корня проекта
+docker compose -f compose.dev.yml up -d
 ```
 
-### 3. Применить seed
+Postgres + MinIO поднимутся, при первом запуске init-folder
+автоматически применит все миграции + `seed.sql`. Готово.
+
+### 2. Проверка
 
 ```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/seed.sql
+psql "postgres://postgres:postgres@localhost:5432/shop2x2" -c "SELECT count(*) FROM categories;"
+# 7
 ```
+
+### 3. Полный сброс (dev)
+
+```bash
+docker compose -f compose.dev.yml down -v
+docker compose -f compose.dev.yml up -d
+```
+
+## Применение новых миграций к работающему prod-стэку
+
+Init-folder работает только на пустом volume. Если БД уже инициализирована
+и в `db/migrations/` появились новые файлы — применяй их явно:
+
+```bash
+docker compose exec app sh /app/scripts/apply-migrations.sh
+```
+
+Все миграции написаны идемпотентно (CREATE TABLE IF NOT EXISTS, etc.) —
+повторное применение безопасно.
 
 После этого в БД будет:
 
@@ -153,13 +164,19 @@ node scripts/generate-admin-hash.mjs newpass    # свой пароль
 > UPDATE users SET password_hash = '<новый_hash>' WHERE username='admin';
 > ```
 
-## Полный сброс БД (dev)
+## Старая инструкция через docker run (без compose)
+
+Если по какой-то причине не хочешь использовать docker compose:
 
 ```bash
-docker stop 2x2-pg && docker rm 2x2-pg
-docker run --name 2x2-pg -e POSTGRES_PASSWORD=dev \
-  -e POSTGRES_DB=shop -p 5432:5432 -d postgres:15
-# повторить шаги 2-3 выше
+docker build -t 2x2-postgres -f Dockerfile.postgres .
+docker run --name 2x2-pg \
+  -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=dev \
+  -e POSTGRES_DB=shop \
+  -v "$PWD/db/init/00_apply_migrations.sh:/docker-entrypoint-initdb.d/00_apply_migrations.sh:ro" \
+  -v "$PWD/db/migrations:/docker-entrypoint-initdb.d/migrations:ro" \
+  -v "$PWD/db/seed.sql:/docker-entrypoint-initdb.d/zz_seed.sql:ro" \
+  -p 5432:5432 -d 2x2-postgres
 ```
 
 ## Чем эти миграции отличаются от Supabase-версии (`supabase/migrations/`)

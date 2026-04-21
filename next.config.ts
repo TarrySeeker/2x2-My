@@ -22,13 +22,26 @@ const nextConfig: NextConfig = {
         images: {
           formats: ["image/avif", "image/webp"],
           remotePatterns: [
+            // Демо-картинки (для seed-данных и preview).
             {
               protocol: "https",
               hostname: "images.unsplash.com",
             },
+            // Self-hosted MinIO в dev (compose.dev.yml).
+            {
+              protocol: "http",
+              hostname: "localhost",
+              port: "9000",
+            },
+            // Production: Timeweb Cloud Object Storage.
             {
               protocol: "https",
-              hostname: "*.supabase.co",
+              hostname: "*.s3.timeweb.cloud",
+            },
+            // Production: MinIO под собственным доменом media.<DOMAIN>.
+            {
+              protocol: "https",
+              hostname: "media.*",
             },
           ],
         },

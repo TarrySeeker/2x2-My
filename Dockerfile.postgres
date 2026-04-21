@@ -1,0 +1,32 @@
+# =============================================================
+# 2x2-shop — кастомный образ PostgreSQL 15 с расширениями
+# =============================================================
+# Зачем:
+#   db/migrations/001_extensions_and_enums.sql использует:
+#     * pgcrypto   — входит в core PostgreSQL (always available)
+#     * pg_trgm    — обычно в contrib-пакете
+#     * unaccent   — обычно в contrib-пакете
+#
+# В официальном образе `postgres:15-alpine` эти extension files
+# (.control + .sql в /usr/local/share/postgresql/extension/)
+# **должны** быть включены — alpine собирает PostgreSQL с
+# `--with-extra-version` и contrib. Но это не гарантировано
+# на 100% между минорными версиями alpine, и если volume пустой
+# при старте — `CREATE EXTENSION unaccent` упадёт.
+#
+# Чтобы исключить риск, явно ставим contrib-пакет.
+# Размер увеличится на ~3 MB.
+# =============================================================
+FROM postgres:15-alpine
+
+# В alpine основной пакет — `postgresql15`, contrib — `postgresql15-contrib`.
+# Если установка идёт идемпотентно (apk не падает на already-installed),
+# это безопасно даже если contrib уже есть.
+RUN apk add --no-cache postgresql15-contrib
+
+# Локализация ru_RU.UTF-8 нужна для корректной сортировки русских
+# названий товаров (иначе ORDER BY title даст ASCII-порядок).
+# musl-libc в alpine не имеет полноценного locale-supplement как glibc,
+# но `lang=ru_RU.UTF-8` для UTF-8 сортировки работает через ICU.
+# В alpine нужно установить пакет `icu-data-full` для не-английских locale.
+RUN apk add --no-cache icu-data-full

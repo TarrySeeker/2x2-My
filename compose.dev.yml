@@ -1,0 +1,94 @@
+# =============================================================
+# 2x2-shop — DEV Docker Compose (только Postgres + MinIO)
+# =============================================================
+# Для локальной разработки. Next.js запускается через `pnpm dev`
+# (нативно на хосте, с быстрым HMR). В Docker крутятся только
+# инфраструктурные сервисы.
+#
+# Запуск:
+#   docker compose -f compose.dev.yml up -d
+#
+# После первого запуска:
+#   * Postgres на localhost:5432 (postgres/postgres/shop2x2)
+#     с уже применёнными миграциями + seed (через initdb).
+#   * MinIO на localhost:9000 (S3 API) и localhost:9001 (web-console).
+#     Логин minioadmin / minioadmin.
+#   * Bucket `2x2-media` создаётся автоматически (minio-init).
+#
+# Подключение Next.js (.env.local):
+#   DATABASE_URL=postgres://postgres:postgres@localhost:5432/shop2x2
+#   S3_ENDPOINT=http://localhost:9000
+#   S3_ACCESS_KEY=minioadmin
+#   S3_SECRET_KEY=minioadmin
+#   S3_BUCKET=2x2-media
+#   S3_PUBLIC_URL=http://localhost:9000/2x2-media
+#   S3_FORCE_PATH_STYLE=true
+#
+# Полный сброс БД:
+#   docker compose -f compose.dev.yml down -v
+#   docker compose -f compose.dev.yml up -d
+# =============================================================
+
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    image: 2x2-postgres:15-dev
+    container_name: 2x2-postgres-dev
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: shop2x2
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev:/var/lib/postgresql/data
+      # См. комментарий в docker-compose.yml — postgres-entrypoint не
+      # рекурсивно обходит init-folder, нужен явный shell-обход.
+      - ./db/init/00_apply_migrations.sh:/docker-entrypoint-initdb.d/00_apply_migrations.sh:ro
+      - ./db/migrations:/docker-entrypoint-initdb.d/migrations:ro
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/zz_seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d shop2x2"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: 2x2-minio-dev
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --address ":9000" --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_dev:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    container_name: 2x2-minio-init-dev
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        set -e;
+        mc alias set local http://minio:9000 minioadmin minioadmin;
+        mc mb --ignore-existing local/2x2-media;
+        mc anonymous set download local/2x2-media;
+        echo 'Dev bucket 2x2-media ready.';
+      "
+    restart: "no"
+
+volumes:
+  postgres_dev:
+  minio_dev:

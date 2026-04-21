@@ -1,10 +1,61 @@
+# =============================================================
+# .dockerignore — что НЕ попадает в build context
+# =============================================================
+# Чем меньше context — тем быстрее `docker build` и меньше layer size.
+
+# --- Node ---
 node_modules
+.pnpm-store
+
+# --- Next.js артефакты ---
 .next
-.git
-*.md
-.env*
-.vscode
+out
+next-env.d.ts
+
+# --- Тесты ---
 tests
+__tests__
 playwright-report
 test-results
+coverage
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+vitest.config.ts
+playwright.config.ts
+
+# --- Git ---
+.git
+.gitignore
+.github
+
+# --- Env (берётся из docker-compose .env) ---
+.env
+.env.*
+!.env.example
+!.env.local.example
+
+# --- Editor / OS ---
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# --- Документация (не нужна в образе) ---
+README.md
+*.md
+docs
+
+# --- Старая Supabase-папка (P2 cleanup, см. docs/DEPLOY.md) ---
 supabase
+
+# --- Docker-метаданные (рекурсия не нужна) ---
+Dockerfile*
+compose.dev.yml
+docker-compose.yml
+.dockerignore
+
+# --- CI/CD конфиги хоста ---
+deploy
+nginx

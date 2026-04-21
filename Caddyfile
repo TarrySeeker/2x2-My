@@ -1,0 +1,95 @@
+# =============================================================
+# 2x2-shop — Caddy reverse proxy
+# =============================================================
+# Документация: https://caddyserver.com/docs/caddyfile
+#
+# Что делает:
+#   * HTTPS на {$DOMAIN} с авто-сертификатом Let's Encrypt
+#     (обновляется автоматически за 30 дней до истечения).
+#   * Редирект HTTP → HTTPS (по умолчанию для всех Caddy-сайтов).
+#   * Compression: gzip + zstd.
+#   * Кэш статики Next.js (.next/static — immutable).
+#   * Security headers (HSTS, X-Frame-Options, …).
+#   * Логи access.log в /var/log/caddy с ротацией.
+#   * Лимит размера запроса 20 MB (для admin uploads).
+#
+# Локальный dev (DOMAIN=localhost):
+#   Caddy выпустит self-signed серт через локальный CA.
+#   В браузере придётся принять предупреждение.
+# =============================================================
+
+{
+    # Email для уведомлений Let's Encrypt об истечении сертов.
+    email {$ACME_EMAIL}
+    # Отключаем admin API (по умолчанию слушает 2019) — не нужен снаружи.
+    admin off
+}
+
+{$DOMAIN:localhost} {
+    # ---- Compression (zstd для современных, gzip для остальных) ----
+    encode zstd gzip
+
+    # ---- Security headers (применяются ко всем ответам) ----
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options    "nosniff"
+        X-Frame-Options           "SAMEORIGIN"
+        Referrer-Policy           "strict-origin-when-cross-origin"
+        Permissions-Policy        "camera=(), microphone=(), geolocation=()"
+        # Скрываем технические заголовки.
+        -Server
+        -X-Powered-By
+    }
+
+    # ---- Long-cache headers для immutable статики ----
+    @static {
+        path /_next/static/*
+        path /favicon.ico
+        path /robots.txt
+        path /sitemap.xml
+        path /manifest.json
+        path *.woff2
+        path *.woff
+    }
+    header @static Cache-Control "public, max-age=31536000, immutable"
+
+    # ---- Лимит тела запроса (admin загружает фото товаров до 20 MB) ----
+    request_body {
+        max_size 20MB
+    }
+
+    # ---- Reverse proxy на Next.js ----
+    # Health-check (/api/health) идёт через тот же proxy — Caddy сам
+    # пробрасывает X-Forwarded-* заголовки.
+    reverse_proxy app:3000 {
+        header_up X-Real-IP        {remote_host}
+        header_up X-Forwarded-For  {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # ---- Логи доступа ----
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 100mb
+            roll_keep 5
+            roll_keep_for 720h
+        }
+        format json
+    }
+}
+
+# -----------------------------------------------------------------
+# (опционально) MinIO console на subdomain.
+# Для production РЕКОМЕНДУЕТСЯ оставить закомментированным —
+# доступ к админке MinIO только через SSH-туннель:
+#   ssh -L 9001:localhost:9001 deploy@vps
+#   open http://localhost:9001
+# Если всё-таки нужен публичный доступ — раскомментируй блок ниже
+# и обязательно добавь basicauth (см. caddy hash-password).
+# -----------------------------------------------------------------
+# minio.{$DOMAIN:localhost} {
+#     reverse_proxy minio:9001
+#     basicauth {
+#         admin {$MINIO_BASIC_AUTH_HASH}
+#     }
+# }

@@ -1,24 +1,32 @@
-name: Deploy to VPS (Docker)
+name: Deploy Docker stack to VPS
 
+# Триггеры:
+#   * push в main → автодеплой
+#   * workflow_dispatch → ручной запуск
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
+# Один деплой одновременно (cancel-in-progress: false — не убиваем
+# уже запущенный деплой, ставим следующий в очередь).
 concurrency:
-  group: deploy-docker
+  group: deploy-docker-prod
   cancel-in-progress: false
 
 jobs:
   deploy:
-    name: Deploy via SSH + Docker Compose
+    name: SSH → git pull → docker compose up
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     environment:
       name: production
       url: ${{ vars.PROD_URL || 'https://2x2hmao.ru' }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout (для контекста — не используется на VPS)
+        uses: actions/checkout@v4
 
-      - name: Deploy via SSH
+      - name: Deploy on VPS
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -26,10 +34,61 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           script_stop: true
+          # 30 минут на сборку — Next.js build на 2 vCPU занимает ~3-5 мин,
+          # docker build app — ~5-8 мин, плюс прогрев healthcheck.
+          command_timeout: 30m
           script: |
             set -euo pipefail
-            cd /opt/shop
-            git pull origin main
-            docker compose up -d --build
-            sleep 5
-            wget -qO- http://localhost:3000/api/health | grep -q '"status":"healthy"' || (echo "health check failed"; exit 1)
+            cd /opt/2x2
+
+            echo "==> Pulling latest code"
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "==> Applying any new migrations (idempotent)"
+            # Если контейнер app ещё не запущен — пропускаем (миграции
+            # применятся через initdb при первом старте postgres).
+            if docker compose ps -q app | grep -q .; then
+              docker compose exec -T app sh /app/scripts/apply-migrations.sh || true
+            fi
+
+            echo "==> Rebuilding & restarting app + caddy"
+            # postgres и minio не пересобираем — стабильные образы.
+            docker compose up -d --build app caddy
+            # Гарантируем что postgres + minio тоже подняты (idempotent).
+            docker compose up -d postgres minio
+
+            echo "==> Waiting for app health"
+            for i in $(seq 1 30); do
+              if docker compose exec -T app wget -qO- http://127.0.0.1:3000/api/health \
+                  | grep -q '"status":"healthy"'; then
+                echo "App healthy."
+                break
+              fi
+              echo "  ... still starting ($i/30)"
+              sleep 5
+            done
+
+            echo "==> Final public health check (через Caddy + HTTPS)"
+            # PUBLIC_HEALTH_URL должен быть задан в .env на VPS
+            # (или подставится дефолт https://${DOMAIN}/api/health).
+            PUBLIC_URL="${PUBLIC_HEALTH_URL:-https://$(grep ^DOMAIN= /opt/2x2/.env | cut -d= -f2)/api/health}"
+            curl -fsSL --max-time 15 "$PUBLIC_URL" \
+              | grep -q '"status":"healthy"' \
+              || (echo "Public health check FAILED at $PUBLIC_URL"; exit 1)
+
+            echo "==> Deploy complete."
+
+      - name: Notify Telegram on success
+        if: success() && vars.NOTIFY_TELEGRAM == 'true'
+        run: |
+          curl -sS -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+            -d text="2x2-shop deployed: ${{ github.sha }} by ${{ github.actor }}"
+
+      - name: Notify Telegram on failure
+        if: failure() && vars.NOTIFY_TELEGRAM == 'true'
+        run: |
+          curl -sS -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
+            -d text="2x2-shop deploy FAILED: ${{ github.sha }} run=${{ github.run_id }}"

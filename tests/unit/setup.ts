@@ -3,7 +3,7 @@ import { vi, beforeEach } from "vitest";
 vi.mock("server-only", () => ({}));
 
 beforeEach(() => {
-  vi.restoreAllMocks();
+  vi.clearAllMocks();
 });
 
 class MemoryStorage implements Storage {

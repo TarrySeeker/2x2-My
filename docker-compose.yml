@@ -1,14 +1,238 @@
+# =============================================================
+# 2x2-shop — production Docker Compose
+# =============================================================
+# Стэк (всё в одной сети, всё в Docker, на одном VPS):
+#   1. postgres   — PostgreSQL 15 + расширения (pg_trgm, unaccent, pgcrypto)
+#   2. minio      — S3-совместимое хранилище для медиа
+#   3. minio-init — однократный сайдкар: создаёт bucket с public-read
+#   4. app        — Next.js 16 (standalone) на порту 3000
+#   5. caddy      — reverse proxy с auto-SSL Let's Encrypt
+#
+# Переменные:
+#   все секреты тянутся из ./.env (рядом с этим файлом).
+#   См. .env.example.
+#
+# Запуск:
+#   docker compose up -d --build
+#
+# Обновление кода:
+#   git pull && docker compose up -d --build app
+#
+# Применение новых миграций (после первого запуска):
+#   docker compose exec app sh /app/scripts/apply-migrations.sh
+# =============================================================
+
 services:
-  shop:
-    build: .
-    restart: always
-    ports:
-      - "3000:3000"
-    env_file:
-      - .env.production
+  # -----------------------------------------------------------
+  # PostgreSQL 15 с расширениями pg_trgm, unaccent, pgcrypto
+  # -----------------------------------------------------------
+  postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    image: 2x2-postgres:15
+    container_name: 2x2-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Усиленная аутентификация — scram-sha-256 вместо md5.
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Миграции и seed применяются ТОЛЬКО при первой инициализации
+      # пустого volume (postgres entrypoint так устроен). Для повторного
+      # применения — `scripts/apply-migrations.sh` через `docker compose exec app`.
+      #
+      # Postgres-entrypoint не рекурсивно обходит init-folder, поэтому
+      # вручную монтируем 00_apply_migrations.sh + папку migrations/ + seed:
+      - ./db/init/00_apply_migrations.sh:/docker-entrypoint-initdb.d/00_apply_migrations.sh:ro
+      - ./db/migrations:/docker-entrypoint-initdb.d/migrations:ro
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/zz_seed.sql:ro
+    networks:
+      - app-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    # Не пробрасываем порт наружу — доступ только из app-network.
+    # При необходимости отладки: docker compose exec postgres psql -U $POSTGRES_USER $POSTGRES_DB
+    expose:
+      - "5432"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # -----------------------------------------------------------
+  # MinIO (S3-совместимое хранилище для медиа)
+  # -----------------------------------------------------------
+  # Для production можно заменить на Timeweb Cloud Object Storage —
+  # тогда удалить services minio + minio-init, оставить только
+  # переменные S3_* в .env (с S3_ENDPOINT=https://s3.timeweb.cloud).
+  minio:
+    # Фиксированный тэг вместо :latest — для воспроизводимости.
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: 2x2-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      # Внутренний браузер консоли (защищён ROOT_PASSWORD).
+      MINIO_BROWSER_REDIRECT_URL: ${MINIO_CONSOLE_URL:-http://localhost:9001}
+    command: server /data --address ":9000" --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - app-network
+    expose:
+      - "9000"
+      - "9001"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # -----------------------------------------------------------
+  # MinIO init — одноразовый сайдкар
+  # -----------------------------------------------------------
+  # Создаёт bucket S3_BUCKET и выставляет ему public-read policy.
+  # После завершения контейнер выходит с кодом 0 (restart: "no").
+  # На повторных `up -d` выполняется снова — операции идемпотентны.
+  minio-init:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    container_name: 2x2-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - app-network
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET: ${S3_BUCKET}
+    entrypoint: >
+      /bin/sh -c "
+        set -e;
+        mc alias set local http://minio:9000 \"$$MINIO_ROOT_USER\" \"$$MINIO_ROOT_PASSWORD\";
+        mc mb --ignore-existing \"local/$$S3_BUCKET\";
+        mc anonymous set download \"local/$$S3_BUCKET\";
+        echo 'MinIO bucket initialized: '$$S3_BUCKET;
+      "
+    restart: "no"
+
+  # -----------------------------------------------------------
+  # Next.js приложение (standalone)
+  # -----------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: 2x2-shop:latest
+    container_name: 2x2-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      # DATABASE_URL переопределяем здесь, чтобы не путать пользователя:
+      # внутри сети используется service-name `postgres`, а не localhost.
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # S3_ENDPOINT и S3_PUBLIC_URL остаются из .env, чтобы оператор
+      # мог переключиться с MinIO на Timeweb Cloud не пересобирая стэк.
+    networks:
+      - app-network
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # -----------------------------------------------------------
+  # Caddy — reverse proxy с auto-SSL Let's Encrypt
+  # -----------------------------------------------------------
+  # Зачем Caddy, а не nginx:
+  #   * Auto-SSL без certbot — Caddy сам выпускает и продлевает
+  #     сертификаты Let's Encrypt при первом запросе на 443.
+  #   * Конфиг в 10 строк вместо 100 (нет boilerplate про SSL).
+  #   * HTTP/3 (QUIC) из коробки.
+  # Ограничения:
+  #   * Нужен валидный домен с A-записью на IP VPS ДО первого запуска,
+  #     иначе Caddy будет циклически пытаться выпустить серт.
+  #   * Для локального dev — DOMAIN=localhost, Caddy выдаст self-signed.
+  caddy:
+    image: caddy:2.10-alpine
+    container_name: 2x2-caddy
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"  # HTTP/3 (QUIC)
+    environment:
+      DOMAIN: ${DOMAIN}
+      # ACME_EMAIL для Let's Encrypt уведомлений об истечении сертов.
+      ACME_EMAIL: ${ACME_EMAIL:-admin@${DOMAIN}}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data       # сертификаты, ACME-аккаунт
+      - caddy_config:/config   # автосгенерированный JSON-конфиг
+      - caddy_logs:/var/log/caddy
+    networks:
+      - app-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+# ===============================================================
+# Сети и тома
+# ===============================================================
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  # PostgreSQL data — критично, бэкапить через scripts/backup-db.sh
+  postgres_data:
+    driver: local
+  # MinIO data — медиа (фото товаров, портфолио). Бэкапить отдельно
+  # (mc mirror на внешнее хранилище раз в сутки).
+  minio_data:
+    driver: local
+  # Caddy: сертификаты Let's Encrypt — терять нельзя
+  # (rate-limit ACME 5 серт/неделя на домен).
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+  caddy_logs:
+    driver: local
