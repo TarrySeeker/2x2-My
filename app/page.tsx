@@ -1,4 +1,5 @@
 import HeroSection from '@/components/sections/HeroSection'
+import TrustBar from '@/components/sections/TrustBar'
 import ServicesPreview from '@/components/sections/ServicesPreview'
 import PromotionsSection from '@/components/sections/PromotionsSection'
 import PortfolioPreview from '@/components/sections/PortfolioPreview'
@@ -27,13 +28,14 @@ export const generateMetadata = makeGenerateMetadata({
 /**
  * Порядок секций главной (master-plan правка 5, 2026-04-23):
  *  1. Hero
- *  2. Услуги (с кнопкой «Заказать» под каждой и блоком «Также мы занимаемся»)
- *  3. Акции
- *  4. Наши работы (3 featured)
- *  5. О компании (с «Мы вас понимаем» + 17 городов)
- *  6. Почему выбирают нас
- *  7. Частые вопросы
- *  8. CTA (без волны)
+ *  2. Trust-bar (клиенты; рендерится только если site_settings.homepage_trust_bar.clients непустой)
+ *  3. Услуги (с кнопкой «Заказать» под каждой и блоком «Также мы занимаемся»)
+ *  4. Акции
+ *  5. Наши работы (3 featured)
+ *  6. О компании (с «Мы вас понимаем» + 17 городов)
+ *  7. Почему выбирают нас
+ *  8. Частые вопросы
+ *  9. CTA (без волны)
  *
  * Удалено: TestimonialsSection (по решению клиента — компания не собирает
  * публичные отзывы на текущем этапе).
@@ -42,6 +44,7 @@ export default function HomePage() {
   return (
     <main>
       <HeroSection />
+      <TrustBar />
       <ServicesPreview />
       <PromotionsSection />
       <PortfolioPreview />
