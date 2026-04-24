@@ -309,10 +309,13 @@ curl -fsSL https://<DOMAIN>/api/health | jq
 
 GitHub Actions делает то же самое автоматически
 (`.github/workflows/deploy-docker.yml`) — нужно настроить секреты:
-- `DEPLOY_HOST` = `<VPS_IP>`
+- `DEPLOY_HOST` = `<VPS_IP>` (например `130.49.129.65`)
 - `DEPLOY_USER` = `deploy`
 - `DEPLOY_SSH_KEY` = приватный SSH-ключ для пользователя deploy
 - `DEPLOY_PORT` = `22` (опционально)
+
+Полная инструкция по настройке CI/CD, генерации ключа и отладке —
+в [`docs/CI_CD.md`](./CI_CD.md).
 
 ---
 
