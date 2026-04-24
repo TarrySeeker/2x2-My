@@ -2,25 +2,48 @@
 
 import Link from 'next/link'
 
+export interface PdConsentStrings {
+  /** Текст до ссылки, напр. «Нажимая кнопку, я соглашаюсь с» */
+  prefix: string
+  /** Текст самой ссылки, напр. «политикой конфиденциальности» */
+  linkText: string
+  /** Текст после ссылки, напр. «и даю согласие на обработку персональных данных.» */
+  suffix: string
+  /** URL политики (обычно /privacy). */
+  href: string
+}
+
+const DEFAULT_STRINGS: PdConsentStrings = {
+  prefix: 'Нажимая кнопку, я соглашаюсь с',
+  linkText: 'политикой конфиденциальности',
+  suffix: 'и даю согласие на обработку персональных данных.',
+  href: '/privacy',
+}
+
 interface PdConsentFieldProps {
   checked: boolean
   onChange: (next: boolean) => void
   error?: string
   /** Отдельный id, если на странице несколько форм (нельзя дублировать). */
   id?: string
+  /** Переопределяем строки. Если не передано — используется fallback. */
+  strings?: PdConsentStrings
 }
 
 /**
  * Чекбокс согласия на обработку ПД (152-ФЗ). Обязателен в любой форме
  * обратной связи (master-plan правка C.security).
  *
- * Тексты — наша короткая фразировка. Основная политика — по ссылке /privacy.
+ * Строки можно переопределить через `strings`. Если не передано —
+ * используются русские fallback-тексты. Client component: текст обычно
+ * пробрасывается из server-wrapper, прочитавшего ui_strings.
  */
 export default function PdConsentField({
   checked,
   onChange,
   error,
   id = 'pd-consent',
+  strings = DEFAULT_STRINGS,
 }: PdConsentFieldProps) {
   return (
     <div>
@@ -35,11 +58,14 @@ export default function PdConsentField({
           className="mt-1 h-5 w-5 shrink-0 cursor-pointer rounded border-neutral-300 text-brand-orange accent-[#FF6B00] focus:ring-brand-orange/30"
         />
         <span className="text-sm leading-relaxed text-neutral-600">
-          Нажимая кнопку, я соглашаюсь с{' '}
-          <Link href="/privacy" className="text-brand-orange underline-offset-2 hover:underline">
-            политикой конфиденциальности
+          {strings.prefix}{' '}
+          <Link
+            href={strings.href}
+            className="text-brand-orange underline-offset-2 hover:underline"
+          >
+            {strings.linkText}
           </Link>{' '}
-          и даю согласие на обработку персональных данных.
+          {strings.suffix}
         </span>
       </label>
       {error && (

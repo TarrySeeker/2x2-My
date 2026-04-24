@@ -1,198 +1,124 @@
-"use client";
+import { getAllUiStrings } from "@/lib/data/ui-strings";
+import { getSettingValue } from "@/lib/data/settings";
+import OneClickModalClient, {
+  type OneClickModalStrings,
+} from "./OneClickModalClient";
+import type { PdConsentStrings } from "./PdConsentField";
 
-import { useState } from "react";
-import { Check, Phone, User, MessageSquare } from "lucide-react";
-import { toast } from "sonner";
-import Modal from "@/components/ui/Modal";
-import Input from "@/components/ui/Input";
-import Button from "@/components/ui/Button";
-import { useUIStore } from "@/store/ui";
-import { trackEvent, EVENTS } from "@/lib/analytics";
-import PdConsentField from "./PdConsentField";
+interface ContactsValue {
+  phone_primary?: string;
+}
 
-const PHONE_REGEX = /^\+?\d[\d\s\-()]{6,}$/;
+const FALLBACK_PHONE = "+7-932-424-77-40";
 
-interface LeadResponse {
-  success?: boolean;
-  duplicate?: boolean;
-  lead_id?: number;
-  error?: string;
+const FALLBACK: OneClickModalStrings = {
+  title: "Быстрый расчёт",
+  description:
+    "Оставьте номер — перезвоним в течение 15 минут и поможем оформить заявку.",
+  descriptionWithProduct: (productName) =>
+    `${productName} — менеджер свяжется в течение 15 минут, уточнит параметры и пришлёт стоимость.`,
+  nameLabel: "Как к вам обращаться",
+  phoneLabel: "Телефон",
+  commentLabel: "Опишите вашу задачу",
+  namePlaceholder: "Александр",
+  phonePlaceholder: "+7 932 424 77 40",
+  commentPlaceholder: "Тираж, размеры, дата, особые пожелания",
+  submitLabel: "Отправить заявку",
+  sendingLabel: "Отправляем…",
+  successMessage:
+    "Заявка принята. Менеджер «2х2» свяжется с вами в течение 15 минут в рабочее время (Пн–Пт 9:00–19:00).",
+  errorMessage: "Не удалось отправить заявку. Позвоните нам напрямую.",
+  errorMessageWithPhone: (phone) =>
+    `Не удалось отправить заявку. Позвоните: ${phone}`,
+  nameRequired: "Укажите имя",
+  phoneInvalid: "Некорректный телефон",
+  consentRequired: "Нужно согласие на обработку персональных данных",
+};
+
+const CONSENT_FALLBACK: PdConsentStrings = {
+  prefix: "Нажимая кнопку, я соглашаюсь с",
+  linkText: "политикой конфиденциальности",
+  suffix: "и даю согласие на обработку персональных данных.",
+  href: "/privacy",
+};
+
+function pick(dict: Record<string, string>, key: string, fallback: string): string {
+  const v = dict[key];
+  return v && v.length > 0 ? v : fallback;
+}
+
+function parseConsent(markdown: string): PdConsentStrings | null {
+  const m = /^([\s\S]*?)\[([^\]]+)\]\(([^)]+)\)([\s\S]*)$/.exec(markdown);
+  if (!m) return null;
+  return {
+    prefix: m[1]!.trim(),
+    linkText: m[2]!.trim(),
+    href: m[3]!.trim(),
+    suffix: m[4]!.trim(),
+  };
 }
 
 /**
- * «Быстрый расчёт» — мини-форма для одного товара.
- *
- * После Этапа 4 (master-plan правка C.P1-9) бьёт в `/api/leads/one-click`
- * (а не в старый `/api/orders`, который теперь 410 Gone).
- * Все обязательные security-поля: pdConsent + Idempotency-Key.
- *
- * Имя «OneClickModal» сохранено для совместимости с существующими
- * импортами (ShopModals и т.п.) — внутри это уже расчётная заявка,
- * а не «купить в 1 клик».
+ * Server-обёртка OneClickModal. Читает все микротексты из ui_strings
+ * (namespaces: modals, validation, agreements). Клиентская логика —
+ * в OneClickModalClient.
  */
-export default function OneClickModal() {
-  const { oneClickModalOpen, oneClickProduct, closeOneClick } = useUIStore();
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [comment, setComment] = useState("");
-  const [consent, setConsent] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [errors, setErrors] = useState<{ name?: string; phone?: string; consent?: string }>({});
+export default async function OneClickModal() {
+  const dict = await getAllUiStrings();
+  const contacts = await getSettingValue<ContactsValue>("contacts", {
+    phone_primary: FALLBACK_PHONE,
+  });
+  const phoneDisplay = contacts.phone_primary || FALLBACK_PHONE;
 
-  const [idempotencyKey, setIdempotencyKey] = useState(() =>
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-  );
+  const consentStrings =
+    parseConsent(dict["agreement.privacy_markdown"] || "") ?? CONSENT_FALLBACK;
 
-  const reset = () => {
-    setName("");
-    setPhone("");
-    setComment("");
-    setConsent(false);
-    setErrors({});
-    setIdempotencyKey(
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    );
-  };
-
-  const handleClose = () => {
-    if (sending) return;
-    reset();
-    closeOneClick();
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const nextErrors: typeof errors = {};
-    if (!name.trim()) nextErrors.name = "Укажите имя";
-    if (!PHONE_REGEX.test(phone)) nextErrors.phone = "Некорректный телефон";
-    if (!consent) nextErrors.consent = "Нужно согласие на обработку персональных данных";
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length) return;
-
-    setSending(true);
-    let success = false;
-    let serverMessage: string | null = null;
-
-    try {
-      const res = await fetch("/api/leads/one-click", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "Idempotency-Key": idempotencyKey,
-        },
-        body: JSON.stringify({
-          name: name.trim(),
-          phone: phone.trim(),
-          comment: comment.trim() || undefined,
-          product_id: oneClickProduct?.id,
-          product_name: oneClickProduct?.name ?? undefined,
-          page_url: typeof window !== "undefined" ? window.location.href : undefined,
-          pdConsent: true,
-        }),
-      });
-
-      const json = (await res.json().catch(() => null)) as LeadResponse | null;
-      success = res.ok && (json?.success === true || !!json?.lead_id || !!json?.duplicate);
-
-      if (!success) {
-        serverMessage = json?.error ?? null;
-        console.warn("[OneClickModal] /api/leads/one-click not ok", res.status, json);
-      }
-    } catch (err) {
-      console.warn("[OneClickModal] network error", err);
-    } finally {
-      setSending(false);
-    }
-
-    trackEvent(EVENTS.one_click_submit, {
-      productId: oneClickProduct?.id,
-      ok: success,
-    });
-
-    if (success) {
-      toast.success(
-        "Заявка принята. Менеджер «2х2» свяжется с вами в течение 15 минут в рабочее время (Пн–Пт 9:00–19:00).",
-        { icon: <Check className="h-5 w-5" /> },
-      );
-      reset();
-      closeOneClick();
-      return;
-    }
-
-    toast.error(
-      serverMessage ??
-        "Не удалось отправить заявку. Позвоните: +7-932-424-77-40",
-    );
-    // Не сбрасываем форму и не закрываем модалку — даём пользователю
-    // повторить отправку (с тем же Idempotency-Key, чтобы дубль на
-    // сервере не создался).
+  const strings: OneClickModalStrings = {
+    title: pick(dict, "modal.oneclick.title", FALLBACK.title),
+    description: pick(dict, "modal.oneclick.description", FALLBACK.description),
+    descriptionWithProduct: FALLBACK.descriptionWithProduct,
+    nameLabel: pick(dict, "modal.oneclick.name_label", FALLBACK.nameLabel),
+    phoneLabel: pick(dict, "modal.oneclick.phone_label", FALLBACK.phoneLabel),
+    commentLabel: FALLBACK.commentLabel,
+    namePlaceholder: pick(
+      dict,
+      "modal.oneclick.name_placeholder",
+      FALLBACK.namePlaceholder,
+    ),
+    phonePlaceholder: pick(
+      dict,
+      "modal.oneclick.phone_placeholder",
+      FALLBACK.phonePlaceholder,
+    ),
+    commentPlaceholder: FALLBACK.commentPlaceholder,
+    submitLabel: pick(dict, "modal.oneclick.submit_label", FALLBACK.submitLabel),
+    sendingLabel: FALLBACK.sendingLabel,
+    successMessage: pick(
+      dict,
+      "modal.oneclick.success_message",
+      FALLBACK.successMessage,
+    ),
+    errorMessage: pick(
+      dict,
+      "modal.oneclick.error_message",
+      FALLBACK.errorMessage,
+    ),
+    errorMessageWithPhone: (phone) =>
+      `${pick(dict, "modal.oneclick.error_message", FALLBACK.errorMessage)} ${phone}`,
+    nameRequired: pick(dict, "validation.name_required", FALLBACK.nameRequired),
+    phoneInvalid: pick(dict, "validation.phone_invalid", FALLBACK.phoneInvalid),
+    consentRequired: pick(
+      dict,
+      "validation.agreement_required",
+      FALLBACK.consentRequired,
+    ),
   };
 
   return (
-    <Modal
-      open={oneClickModalOpen}
-      onClose={handleClose}
-      title="Быстрый расчёт"
-      description={
-        oneClickProduct
-          ? `${oneClickProduct.name} — менеджер свяжется в течение 15 минут, уточнит параметры и пришлёт стоимость.`
-          : "Оставьте номер — перезвоним в течение 15 минут и поможем оформить заявку."
-      }
-    >
-      <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
-        <Input
-          label="Как к вам обращаться"
-          name="name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Александр"
-          leftSlot={<User className="h-4 w-4" />}
-          error={errors.name}
-          autoComplete="name"
-          required
-        />
-        <Input
-          label="Телефон"
-          name="phone"
-          type="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="+7 932 424 77 40"
-          leftSlot={<Phone className="h-4 w-4" />}
-          error={errors.phone}
-          autoComplete="tel"
-          required
-        />
-        <Input
-          label="Опишите вашу задачу"
-          name="comment"
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          placeholder="Тираж, размеры, дата, особые пожелания"
-          leftSlot={<MessageSquare className="h-4 w-4" />}
-          aria-label="Опишите вашу задачу"
-        />
-
-        <PdConsentField
-          checked={consent}
-          onChange={setConsent}
-          error={errors.consent}
-          id="oneclick-consent"
-        />
-
-        <Button
-          type="submit"
-          loading={sending}
-          disabled={!consent || sending}
-          className="w-full"
-        >
-          {sending ? "Отправляем…" : "Отправить заявку"}
-        </Button>
-      </form>
-    </Modal>
+    <OneClickModalClient
+      strings={strings}
+      consentStrings={consentStrings}
+      phoneDisplay={phoneDisplay}
+    />
   );
 }
