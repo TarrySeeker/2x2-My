@@ -64,6 +64,42 @@ export const pdConsentSettingSchema = z.object({
   policy_url:      z.string().min(1).max(500),
 });
 
+// ============================================================
+// legal_entity — юр. реквизиты компании (миграция 008).
+// Используется на /privacy, в футере и в договорах.
+// Все поля опциональные — клиент заполняет через админку.
+// Валидация цифровых полей — через regex (пустая строка тоже ок).
+// ============================================================
+const digitsOrEmpty = (exact: number[], label: string) =>
+  z
+    .string()
+    .max(40)
+    .optional()
+    .default("")
+    .refine(
+      (v) => {
+        if (!v) return true;                // пустая строка допустима
+        if (!/^\d+$/.test(v)) return false; // только цифры
+        return exact.includes(v.length);    // длина — одна из допустимых
+      },
+      {
+        message: `${label}: ожидаются только цифры, длина ${exact.join(" или ")}`,
+      },
+    );
+
+export const legalEntitySettingSchema = z.object({
+  legal_name:     z.string().max(300).optional().default(""),
+  inn:            digitsOrEmpty([10, 12], "ИНН"),                 // 10 — ЮЛ, 12 — ИП
+  ogrn:           digitsOrEmpty([13, 15], "ОГРН/ОГРНИП"),         // 13 — ОГРН, 15 — ОГРНИП
+  kpp:            digitsOrEmpty([9], "КПП"),                      // 9 знаков
+  legal_address:  z.string().max(500).optional().default(""),
+  actual_address: z.string().max(500).optional().default(""),
+  ceo_name:       z.string().max(200).optional().default(""),
+  bank_account:   digitsOrEmpty([20], "Расчётный счёт"),          // 20 цифр
+  bank_name:      z.string().max(200).optional().default(""),
+  bik:            digitsOrEmpty([9], "БИК"),                      // 9 цифр
+});
+
 export const SITE_SETTING_SCHEMAS = {
   contacts:       contactsSettingSchema,
   business_hours: businessHoursSettingSchema,
@@ -71,6 +107,7 @@ export const SITE_SETTING_SCHEMAS = {
   stats:          statsSettingSchema,
   seo_defaults:   seoDefaultsSettingSchema,
   pd_consent:     pdConsentSettingSchema,
+  legal_entity:   legalEntitySettingSchema,
 } as const satisfies Record<string, z.ZodTypeAny>;
 
 export type SiteSettingKey = keyof typeof SITE_SETTING_SCHEMAS;

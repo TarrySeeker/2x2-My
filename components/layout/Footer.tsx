@@ -24,6 +24,18 @@ interface SocialsValue {
   dzen?: string
 }
 
+interface LegalEntityValue {
+  legal_name?: string
+  inn?: string
+  ogrn?: string
+}
+
+const DEFAULT_LEGAL: LegalEntityValue = {
+  legal_name: '',
+  inn: '',
+  ogrn: '',
+}
+
 const DEFAULT_CONTACTS: ContactsValue = {
   phone_primary: '+7-932-424-77-40',
   phone_secondary: '+7-904-480-77-40',
@@ -51,6 +63,21 @@ export default async function Footer() {
   const contacts = await getSettingValue<ContactsValue>('contacts', DEFAULT_CONTACTS)
   const hours = await getSettingValue<BusinessHoursValue>('business_hours', DEFAULT_HOURS)
   const socials = await getSettingValue<SocialsValue>('socials', DEFAULT_SOCIALS)
+  const legal = await getSettingValue<LegalEntityValue>('legal_entity', DEFAULT_LEGAL)
+
+  const legalName = legal.legal_name?.trim() ?? ''
+  const legalInn = legal.inn?.trim() ?? ''
+  const legalOgrn = legal.ogrn?.trim() ?? ''
+
+  const legalLineParts: string[] = []
+  if (legalName) legalLineParts.push(legalName)
+  if (legalInn) legalLineParts.push(`ИНН: ${legalInn}`)
+  if (legalOgrn) legalLineParts.push(`ОГРН: ${legalOgrn}`)
+  // Fallback: старые хардкод-данные, если клиент ещё не заполнил админку.
+  const legalLine =
+    legalLineParts.length > 0
+      ? legalLineParts.join(' · ')
+      : 'ИНН: 861006205140 · ОГРН: 323861700071382'
 
   const phoneDisplay = contacts.phone_primary || DEFAULT_CONTACTS.phone_primary!
   const phoneTel = digitsOnly(phoneDisplay)
@@ -174,9 +201,7 @@ export default async function Footer() {
           <p className="text-gray-500 text-sm">
             © {year} 2×2 Рекламное агентство. Все права защищены.
           </p>
-          <p className="text-gray-600 text-xs">
-            ИНН: 861006205140 · ОГРН: 323861700071382
-          </p>
+          <p className="text-gray-600 text-xs">{legalLine}</p>
         </div>
       </div>
     </footer>

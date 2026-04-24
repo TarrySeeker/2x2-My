@@ -32,6 +32,18 @@ const DEFAULTS: SiteSettingsBundle = {
     default_description: "",
     default_og_image: "",
   },
+  legal_entity: {
+    legal_name: "",
+    inn: "",
+    ogrn: "",
+    kpp: "",
+    legal_address: "",
+    actual_address: "",
+    ceo_name: "",
+    bank_account: "",
+    bank_name: "",
+    bik: "",
+  },
 };
 
 export default async function SiteSettingsPage() {
@@ -53,6 +65,9 @@ export default async function SiteSettingsPage() {
     seo_defaults:
       (map.get("seo_defaults") as SiteSettingsBundle["seo_defaults"]) ??
       DEFAULTS.seo_defaults,
+    legal_entity:
+      (map.get("legal_entity") as SiteSettingsBundle["legal_entity"]) ??
+      DEFAULTS.legal_entity,
   };
 
   return <SiteSettingsPageClient initial={bundle} />;

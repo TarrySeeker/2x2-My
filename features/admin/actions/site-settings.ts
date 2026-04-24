@@ -53,6 +53,7 @@ export async function updateSiteSettingAction(
     revalidatePath("/");
     revalidatePath("/contacts");
     revalidatePath("/about");
+    revalidatePath("/privacy");
     revalidatePath("/admin/content/settings");
 
     try {

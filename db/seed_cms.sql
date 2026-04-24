@@ -78,6 +78,24 @@ INSERT INTO site_settings (key, value) VALUES
       "current_version": "2026-04-23",
       "policy_url":      "/privacy"
     }
+  $$::jsonb),
+
+  -- legal_entity: юр. реквизиты (миграция 008). Все пустые — клиент
+  -- заполнит через /admin/content/settings. НЕ хардкодим реальные
+  -- данные компании.
+  ('legal_entity', $$
+    {
+      "legal_name":     "",
+      "inn":            "",
+      "ogrn":           "",
+      "kpp":            "",
+      "legal_address":  "",
+      "actual_address": "",
+      "ceo_name":       "",
+      "bank_account":   "",
+      "bank_name":      "",
+      "bik":            ""
+    }
   $$::jsonb)
 ON CONFLICT (key) DO NOTHING;
 

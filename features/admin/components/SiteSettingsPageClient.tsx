@@ -17,6 +17,7 @@ import {
   X,
   MapPin,
   Mail,
+  Building2,
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -26,6 +27,7 @@ import {
   socialsSettingSchema,
   statsSettingSchema,
   seoDefaultsSettingSchema,
+  legalEntitySettingSchema,
 } from "@/features/admin/schemas/site-settings";
 import { updateSiteSettingAction } from "@/features/admin/actions/site-settings";
 import AdminPageHeader from "./AdminPageHeader";
@@ -57,6 +59,18 @@ export interface SiteSettingsBundle {
     default_description?: string;
     default_og_image?: string;
   };
+  legal_entity: {
+    legal_name?: string;
+    inn?: string;
+    ogrn?: string;
+    kpp?: string;
+    legal_address?: string;
+    actual_address?: string;
+    ceo_name?: string;
+    bank_account?: string;
+    bank_name?: string;
+    bik?: string;
+  };
 }
 
 const TABS = [
@@ -65,6 +79,7 @@ const TABS = [
   { key: "socials", label: "Соцсети", icon: Share2 },
   { key: "stats", label: "Статистика", icon: BarChart3 },
   { key: "seo", label: "SEO", icon: Search },
+  { key: "legal", label: "Реквизиты", icon: Building2 },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -112,6 +127,7 @@ export default function SiteSettingsPageClient({
         {tab === "socials" && <SocialsForm defaults={initial.socials} />}
         {tab === "stats" && <StatsForm defaults={initial.stats} />}
         {tab === "seo" && <SeoForm defaults={initial.seo_defaults} />}
+        {tab === "legal" && <LegalEntityForm defaults={initial.legal_entity} />}
       </div>
     </div>
   );
@@ -621,6 +637,196 @@ function SeoForm({
         </Field>
 
         <SaveButton isSubmitting={isSubmitting} />
+      </form>
+    </FormCard>
+  );
+}
+
+// ── Реквизиты (юр. лицо) ──
+function LegalEntityForm({
+  defaults,
+}: {
+  defaults: SiteSettingsBundle["legal_entity"];
+}) {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<SiteSettingsBundle["legal_entity"]>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(legalEntitySettingSchema) as any,
+    defaultValues: {
+      legal_name: defaults.legal_name ?? "",
+      inn: defaults.inn ?? "",
+      ogrn: defaults.ogrn ?? "",
+      kpp: defaults.kpp ?? "",
+      legal_address: defaults.legal_address ?? "",
+      actual_address: defaults.actual_address ?? "",
+      ceo_name: defaults.ceo_name ?? "",
+      bank_account: defaults.bank_account ?? "",
+      bank_name: defaults.bank_name ?? "",
+      bik: defaults.bik ?? "",
+    },
+  });
+
+  async function onSubmit(data: SiteSettingsBundle["legal_entity"]) {
+    const res = await updateSiteSettingAction("legal_entity", data);
+    if (!res.ok) toast.error(res.error ?? "Ошибка сохранения");
+    else toast.success("Реквизиты сохранены");
+  }
+
+  return (
+    <FormCard>
+      <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-3.5 text-xs leading-relaxed text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+        Юридические реквизиты используются на странице{" "}
+        <span className="font-semibold">/privacy</span>, в футере сайта и в
+        коммерческих документах. Все поля опциональные — пустые не будут
+        отображаться. Для ИНН, ОГРН, КПП, БИК и расчётного счёта принимаются
+        только цифры фиксированной длины.
+      </div>
+
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="grid gap-4 sm:grid-cols-2"
+      >
+        <Field
+          label="Юридическое название"
+          hint='Например: ООО «Рекламная компания 2х2» или ИП Иванов И.И.'
+          error={errors.legal_name?.message}
+        >
+          <input
+            {...register("legal_name")}
+            maxLength={300}
+            className={inputCn}
+            placeholder='ООО «Рекламная компания 2х2»'
+          />
+        </Field>
+
+        <Field
+          label="ФИО директора"
+          hint="Используется в договорах"
+          error={errors.ceo_name?.message}
+        >
+          <input
+            {...register("ceo_name")}
+            maxLength={200}
+            className={inputCn}
+            placeholder="Иванов Иван Иванович"
+          />
+        </Field>
+
+        <Field
+          label="ИНН"
+          hint="10 цифр для юрлиц, 12 цифр для ИП"
+          error={errors.inn?.message}
+        >
+          <input
+            {...register("inn")}
+            inputMode="numeric"
+            pattern="\d*"
+            maxLength={12}
+            className={inputCn}
+            placeholder="1234567890"
+          />
+        </Field>
+
+        <Field
+          label="ОГРН / ОГРНИП"
+          hint="13 цифр — ОГРН (ЮЛ), 15 цифр — ОГРНИП (ИП)"
+          error={errors.ogrn?.message}
+        >
+          <input
+            {...register("ogrn")}
+            inputMode="numeric"
+            pattern="\d*"
+            maxLength={15}
+            className={inputCn}
+            placeholder="1234567890123"
+          />
+        </Field>
+
+        <Field
+          label="КПП"
+          hint="9 цифр, только для юрлиц. У ИП — отсутствует"
+          error={errors.kpp?.message}
+        >
+          <input
+            {...register("kpp")}
+            inputMode="numeric"
+            pattern="\d*"
+            maxLength={9}
+            className={inputCn}
+            placeholder="123456789"
+          />
+        </Field>
+
+        <Field label="БИК банка" hint="9 цифр" error={errors.bik?.message}>
+          <input
+            {...register("bik")}
+            inputMode="numeric"
+            pattern="\d*"
+            maxLength={9}
+            className={inputCn}
+            placeholder="044525225"
+          />
+        </Field>
+
+        <Field
+          label="Юридический адрес"
+          hint="По свидетельству о регистрации"
+          error={errors.legal_address?.message}
+        >
+          <input
+            {...register("legal_address")}
+            maxLength={500}
+            className={inputCn}
+            placeholder="628011, ХМАО-Югра, г. Ханты-Мансийск, ул. Парковая, д. 92 Б"
+          />
+        </Field>
+
+        <Field
+          label="Фактический адрес"
+          hint="Если отличается от юридического"
+          error={errors.actual_address?.message}
+        >
+          <input
+            {...register("actual_address")}
+            maxLength={500}
+            className={inputCn}
+            placeholder="628011, г. Ханты-Мансийск, ул. Парковая, д. 92 Б"
+          />
+        </Field>
+
+        <Field
+          label="Расчётный счёт"
+          hint="20 цифр"
+          error={errors.bank_account?.message}
+        >
+          <input
+            {...register("bank_account")}
+            inputMode="numeric"
+            pattern="\d*"
+            maxLength={20}
+            className={inputCn}
+            placeholder="40702810000000000000"
+          />
+        </Field>
+
+        <Field
+          label="Название банка"
+          error={errors.bank_name?.message}
+        >
+          <input
+            {...register("bank_name")}
+            maxLength={200}
+            className={inputCn}
+            placeholder="ПАО Сбербанк"
+          />
+        </Field>
+
+        <div className="sm:col-span-2">
+          <SaveButton isSubmitting={isSubmitting} />
+        </div>
       </form>
     </FormCard>
   );

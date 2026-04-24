@@ -4,6 +4,40 @@ import ServicesHero from '@/components/sections/services/ServicesHero'
 import AnimatedSection from '@/components/ui/AnimatedSection'
 import { buildMetadata } from '@/lib/seo/metadata'
 import { JsonLdScript, buildBreadcrumbList } from '@/lib/seo/json-ld'
+import { getSettingValue } from '@/lib/data/settings'
+
+interface LegalEntityValue {
+  legal_name?: string
+  inn?: string
+  ogrn?: string
+  kpp?: string
+  legal_address?: string
+  actual_address?: string
+  ceo_name?: string
+  bank_account?: string
+  bank_name?: string
+  bik?: string
+}
+
+const LEGAL_ENTITY_DEFAULTS: LegalEntityValue = {
+  legal_name: '',
+  inn: '',
+  ogrn: '',
+  kpp: '',
+  legal_address: '',
+  actual_address: '',
+  ceo_name: '',
+  bank_account: '',
+  bank_name: '',
+  bik: '',
+}
+
+const PLACEHOLDER = 'Не указано'
+
+function orPlaceholder(value: string | undefined | null): string {
+  const trimmed = typeof value === 'string' ? value.trim() : ''
+  return trimmed || PLACEHOLDER
+}
 
 export const metadata: Metadata = buildMetadata({
   title: 'Политика конфиденциальности — Рекламная компания «2х2»',
@@ -24,7 +58,27 @@ export const metadata: Metadata = buildMetadata({
 const POLICY_VERSION = '2026-04-23'
 const POLICY_DATE = '23 апреля 2026 г.'
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  const legal = await getSettingValue<LegalEntityValue>(
+    'legal_entity',
+    LEGAL_ENTITY_DEFAULTS,
+  )
+
+  const legalName = orPlaceholder(legal.legal_name)
+  const inn = orPlaceholder(legal.inn)
+  const ogrn = orPlaceholder(legal.ogrn)
+  const legalAddress = orPlaceholder(legal.legal_address)
+  const actualAddress =
+    (legal.actual_address && legal.actual_address.trim()) ||
+    '628011, Российская Федерация, г. Ханты-Мансийск, ул. Парковая, д. 92 Б'
+
+  const hasAllCoreLegal = Boolean(
+    legal.legal_name?.trim() &&
+      legal.inn?.trim() &&
+      legal.ogrn?.trim() &&
+      legal.legal_address?.trim(),
+  )
+
   return (
     <main>
       <JsonLdScript
@@ -59,24 +113,30 @@ export default function PrivacyPage() {
               </p>
               <p>
                 <strong>Оператор:</strong> Рекламная компания «2х2»<br />
-                <strong>Юридическое название:</strong> [юр_название]
-                — будет уточнено после предоставления клиентом<br />
-                <strong>ИНН:</strong> [ИНН]<br />
-                <strong>ОГРН / ОГРНИП:</strong> [ОГРН]<br />
-                <strong>Юридический адрес:</strong> [юр_адрес]<br />
-                <strong>Фактический адрес:</strong> 628011, Российская Федерация,
-                г. Ханты-Мансийск, ул. Парковая, д. 92 Б<br />
+                <strong>Юридическое название:</strong> {legalName}<br />
+                <strong>ИНН:</strong> {inn}<br />
+                <strong>ОГРН / ОГРНИП:</strong> {ogrn}<br />
+                <strong>Юридический адрес:</strong> {legalAddress}<br />
+                <strong>Фактический адрес:</strong> {actualAddress}<br />
                 <strong>Телефон:</strong>{' '}
                 <a href="tel:+79324247740">+7 (932) 424-77-40</a><br />
                 <strong>Email:</strong>{' '}
                 <a href="mailto:sj_alex86@mail.ru">sj_alex86@mail.ru</a>
               </p>
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                <strong>Требуется от клиента:</strong> ИНН, ОГРН/ОГРНИП, полное
-                юридическое название, юридический адрес. Плейсхолдеры [ИНН],
-                [ОГРН], [юр_название], [юр_адрес] необходимо заменить до
-                публичного размещения сайта.
-              </div>
+              {!hasAllCoreLegal && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                  <strong>Требуется от клиента:</strong> ИНН, ОГРН/ОГРНИП,
+                  полное юридическое название, юридический адрес. Заполните
+                  реквизиты в админ-панели:{' '}
+                  <Link
+                    href="/admin/content/settings"
+                    className="underline"
+                  >
+                    Настройки сайта → Реквизиты
+                  </Link>
+                  .
+                </div>
+              )}
 
               {/* ── РАЗДЕЛ 2 ── */}
               <h2>2. Какие персональные данные мы обрабатываем</h2>
