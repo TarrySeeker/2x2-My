@@ -1,11 +1,11 @@
 import Link from 'next/link'
-import { ReactNode } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 
 type ButtonProps = {
   variant?: 'primary' | 'outline' | 'ghost'
   size?: 'sm' | 'md' | 'lg'
   href?: string
-  onClick?: () => void
+  onClick?: (e: MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => void
   disabled?: boolean
   loading?: boolean
   children: ReactNode
@@ -29,6 +29,7 @@ export default function Button({
   variant = 'primary', size = 'md', href, onClick,
   disabled, loading, children, className = '', type = 'button',
 }: ButtonProps) {
+  const isInactive = disabled || loading
   const cls = `inline-flex items-center justify-center gap-2 rounded-lg font-semibold
     transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed
     ${variants[variant]} ${sizes[size]} ${className}`
@@ -36,7 +37,13 @@ export default function Button({
   if (href) return <Link href={href} onClick={onClick} className={cls}>{children}</Link>
 
   return (
-    <button type={type} onClick={onClick} disabled={disabled || loading} className={cls}>
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={isInactive}
+      aria-disabled={isInactive || undefined}
+      className={cls}
+    >
       {loading && <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />}
       {children}
     </button>

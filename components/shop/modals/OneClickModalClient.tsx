@@ -217,6 +217,16 @@ export default function OneClickModalClient({
           type="submit"
           loading={sending}
           disabled={!consent || sending}
+          // Safari/WebKit safety net: даже при disabled клик может
+          // прорваться (force-click в тестах, race React state vs
+          // native event). Жёстко глушим event на pre-condition; ту же
+          // проверку дублируем в handleSubmit.
+          onClick={(e) => {
+            if (!consent || sending) {
+              e.preventDefault()
+              e.stopPropagation()
+            }
+          }}
           className="w-full"
         >
           {sending ? strings.sendingLabel : strings.submitLabel}

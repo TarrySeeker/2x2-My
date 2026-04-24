@@ -253,6 +253,16 @@ export default function QuoteModalClient({
           type="submit"
           loading={sending}
           disabled={!consent || sending}
+          // Safari/WebKit safety net: иногда disabled-кнопка всё равно
+          // получает click (force-click в тестах, race между React state
+          // и нативным событием). Жёстко глушим event если consent не
+          // взведён — handleSubmit имеет ту же проверку.
+          onClick={(e) => {
+            if (!consent || sending) {
+              e.preventDefault()
+              e.stopPropagation()
+            }
+          }}
           className="w-full"
         >
           {sending ? strings.sendingLabel : strings.submitLabel}

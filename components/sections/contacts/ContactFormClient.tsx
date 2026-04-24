@@ -264,21 +264,36 @@ export default function ContactFormClient({
         )}
       </div>
 
-      <label className="flex cursor-pointer items-start gap-3" htmlFor="contact-consent">
+      {/*
+        Safari/WebKit quirk: <Link> ВНУТРИ <label htmlFor> приводит к
+        двойному обработчику — клик по ссылке иногда переключает чекбокс,
+        иногда — нет (зависит от targetTouches и delegatesFocus). Поэтому
+        связываем label с input через id, а ссылку рендерим как сиблинг
+        (вне label).
+      */}
+      <div className="flex items-start gap-3">
         <input
           id="contact-consent"
           type="checkbox"
           {...register('consent', { required: true })}
+          aria-invalid={errors.consent ? 'true' : undefined}
+          aria-required="true"
           className="mt-1 h-5 w-5 shrink-0 cursor-pointer rounded border-neutral-300 text-brand-orange accent-[#FF6B00] focus:ring-brand-orange/30"
         />
-        <span className="text-sm leading-relaxed text-neutral-600">
+        <label htmlFor="contact-consent" className="text-sm leading-relaxed text-neutral-600 cursor-pointer">
           {strings.consentPrefix}{' '}
-          <Link href="/privacy" className="text-brand-orange underline-offset-2 hover:underline">
+          <Link
+            href="/privacy"
+            className="text-brand-orange underline-offset-2 hover:underline"
+            onClick={(e) => e.stopPropagation()}
+            target="_blank"
+            rel="noopener"
+          >
             {strings.consentLinkText}
           </Link>{' '}
           {strings.consentSuffix}
-        </span>
-      </label>
+        </label>
+      </div>
       {errors.consent && (
         <p className="text-red-500 text-xs">{strings.consentRequired}</p>
       )}
@@ -295,6 +310,17 @@ export default function ContactFormClient({
       <button
         type="submit"
         disabled={status === 'loading' || !consentChecked}
+        aria-disabled={status === 'loading' || !consentChecked || undefined}
+        // Safari/WebKit: даже при отключённой кнопке (disabled) implicit
+        // submission через Enter в input может прорваться. Явно блокируем
+        // принудительный клик (force-click в Playwright + сценарии,
+        // когда кнопка уже re-enabled, но consent ещё не взведён React'ом).
+        onClick={(e) => {
+          if (!consentChecked || status === 'loading') {
+            e.preventDefault()
+            e.stopPropagation()
+          }
+        }}
         className="w-full btn-primary py-4 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {status === 'loading' && <Loader2 className="w-5 h-5 animate-spin" />}
