@@ -148,13 +148,20 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       S3_BUCKET: ${S3_BUCKET}
+    volumes:
+      # Кастомная anonymous-policy: только GetObject, без ListBucket.
+      # Файл монтируется read-only — менять только в репо, не на проде.
+      - ./infra/minio/policy-2x2-media.json:/policies/policy-2x2-media.json:ro
     entrypoint: >
       /bin/sh -c "
         set -e;
         mc alias set local http://minio:9000 \"$$MINIO_ROOT_USER\" \"$$MINIO_ROOT_PASSWORD\";
         mc mb --ignore-existing \"local/$$S3_BUCKET\";
-        mc anonymous set download \"local/$$S3_BUCKET\";
-        echo 'MinIO bucket initialized: '$$S3_BUCKET;
+        # Применяем кастомную policy: публичный GetObject на объекты,
+        # но БЕЗ ListBucket (чтобы анонимы не могли перечислить медиа).
+        # Старая `mc anonymous set download` оставляла LIST открытым.
+        mc anonymous set-json /policies/policy-2x2-media.json \"local/$$S3_BUCKET\";
+        echo 'MinIO bucket initialized with restricted policy: '$$S3_BUCKET;
       "
     restart: "no"
 
