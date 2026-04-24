@@ -2,9 +2,10 @@
 
 import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { UserRound } from 'lucide-react'
 import type { TeamMember } from '@/types'
 import { asset } from '@/lib/asset'
+
+const TEAM_PLACEHOLDER_SRC = '/team/placeholder.svg'
 
 export default function TeamSectionClient({ team }: { team: TeamMember[] }) {
   return (
@@ -55,9 +56,13 @@ export default function TeamSectionClient({ team }: { team: TeamMember[] }) {
                     className="object-cover"
                   />
                 ) : (
-                  <div className="flex h-full items-center justify-center bg-gradient-to-br from-orange-50 to-amber-50/80">
-                    <UserRound className="h-16 w-16 text-brand-orange" strokeWidth={1.5} />
-                  </div>
+                  <Image
+                    src={asset(TEAM_PLACEHOLDER_SRC)}
+                    alt="Сотрудник 2х2"
+                    fill
+                    sizes="160px"
+                    className="object-cover"
+                  />
                 )}
               </div>
               <div className="px-5 py-5 md:px-6">

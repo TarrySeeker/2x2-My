@@ -56,6 +56,19 @@ export async function updateSiteSettingAction(
     revalidatePath("/privacy");
     revalidatePath("/admin/content/settings");
 
+    // Для ключей, влияющих на layout (хедер/футер/навигация/бренд) —
+    // инвалидируем весь root layout.
+    if (
+      key === "navigation_header" ||
+      key === "navigation_footer" ||
+      key === "organization" ||
+      key === "homepage_trust_bar" ||
+      key === "contacts" ||
+      key === "socials"
+    ) {
+      revalidatePath("/", "layout");
+    }
+
     try {
       await sql`
         SELECT log_admin_action(
