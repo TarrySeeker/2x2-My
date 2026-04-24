@@ -15,8 +15,8 @@ const FALLBACK: OneClickModalStrings = {
   title: "Быстрый расчёт",
   description:
     "Оставьте номер — перезвоним в течение 15 минут и поможем оформить заявку.",
-  descriptionWithProduct: (productName) =>
-    `${productName} — менеджер свяжется в течение 15 минут, уточнит параметры и пришлёт стоимость.`,
+  descriptionWithProductTemplate:
+    "{product} — менеджер свяжется в течение 15 минут, уточнит параметры и пришлёт стоимость.",
   nameLabel: "Как к вам обращаться",
   phoneLabel: "Телефон",
   commentLabel: "Опишите вашу задачу",
@@ -28,8 +28,6 @@ const FALLBACK: OneClickModalStrings = {
   successMessage:
     "Заявка принята. Менеджер «2х2» свяжется с вами в течение 15 минут в рабочее время (Пн–Пт 9:00–19:00).",
   errorMessage: "Не удалось отправить заявку. Позвоните нам напрямую.",
-  errorMessageWithPhone: (phone) =>
-    `Не удалось отправить заявку. Позвоните: ${phone}`,
   nameRequired: "Укажите имя",
   phoneInvalid: "Некорректный телефон",
   consentRequired: "Нужно согласие на обработку персональных данных",
@@ -76,7 +74,11 @@ export default async function OneClickModal() {
   const strings: OneClickModalStrings = {
     title: pick(dict, "modal.oneclick.title", FALLBACK.title),
     description: pick(dict, "modal.oneclick.description", FALLBACK.description),
-    descriptionWithProduct: FALLBACK.descriptionWithProduct,
+    descriptionWithProductTemplate: pick(
+      dict,
+      "modal.oneclick.description_with_product",
+      FALLBACK.descriptionWithProductTemplate,
+    ),
     nameLabel: pick(dict, "modal.oneclick.name_label", FALLBACK.nameLabel),
     phoneLabel: pick(dict, "modal.oneclick.phone_label", FALLBACK.phoneLabel),
     commentLabel: FALLBACK.commentLabel,
@@ -103,8 +105,6 @@ export default async function OneClickModal() {
       "modal.oneclick.error_message",
       FALLBACK.errorMessage,
     ),
-    errorMessageWithPhone: (phone) =>
-      `${pick(dict, "modal.oneclick.error_message", FALLBACK.errorMessage)} ${phone}`,
     nameRequired: pick(dict, "validation.name_required", FALLBACK.nameRequired),
     phoneInvalid: pick(dict, "validation.phone_invalid", FALLBACK.phoneInvalid),
     consentRequired: pick(

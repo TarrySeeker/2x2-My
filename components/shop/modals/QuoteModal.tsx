@@ -13,8 +13,8 @@ const FALLBACK: QuoteModalStrings = {
   title: "Заказать расчёт стоимости",
   description:
     "Опишите задачу — пришлём коммерческое предложение с вариантами и сроками в течение 1 часа",
-  descriptionWithProduct: (productName) =>
-    `${productName} — пришлём коммерческое предложение с вариантами и сроками в течение 1 часа`,
+  descriptionWithProductTemplate:
+    "{product} — пришлём коммерческое предложение с вариантами и сроками в течение 1 часа",
   nameLabel: "Имя",
   phoneLabel: "Телефон",
   emailLabel: "Email (необязательно)",
@@ -31,8 +31,6 @@ const FALLBACK: QuoteModalStrings = {
   successMessage:
     "Заявка принята. Подготовим КП и пришлём в течение 1 часа в рабочее время (Пн–Пт 9:00–19:00).",
   errorMessage: "Не удалось отправить заявку. Позвоните нам напрямую.",
-  errorMessageWithPhone: (phone) =>
-    `Не удалось отправить заявку. Позвоните: ${phone}`,
   nameRequired: "Укажите имя",
   phoneInvalid: "Некорректный телефон",
   emailInvalid: "Некорректный email",
@@ -85,7 +83,11 @@ export default async function QuoteModal() {
   const strings: QuoteModalStrings = {
     title: pick(dict, "modal.quote.title", FALLBACK.title),
     description: pick(dict, "modal.quote.description", FALLBACK.description),
-    descriptionWithProduct: FALLBACK.descriptionWithProduct, // функция — оставляем как есть
+    descriptionWithProductTemplate: pick(
+      dict,
+      "modal.quote.description_with_product",
+      FALLBACK.descriptionWithProductTemplate,
+    ),
     nameLabel: pick(dict, "modal.quote.name_label", FALLBACK.nameLabel),
     phoneLabel: pick(dict, "modal.quote.phone_label", FALLBACK.phoneLabel),
     emailLabel: pick(dict, "modal.quote.email_label", FALLBACK.emailLabel),
@@ -111,8 +113,6 @@ export default async function QuoteModal() {
       FALLBACK.successMessage,
     ),
     errorMessage: pick(dict, "modal.quote.error_message", FALLBACK.errorMessage),
-    errorMessageWithPhone: (phone) =>
-      `${pick(dict, "modal.quote.error_message", FALLBACK.errorMessage)} ${phone}`,
     nameRequired: pick(dict, "validation.name_required", FALLBACK.nameRequired),
     phoneInvalid: pick(dict, "validation.phone_invalid", FALLBACK.phoneInvalid),
     emailInvalid: pick(dict, "validation.email_invalid", FALLBACK.emailInvalid),

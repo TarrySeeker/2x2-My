@@ -16,7 +16,11 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export interface QuoteModalStrings {
   title: string;
   description: string;
-  descriptionWithProduct: (productName: string) => string;
+  /**
+   * Шаблон описания при наличии productName. Плейсхолдер `{product}`
+   * заменяется на имя товара в клиенте.
+   */
+  descriptionWithProductTemplate: string;
   nameLabel: string;
   phoneLabel: string;
   emailLabel: string;
@@ -30,12 +34,17 @@ export interface QuoteModalStrings {
   sendingLabel: string;
   successMessage: string;
   errorMessage: string;
-  errorMessageWithPhone: (phone: string) => string;
   // Validation
   nameRequired: string;
   phoneInvalid: string;
   emailInvalid: string;
   consentRequired: string;
+}
+
+function formatTemplate(tpl: string, vars: Record<string, string>): string {
+  return tpl.replace(/\{(\w+)\}/g, (m, key: string) =>
+    Object.prototype.hasOwnProperty.call(vars, key) ? vars[key]! : m,
+  );
 }
 
 export interface QuoteModalClientProps {
@@ -154,11 +163,16 @@ export default function QuoteModalClient({
       return;
     }
 
-    toast.error(serverMessage ?? strings.errorMessageWithPhone(phoneDisplay));
+    toast.error(
+      serverMessage ??
+        `${strings.errorMessage} ${phoneDisplay}`.trim(),
+    );
   };
 
   const description = calcRequestProduct?.name
-    ? strings.descriptionWithProduct(calcRequestProduct.name)
+    ? formatTemplate(strings.descriptionWithProductTemplate, {
+        product: calcRequestProduct.name,
+      })
     : strings.description;
 
   return (
