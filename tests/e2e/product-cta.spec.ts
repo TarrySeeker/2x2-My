@@ -70,7 +70,13 @@ test.describe("H1 — desktop product page должен иметь CTA", () => {
       const quoteBtn = page.getByRole("button", { name: /заказать расчёт|оставить заявку/i });
       await expect(quoteBtn).toBeVisible();
       await quoteBtn.click();
-      await expect(page.getByRole("dialog")).toBeVisible();
+      // Cookie banner тоже role="dialog" — фильтруем его.
+      await expect(
+        page
+          .getByRole("dialog")
+          .filter({ hasNotText: /cookie|cookies|куки/i })
+          .first(),
+      ).toBeVisible();
     },
   );
 });

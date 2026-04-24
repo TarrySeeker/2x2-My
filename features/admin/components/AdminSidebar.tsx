@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
-  ShoppingCart,
+  Inbox,
   Package,
   FolderTree,
   Users,
@@ -21,6 +21,17 @@ import {
   Sun,
   Menu,
   X,
+  ChevronDown,
+  ChevronUp,
+  KeyRound,
+  Layout,
+  Megaphone,
+  UsersRound,
+  Image as ImageIcon,
+  Globe2,
+  ListTree,
+  FileType,
+  ImagePlus,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -28,25 +39,148 @@ import clsx from "clsx";
 import type { UserRole } from "@/types/database";
 import { logoutAction } from "@/features/auth/actions";
 
-interface NavItem {
+interface NavLeaf {
   label: string;
   href: string;
   icon: typeof LayoutDashboard;
   roles: UserRole[];
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { label: "Дашборд", href: "/admin/dashboard", icon: LayoutDashboard, roles: ["owner", "manager"] },
-  { label: "Заказы", href: "/admin/orders", icon: ShoppingCart, roles: ["owner", "manager"] },
-  { label: "Товары", href: "/admin/products", icon: Package, roles: ["owner", "manager"] },
-  { label: "Категории", href: "/admin/categories", icon: FolderTree, roles: ["owner", "manager"] },
-  { label: "Клиенты", href: "/admin/customers", icon: Users, roles: ["owner", "manager"] },
-  { label: "Отзывы", href: "/admin/reviews", icon: MessageSquare, roles: ["owner", "manager"] },
-  { label: "Промокоды", href: "/admin/promos", icon: Ticket, roles: ["owner", "manager"] },
-  { label: "Блог", href: "/admin/blog", icon: FileText, roles: ["owner", "manager", "content"] },
-  { label: "Контент", href: "/admin/content", icon: Paintbrush, roles: ["owner", "manager", "content"] },
-  { label: "SEO", href: "/admin/seo", icon: Search, roles: ["owner", "manager"] },
-  { label: "Настройки", href: "/admin/settings", icon: Settings, roles: ["owner", "manager"] },
+interface NavGroup {
+  type: "group";
+  label: string;
+  icon: typeof LayoutDashboard;
+  basePath: string;
+  roles: UserRole[];
+  items: NavLeaf[];
+}
+
+type NavEntry = NavLeaf | NavGroup;
+
+function isGroup(entry: NavEntry): entry is NavGroup {
+  return (entry as NavGroup).type === "group";
+}
+
+const NAV_ITEMS: NavEntry[] = [
+  {
+    label: "Дашборд",
+    href: "/admin/dashboard",
+    icon: LayoutDashboard,
+    roles: ["owner", "manager"],
+  },
+  // Раздел «Заказы» удалён вместе с таблицей orders (миграция 006).
+  // Вместо него — «Заявки» (calculation_requests + leads + contact_requests).
+  {
+    label: "Заявки",
+    href: "/admin/leads",
+    icon: Inbox,
+    roles: ["owner", "manager"],
+  },
+  {
+    label: "Товары",
+    href: "/admin/products",
+    icon: Package,
+    roles: ["owner", "manager"],
+  },
+  {
+    label: "Категории",
+    href: "/admin/categories",
+    icon: FolderTree,
+    roles: ["owner", "manager"],
+  },
+  {
+    label: "Клиенты",
+    href: "/admin/customers",
+    icon: Users,
+    roles: ["owner", "manager"],
+  },
+  {
+    label: "Отзывы",
+    href: "/admin/reviews",
+    icon: MessageSquare,
+    roles: ["owner", "manager"],
+  },
+  {
+    label: "Промокоды",
+    href: "/admin/promos",
+    icon: Ticket,
+    roles: ["owner", "manager"],
+  },
+  {
+    label: "Блог",
+    href: "/admin/blog",
+    icon: FileText,
+    roles: ["owner", "manager", "content"],
+  },
+  {
+    type: "group",
+    label: "Контент сайта",
+    icon: Paintbrush,
+    basePath: "/admin/content",
+    roles: ["owner", "manager", "content"],
+    items: [
+      {
+        label: "Главная страница",
+        href: "/admin/content/homepage",
+        icon: Layout,
+        roles: ["owner", "manager", "content"],
+      },
+      {
+        label: "Акции",
+        href: "/admin/content/promotions",
+        icon: Megaphone,
+        roles: ["owner", "manager", "content"],
+      },
+      {
+        label: "Команда",
+        href: "/admin/content/team",
+        icon: UsersRound,
+        roles: ["owner", "manager", "content"],
+      },
+      {
+        label: "Портфолио",
+        href: "/admin/content/portfolio",
+        icon: ImageIcon,
+        roles: ["owner", "manager", "content"],
+      },
+      {
+        label: "Настройки сайта",
+        href: "/admin/content/settings",
+        icon: Globe2,
+        roles: ["owner", "manager"],
+      },
+      {
+        label: "Баннеры",
+        href: "/admin/content/banners",
+        icon: ImagePlus,
+        roles: ["owner", "manager", "content"],
+      },
+      {
+        label: "Страницы",
+        href: "/admin/content/pages",
+        icon: FileType,
+        roles: ["owner", "manager", "content"],
+      },
+      {
+        label: "Меню",
+        href: "/admin/content/menu",
+        icon: ListTree,
+        roles: ["owner", "manager"],
+      },
+    ],
+  },
+  {
+    label: "SEO",
+    href: "/admin/seo",
+    icon: Search,
+    roles: ["owner", "manager"],
+  },
+  {
+    label: "Настройки",
+    href: "/admin/settings",
+    icon: Settings,
+    roles: ["owner", "manager"],
+  },
 ];
 
 interface AdminSidebarProps {
@@ -74,17 +208,99 @@ function ThemeToggle() {
   );
 }
 
+function GroupItem({
+  group,
+  pathname,
+  badges,
+}: {
+  group: NavGroup;
+  pathname: string;
+  badges?: Record<string, number>;
+}) {
+  const isInGroup = pathname.startsWith(group.basePath);
+  const [open, setOpen] = useState(isInGroup);
+  const Icon = group.icon;
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={clsx(
+          "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+          isInGroup
+            ? "text-white"
+            : "text-neutral-400 hover:bg-white/5 hover:text-neutral-200",
+        )}
+      >
+        <Icon className="h-4.5 w-4.5 shrink-0" />
+        <span>{group.label}</span>
+        <span className="ml-auto">
+          {open ? (
+            <ChevronUp className="h-4 w-4 text-neutral-500" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-neutral-500" />
+          )}
+        </span>
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.ul
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            {group.items.map((sub) => {
+              const isActive =
+                pathname === sub.href || pathname.startsWith(sub.href + "/");
+              const SubIcon = sub.icon;
+              const badge = badges?.[sub.href] ?? 0;
+
+              return (
+                <li key={sub.href} className="mt-0.5">
+                  <Link
+                    href={sub.href}
+                    className={clsx(
+                      "relative ml-4 flex items-center gap-2.5 rounded-md py-2 pl-3 pr-2 text-[13px] transition-colors",
+                      isActive
+                        ? "bg-white/10 font-medium text-white"
+                        : "text-neutral-400 hover:bg-white/5 hover:text-neutral-200",
+                    )}
+                  >
+                    <SubIcon className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{sub.label}</span>
+                    {isActive && (
+                      <div className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-brand-orange" />
+                    )}
+                    {badge > 0 && (
+                      <span className="ml-auto flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-brand-orange px-1.5 text-[10px] font-bold text-white">
+                        {badge > 99 ? "99+" : badge}
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              );
+            })}
+          </motion.ul>
+        )}
+      </AnimatePresence>
+    </li>
+  );
+}
+
 function SidebarContent({
   items,
   pathname,
   profileName,
-  profileEmail: _profileEmail,
+  profileEmail,
   profileRole,
   onLogout,
   loggingOut,
   badges,
 }: {
-  items: NavItem[];
+  items: NavEntry[];
   pathname: string;
   profileName: string;
   profileEmail: string;
@@ -93,6 +309,7 @@ function SidebarContent({
   loggingOut: boolean;
   badges?: Record<string, number>;
 }) {
+  const [profileOpen, setProfileOpen] = useState(false);
   const roleLabels: Record<UserRole, string> = {
     owner: "Владелец",
     manager: "Менеджер",
@@ -115,19 +332,29 @@ function SidebarContent({
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <ul className="space-y-0.5">
-          {items.map((item) => {
-            const isActive =
-              pathname === item.href ||
-              (item.href !== "/admin/dashboard" &&
-                pathname.startsWith(item.href));
-            const Icon = item.icon;
+          {items.map((entry) => {
+            if (isGroup(entry)) {
+              return (
+                <GroupItem
+                  key={entry.basePath}
+                  group={entry}
+                  pathname={pathname}
+                  badges={badges}
+                />
+              );
+            }
 
-            const badge = badges?.[item.href] ?? 0;
+            const isActive =
+              pathname === entry.href ||
+              (entry.href !== "/admin/dashboard" &&
+                pathname.startsWith(entry.href));
+            const Icon = entry.icon;
+            const badge = badges?.[entry.href] ?? 0;
 
             return (
-              <li key={item.href}>
+              <li key={entry.href}>
                 <Link
-                  href={item.href}
+                  href={entry.href}
                   className={clsx(
                     "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                     isActive
@@ -147,7 +374,7 @@ function SidebarContent({
                     />
                   )}
                   <Icon className="relative z-10 h-4.5 w-4.5 shrink-0" />
-                  <span className="relative z-10">{item.label}</span>
+                  <span className="relative z-10">{entry.label}</span>
                   {badge > 0 && (
                     <span className="relative z-10 ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-orange px-1.5 text-[11px] font-bold text-white">
                       {badge > 99 ? "99+" : badge}
@@ -165,32 +392,70 @@ function SidebarContent({
 
       {/* Profile + Theme + Logout */}
       <div className="border-t border-white/10 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 overflow-hidden">
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setProfileOpen((v) => !v)}
+            className="flex w-full items-center gap-3 rounded-lg px-1 py-1 text-left transition-colors hover:bg-white/5"
+            aria-haspopup="menu"
+            aria-expanded={profileOpen}
+          >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-orange/20 text-xs font-bold text-brand-orange">
               {profileName.charAt(0).toUpperCase()}
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-white">
                 {profileName}
               </p>
-              <p className="text-[11px] text-neutral-500">
-                {roleLabels[profileRole]}
+              <p className="truncate text-[11px] text-neutral-500">
+                {profileEmail || roleLabels[profileRole]}
               </p>
             </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <ThemeToggle />
-            <button
-              type="button"
-              onClick={onLogout}
-              disabled={loggingOut}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-red-500/10 hover:text-red-400"
-              aria-label="Выйти"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
+            <ChevronUp
+              className={clsx(
+                "h-4 w-4 shrink-0 text-neutral-500 transition-transform",
+                !profileOpen && "rotate-180",
+              )}
+            />
+          </button>
+
+          <AnimatePresence>
+            {profileOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                transition={{ duration: 0.15 }}
+                className="absolute bottom-full left-0 right-0 mb-2 overflow-hidden rounded-xl border border-white/10 bg-neutral-900 shadow-xl"
+                role="menu"
+              >
+                <Link
+                  href="/admin/settings/account/password"
+                  onClick={() => setProfileOpen(false)}
+                  className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-neutral-300 hover:bg-white/5 hover:text-white"
+                  role="menuitem"
+                >
+                  <KeyRound className="h-4 w-4 text-neutral-400" />
+                  Сменить пароль
+                </Link>
+                <div className="border-t border-white/10" />
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  disabled={loggingOut}
+                  className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm text-red-400 hover:bg-red-500/10"
+                  role="menuitem"
+                >
+                  <LogOut className="h-4 w-4" />
+                  {loggingOut ? "Выход..." : "Выйти"}
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div className="mt-3 flex items-center justify-end">
+          <ThemeToggle />
         </div>
       </div>
     </div>
@@ -208,14 +473,22 @@ export default function AdminSidebar({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  const filteredItems = NAV_ITEMS.filter((item) =>
-    item.roles.includes(profileRole),
-  );
+  // Фильтрация по ролям: и группы, и отдельные пункты
+  const filteredItems = NAV_ITEMS.flatMap<NavEntry>((entry) => {
+    if (isGroup(entry)) {
+      if (!entry.roles.includes(profileRole)) return [];
+      const subItems = entry.items.filter((s) => s.roles.includes(profileRole));
+      if (subItems.length === 0) return [];
+      return [{ ...entry, items: subItems }];
+    }
+    if (!entry.roles.includes(profileRole)) return [];
+    return [entry];
+  });
 
   const badges: Record<string, number> = {};
-  if (newOrdersCount > 0) {
-    badges["/admin/orders"] = newOrdersCount;
-  }
+  // newOrdersCount всегда 0 (orders таблица удалена). Параметр оставлен
+  // для API-совместимости — admin layout его пока ещё передаёт.
+  void newOrdersCount;
   if (pendingReviewsCount > 0) {
     badges["/admin/reviews"] = pendingReviewsCount;
   }
@@ -231,12 +504,24 @@ export default function AdminSidebar({
   }
 
   // Find current page title for mobile top bar
-  const currentPage =
-    NAV_ITEMS.find(
-      (item) =>
-        pathname === item.href ||
-        (item.href !== "/admin/dashboard" && pathname.startsWith(item.href)),
-    )?.label ?? "Админ-панель";
+  const currentPage = (() => {
+    for (const entry of NAV_ITEMS) {
+      if (isGroup(entry)) {
+        const sub = entry.items.find(
+          (s) => pathname === s.href || pathname.startsWith(s.href + "/"),
+        );
+        if (sub) return sub.label;
+        if (pathname.startsWith(entry.basePath)) return entry.label;
+      } else if (
+        pathname === entry.href ||
+        (entry.href !== "/admin/dashboard" &&
+          pathname.startsWith(entry.href))
+      ) {
+        return entry.label;
+      }
+    }
+    return "Админ-панель";
+  })();
 
   return (
     <>

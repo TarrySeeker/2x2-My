@@ -18,6 +18,7 @@ import {
   blogPostSchema,
   blogCategorySchema,
 } from "@/features/admin/schemas/blog";
+import { sanitizeHtml } from "@/lib/sanitize/html";
 
 const idSchema = z.number().int().positive();
 
@@ -47,6 +48,10 @@ export async function fetchBlogCategoriesAction() {
 export async function createBlogPostAction(data: unknown) {
   const profile = await requireContentAccess();
   const validated = blogPostSchema.parse(data);
+  // Сначала Zod-валидация, потом sanitize HTML — TipTap-контент
+  // может содержать произвольную разметку, нам нужно вырезать
+  // <script>, on*-атрибуты и т.п. до записи в БД.
+  validated.content = sanitizeHtml(validated.content);
   const result = await createBlogPost(validated, profile.id);
   revalidatePath("/admin/blog");
   return result;
@@ -56,6 +61,7 @@ export async function updateBlogPostAction(id: number, data: unknown) {
   await requireContentAccess();
   const validatedId = idSchema.parse(id);
   const validated = blogPostSchema.parse(data);
+  validated.content = sanitizeHtml(validated.content);
   await updateBlogPost(validatedId, validated);
   revalidatePath("/admin/blog");
   revalidatePath(`/admin/blog/${validatedId}`);

@@ -32,6 +32,7 @@ fi
 
 MIGRATIONS_DIR="${MIGRATIONS_DIR:-/app/db/migrations}"
 SEED_FILE="${SEED_FILE:-/app/db/seed.sql}"
+SEED_CMS_FILE="${SEED_CMS_FILE:-/app/db/seed_cms.sql}"
 
 if [ ! -d "$MIGRATIONS_DIR" ]; then
   echo "ERROR: migrations dir not found: $MIGRATIONS_DIR" >&2
@@ -51,6 +52,17 @@ if [ "${APPLY_SEED:-false}" = "true" ]; then
     psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$SEED_FILE"
   else
     echo "WARN: APPLY_SEED=true но файл $SEED_FILE не найден" >&2
+  fi
+fi
+
+# CMS-сид (homepage_sections, site_settings) — отдельный флаг,
+# т.к. безопасен (ON CONFLICT DO NOTHING) и нужен после миграции 006.
+if [ "${APPLY_SEED:-false}" = "true" ] || [ "${APPLY_SEED_CMS:-false}" = "true" ]; then
+  if [ -f "$SEED_CMS_FILE" ]; then
+    echo "==> Applying CMS seed: $SEED_CMS_FILE"
+    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$SEED_CMS_FILE"
+  else
+    echo "WARN: $SEED_CMS_FILE не найден (миграция 006 ещё не применена?)" >&2
   fi
 fi
 

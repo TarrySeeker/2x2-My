@@ -4,6 +4,11 @@ import { sql } from "@/lib/db/client";
 import { parseBody, oneClickSchema } from "@/lib/validation";
 import { sendNotification } from "@/lib/notifications";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import {
+  PD_CONSENT_VERSION,
+  clientIpForInet,
+  readIdempotencyKey,
+} from "@/lib/forms/pd-consent";
 import type { Json } from "@/types/database";
 
 export const runtime = "nodejs";
@@ -54,6 +59,30 @@ export async function POST(request: NextRequest) {
     /* ignore invalid url */
   }
 
+  const idempotencyKey = readIdempotencyKey(request.headers);
+  const consentIp = clientIpForInet(request.headers);
+
+  // Idempotency check.
+  if (idempotencyKey) {
+    try {
+      const existing = await sql<{ id: number }[]>`
+        SELECT id FROM leads
+        WHERE idempotency_key = ${idempotencyKey}
+        LIMIT 1
+      `;
+      const found = existing[0];
+      if (found) {
+        return NextResponse.json({
+          success: true,
+          duplicate: true,
+          lead_id: found.id,
+        });
+      }
+    } catch (err) {
+      console.warn("[api/leads/one-click] idempotency lookup failed:", err);
+    }
+  }
+
   let leadId: number | null = null;
 
   try {
@@ -67,7 +96,9 @@ export async function POST(request: NextRequest) {
         source, customer_name, customer_phone, customer_email,
         product_id, context,
         page_url, utm_source, utm_medium, utm_campaign, utm_content, utm_term,
-        referer, user_agent, status, manager_comment, assigned_to
+        referer, user_agent, status, manager_comment, assigned_to,
+        pd_consent_at, pd_consent_version, pd_consent_ip,
+        idempotency_key
       )
       VALUES (
         'one_click',
@@ -86,12 +117,33 @@ export async function POST(request: NextRequest) {
         ${userAgent},
         'new',
         NULL,
-        NULL
+        NULL,
+        NOW(), ${PD_CONSENT_VERSION}, ${consentIp},
+        ${idempotencyKey}
       )
       RETURNING id
     `;
     leadId = rows[0]?.id ?? null;
   } catch (err) {
+    if (
+      idempotencyKey &&
+      err &&
+      typeof err === "object" &&
+      "code" in err &&
+      (err as { code?: string }).code === "23505"
+    ) {
+      const existing = await sql<{ id: number }[]>`
+        SELECT id FROM leads WHERE idempotency_key = ${idempotencyKey} LIMIT 1
+      `;
+      const found = existing[0];
+      if (found) {
+        return NextResponse.json({
+          success: true,
+          duplicate: true,
+          lead_id: found.id,
+        });
+      }
+    }
     console.warn("[api/leads/one-click] DB insert failed:", err);
   }
 

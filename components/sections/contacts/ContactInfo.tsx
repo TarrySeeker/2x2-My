@@ -2,6 +2,12 @@ import { Phone, Mail, MapPin, Clock, ExternalLink } from 'lucide-react'
 
 const VK_URL = 'https://vk.com/ra2x2'
 
+/**
+ * Контактные телефоны — оба номера с чёткими подписями.
+ * `+7-932-424-77-40` совпадает с Header (основной — по общим вопросам).
+ * `+7-904-480-77-40` — вторая линия (портфолио / срочные вопросы).
+ * Источник: CLAUDE.md → «Телефон 1 (сайт) / Телефон 2 (портфолио)».
+ */
 const info: {
   icon: typeof Phone
   label: string
@@ -9,7 +15,18 @@ const info: {
   link: string | null
   external?: boolean
 }[] = [
-  { icon: Phone, label: 'Телефон', value: '+7-904-480-77-40', link: 'tel:+79044807740' },
+  {
+    icon: Phone,
+    label: 'По общим вопросам',
+    value: '+7 (932) 424-77-40',
+    link: 'tel:+79324247740',
+  },
+  {
+    icon: Phone,
+    label: 'По вопросам портфолио',
+    value: '+7 (904) 480-77-40',
+    link: 'tel:+79044807740',
+  },
   { icon: Mail, label: 'Email', value: 'Sj_alex86@mail.ru', link: 'mailto:Sj_alex86@mail.ru' },
   { icon: ExternalLink, label: 'ВКонтакте', value: 'vk.com/ra2x2', link: VK_URL, external: true },
   { icon: MapPin, label: 'Адрес', value: 'г. Ханты-Мансийск, ул. Парковая, 92Б', link: null },

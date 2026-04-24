@@ -29,6 +29,13 @@ export type Json =
 export type UserRole = "owner" | "manager" | "content";
 export type ProductStatus = "active" | "draft" | "archived";
 export type ProductPricingMode = "fixed" | "calculator" | "quote";
+/**
+ * @deprecated В текущей бизнес-модели заказы не оформляются онлайн —
+ * используются `leads` и `calculation_requests`. Тип оставлен для
+ * совместимости с историческим кодом (миграция 006 удалила сами таблицы
+ * `orders`/`order_items`/`order_status_history`/`cart_items`). Можно
+ * удалить после полной зачистки кода в этапах 3-4.
+ */
 export type OrderStatus =
   | "new"
   | "confirmed"
@@ -39,6 +46,7 @@ export type OrderStatus =
   | "completed"
   | "cancelled"
   | "returned";
+/** @deprecated см. OrderStatus. */
 export type OrderType = "cart" | "one_click";
 export type ReviewStatus = "pending" | "approved" | "rejected";
 export type PromoType = "fixed" | "percent";
@@ -139,6 +147,10 @@ export interface Database {
           role: UserRole;
           avatar_url: string | null;
           is_active: boolean;
+          // Миграция 006: force-change + lockout по аккаунту.
+          must_change_password: boolean;
+          failed_login_attempts: number;
+          locked_until: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -151,6 +163,9 @@ export interface Database {
           role?: UserRole;
           avatar_url?: string | null;
           is_active?: boolean;
+          must_change_password?: boolean;
+          failed_login_attempts?: number;
+          locked_until?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -221,7 +236,7 @@ export interface Database {
           price: number;
           old_price: number | null;
           cost_price: number | null;
-          price_from: boolean;
+          price_to: number | null;
           unit: string | null;
           stock: number;
           track_stock: boolean;
@@ -387,6 +402,11 @@ export interface Database {
           quoted_amount: number | null;
           quoted_at: string | null;
           assigned_to: string | null;
+          // Миграция 006: ПД-согласие 152-ФЗ + idempotency.
+          pd_consent_at: string | null;
+          pd_consent_version: string | null;
+          pd_consent_ip: string | null;
+          idempotency_key: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -405,113 +425,9 @@ export interface Database {
         Relationships: [];
       };
 
-      orders: {
-        Row: {
-          id: number;
-          order_number: string | null;
-          type: OrderType;
-          status: OrderStatus;
-          customer_id: string | null;
-          customer_name: string;
-          customer_email: string | null;
-          customer_phone: string;
-          is_b2b: boolean;
-          company_name: string | null;
-          company_inn: string | null;
-          company_kpp: string | null;
-          company_address: string | null;
-          subtotal: number;
-          delivery_cost: number;
-          installation_cost: number;
-          discount_amount: number;
-          total: number;
-          promo_code_id: number | null;
-          promo_code: string | null;
-          delivery_type: string | null;
-          delivery_tariff_code: number | null;
-          delivery_tariff_name: string | null;
-          delivery_point_code: string | null;
-          delivery_point_address: string | null;
-          delivery_address: DeliveryAddress | null;
-          delivery_period_min: number | null;
-          delivery_period_max: number | null;
-          cdek_order_uuid: string | null;
-          cdek_order_number: string | null;
-          cdek_tracking_url: string | null;
-          installation_required: boolean;
-          installation_address: string | null;
-          installation_date: string | null;
-          installation_notes: string | null;
-          payment_method: string | null;
-          payment_status: string;
-          payment_order_number: string | null;
-          payment_url: string | null;
-          paid_at: string | null;
-          manager_comment: string | null;
-          customer_comment: string | null;
-          assigned_to: string | null;
-          source: string | null;
-          utm_source: string | null;
-          utm_medium: string | null;
-          utm_campaign: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: Omit<
-          Database["public"]["Tables"]["orders"]["Row"],
-          "id" | "order_number" | "created_at" | "updated_at"
-        > & {
-          id?: number;
-          order_number?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["orders"]["Insert"]>;
-        Relationships: [];
-      };
-
-      order_items: {
-        Row: {
-          id: number;
-          order_id: number;
-          product_id: number | null;
-          variant_id: number | null;
-          name: string;
-          sku: string | null;
-          price: number;
-          quantity: number;
-          total: number;
-          image_url: string | null;
-          attributes: Json;
-          calc_params: Json | null;
-          created_at: string;
-        };
-        Insert: Omit<
-          Database["public"]["Tables"]["order_items"]["Row"],
-          "id" | "created_at"
-        > & { id?: number; created_at?: string };
-        Update: Partial<Database["public"]["Tables"]["order_items"]["Insert"]>;
-        Relationships: [];
-      };
-
-      order_status_history: {
-        Row: {
-          id: number;
-          order_id: number;
-          status: OrderStatus;
-          comment: string | null;
-          changed_by: string | null;
-          created_at: string;
-        };
-        Insert: Omit<
-          Database["public"]["Tables"]["order_status_history"]["Row"],
-          "id" | "created_at"
-        > & { id?: number; created_at?: string };
-        Update: Partial<
-          Database["public"]["Tables"]["order_status_history"]["Insert"]
-        >;
-        Relationships: [];
-      };
+      // Таблицы orders / order_items / order_status_history / cart_items
+      // удалены миграцией 006 — бизнес-модель «только индивидуальный
+      // расчёт». Заявки лежат в `leads` и `calculation_requests`.
 
       portfolio_items: {
         Row: {
@@ -531,6 +447,8 @@ export interface Database {
           images: string[];
           video_url: string | null;
           is_featured: boolean;
+          // Миграция 006: 1..3 для блока «3 главные работы» на главной.
+          featured_order: number | null;
           is_published: boolean;
           sort_order: number;
           seo_title: string | null;
@@ -582,6 +500,11 @@ export interface Database {
           status: LeadStatus;
           manager_comment: string | null;
           assigned_to: string | null;
+          // Миграция 006: ПД-согласие 152-ФЗ + idempotency.
+          pd_consent_at: string | null;
+          pd_consent_version: string | null;
+          pd_consent_ip: string | null;
+          idempotency_key: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -609,6 +532,11 @@ export interface Database {
           admin_reply: string | null;
           admin_reply_at: string | null;
           status: ContactStatus;
+          // Миграция 006: ПД-согласие 152-ФЗ + idempotency.
+          pd_consent_at: string | null;
+          pd_consent_version: string | null;
+          pd_consent_ip: string | null;
+          idempotency_key: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -686,23 +614,96 @@ export interface Database {
         Relationships: [];
       };
 
-      cart_items: {
+      // cart_items удалена миграцией 006 (бизнес-модель «только индивидуальный расчёт»).
+
+      // ────────────────────────────────────────────────────
+      // CMS (006_cms_and_security.sql)
+      // ────────────────────────────────────────────────────
+      homepage_sections: {
+        Row: {
+          key: string;
+          content: Json;
+          is_published: boolean;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          key: string;
+          content?: Json;
+          is_published?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["homepage_sections"]["Insert"]
+        >;
+        Relationships: [];
+      };
+
+      site_settings: {
+        Row: {
+          key: string;
+          value: Json;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          key: string;
+          value?: Json;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["site_settings"]["Insert"]
+        >;
+        Relationships: [];
+      };
+
+      team_members: {
         Row: {
           id: number;
-          user_id: string;
-          product_id: number;
-          variant_id: number | null;
-          quantity: number;
-          calc_params: Json | null;
-          price_snapshot: number | null;
+          name: string;
+          role: string;
+          photo_url: string | null;
+          bio: string | null;
+          sort_order: number;
+          is_active: boolean;
           created_at: string;
           updated_at: string;
         };
         Insert: Omit<
-          Database["public"]["Tables"]["cart_items"]["Row"],
+          Database["public"]["Tables"]["team_members"]["Row"],
           "id" | "created_at" | "updated_at"
         > & { id?: number; created_at?: string; updated_at?: string };
-        Update: Partial<Database["public"]["Tables"]["cart_items"]["Insert"]>;
+        Update: Partial<
+          Database["public"]["Tables"]["team_members"]["Insert"]
+        >;
+        Relationships: [];
+      };
+
+      promotions: {
+        Row: {
+          id: number;
+          title: string;
+          body: string;
+          image_url: string | null;
+          link_url: string | null;
+          link_text: string | null;
+          valid_from: string | null;
+          valid_to: string | null;
+          is_active: boolean;
+          show_as_popup: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["promotions"]["Row"],
+          "id" | "created_at" | "updated_at"
+        > & { id?: number; created_at?: string; updated_at?: string };
+        Update: Partial<
+          Database["public"]["Tables"]["promotions"]["Insert"]
+        >;
         Relationships: [];
       };
 
@@ -998,7 +999,7 @@ export interface Database {
           short_description: string | null;
           pricing_mode: ProductPricingMode;
           price: number;
-          price_from: boolean;
+          price_to: number | null;
           unit: string | null;
           is_featured: boolean;
           is_new: boolean;

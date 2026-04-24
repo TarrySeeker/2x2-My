@@ -4,7 +4,11 @@ import { sql } from "@/lib/db/client";
 import { parseBody, calcRequestSchema } from "@/lib/validation";
 import { sendNotification } from "@/lib/notifications";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
-import type { Json } from "@/types/database";
+import {
+  PD_CONSENT_VERSION,
+  clientIpForInet,
+  readIdempotencyKey,
+} from "@/lib/forms/pd-consent";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,6 +39,36 @@ export async function POST(request: NextRequest) {
   const referer = request.headers.get("referer");
   const sourceUrl = input.source_url ?? referer ?? null;
 
+  const idempotencyKey = readIdempotencyKey(request.headers);
+  const consentIp = clientIpForInet(request.headers);
+
+  // ── Idempotency check ──
+  // Если клиент уже отправил эту форму с таким же ключом, возвращаем
+  // предыдущий результат — никакого повторного INSERT.
+  if (idempotencyKey) {
+    try {
+      const existing = await sql<
+        { id: number; request_number: string | null }[]
+      >`
+        SELECT id, request_number
+        FROM calculation_requests
+        WHERE idempotency_key = ${idempotencyKey}
+        LIMIT 1
+      `;
+      const found = existing[0];
+      if (found) {
+        return NextResponse.json({
+          success: true,
+          duplicate: true,
+          request_id: found.id,
+          request_number: found.request_number,
+        });
+      }
+    } catch (err) {
+      console.warn("[api/leads/quote] idempotency lookup failed:", err);
+    }
+  }
+
   let requestId: number | null = null;
   let requestNumber: string | null = null;
 
@@ -53,7 +87,9 @@ export async function POST(request: NextRequest) {
         customer_name, customer_phone, customer_email,
         company_name, params, attachments, comment,
         source_url, status, manager_comment,
-        quoted_amount, quoted_at, assigned_to
+        quoted_amount, quoted_at, assigned_to,
+        pd_consent_at, pd_consent_version, pd_consent_ip,
+        idempotency_key
       )
       VALUES (
         ${productId},
@@ -68,7 +104,9 @@ export async function POST(request: NextRequest) {
         ${sourceUrl},
         'new',
         NULL,
-        NULL, NULL, NULL
+        NULL, NULL, NULL,
+        NOW(), ${PD_CONSENT_VERSION}, ${consentIp},
+        ${idempotencyKey}
       )
       RETURNING id, request_number
     `;
@@ -76,6 +114,33 @@ export async function POST(request: NextRequest) {
     requestId = row?.id ?? null;
     requestNumber = row?.request_number ?? null;
   } catch (err) {
+    // UNIQUE violation idempotency_key — конкурентный второй POST.
+    // Перечитываем запись и отдаём её id как «duplicate».
+    if (
+      idempotencyKey &&
+      err &&
+      typeof err === "object" &&
+      "code" in err &&
+      (err as { code?: string }).code === "23505"
+    ) {
+      const existing = await sql<
+        { id: number; request_number: string | null }[]
+      >`
+        SELECT id, request_number
+        FROM calculation_requests
+        WHERE idempotency_key = ${idempotencyKey}
+        LIMIT 1
+      `;
+      const found = existing[0];
+      if (found) {
+        return NextResponse.json({
+          success: true,
+          duplicate: true,
+          request_id: found.id,
+          request_number: found.request_number,
+        });
+      }
+    }
     console.warn("[api/leads/quote] DB insert failed:", err);
   }
 

@@ -34,7 +34,8 @@ export default function StickyMobileBar({ product }: StickyMobileBarProps) {
       return;
     }
 
-    // calculator — скроллим к калькулятору, там есть точный total и своя кнопка "В корзину"
+    // calculator — скроллим к калькулятору, у него есть кнопка «Заказать»
+    // (открывает QuoteModal с параметрами)
     const el = typeof document !== "undefined" ? document.getElementById("calculator") : null;
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -46,7 +47,7 @@ export default function StickyMobileBar({ product }: StickyMobileBarProps) {
       ? "Заказать расчёт"
       : product.pricing_mode === "calculator"
         ? "Рассчитать стоимость"
-        : "Купить в 1 клик";
+        : "Быстрый расчёт";
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t border-neutral-200 bg-white/95 p-4 shadow-[0_-10px_30px_rgba(0,0,0,0.08)] backdrop-blur-md lg:hidden">
@@ -57,7 +58,7 @@ export default function StickyMobileBar({ product }: StickyMobileBarProps) {
         <span className="font-display text-lg font-bold text-brand-orange tabular-nums">
           {formatPriceLabel({
             price: product.price,
-            priceFrom: product.price_from,
+            priceTo: product.price_to,
             unit: product.unit,
           })}
         </span>

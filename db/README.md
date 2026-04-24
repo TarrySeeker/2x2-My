@@ -163,6 +163,10 @@ node scripts/generate-admin-hash.mjs newpass    # свой пароль
 > ```sql
 > UPDATE users SET password_hash = '<новый_hash>' WHERE username='admin';
 > ```
+>
+> **Статус prod (erfgv.website):** дефолтный пароль `admin123` сменён
+> 2026-04-23 в рамках Этапа 0 экстренных security-фиксов. Новый
+> пароль хранится в `.secrets/server-credentials.txt` (НЕ в репо).
 
 ## Старая инструкция через docker run (без compose)
 

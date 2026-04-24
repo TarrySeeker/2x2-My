@@ -1,17 +1,13 @@
 import "server-only";
-import { sql } from "@/lib/db/client";
-import { cdekFetch, isCdekConfigured } from "./client";
-import type { CdekOrderRequest, CdekOrderResponse } from "./types";
-import type { DeliveryAddress } from "@/types/database";
-import type { Row } from "@/lib/db/table-types";
 
-type OrderRow = Row<"orders">;
-type OrderItemRow = Row<"order_items">;
-
-const CDEK_FROM_LOCATION_CODE = Number(
-  process.env.CDEK_FROM_LOCATION_CODE || "1104",
-);
-const CDEK_FROM_ADDRESS = process.env.CDEK_FROM_ADDRESS || "ул. Парковая 92 Б";
+/**
+ * Заглушка после удаления таблицы `orders` (миграция 006).
+ *
+ * Создание накладных СДЭК для заказов больше не нужно — заказы
+ * отключены, оставлены заявки. Если в будущем потребуется создавать
+ * отправления, например для отправки полиграфии клиенту по СДЭК —
+ * восстановить из git history.
+ */
 
 export interface ShipmentResult {
   success: boolean;
@@ -21,124 +17,10 @@ export interface ShipmentResult {
 }
 
 export async function createCdekShipment(
-  orderId: number,
+  _orderId: number,
 ): Promise<ShipmentResult> {
-  if (!isCdekConfigured()) {
-    return { success: false, error: "CDEK not configured" };
-  }
-
-  const orderRows = await sql<OrderRow[]>`
-    SELECT * FROM orders WHERE id = ${orderId} LIMIT 1
-  `;
-  const order = orderRows[0];
-  if (!order) return { success: false, error: `Order not found: ${orderId}` };
-
-  if (order.delivery_type === "pickup") {
-    return { success: true };
-  }
-
-  if (order.cdek_order_uuid) {
-    return {
-      success: true,
-      cdek_order_uuid: order.cdek_order_uuid,
-      cdek_order_number: order.cdek_order_number ?? undefined,
-    };
-  }
-
-  const items = await sql<OrderItemRow[]>`
-    SELECT *
-    FROM order_items
-    WHERE order_id = ${orderId}
-  `;
-  if (items.length === 0) {
-    return { success: false, error: "Order items not found" };
-  }
-
-  const tariffCode = order.delivery_tariff_code ?? 136;
-  const isOffice = [136, 234].includes(tariffCode);
-  const addr = order.delivery_address as DeliveryAddress | null;
-  const toCityCode = addr?.city_code ?? 44;
-
-  const cdekBody: CdekOrderRequest = {
-    type: 1,
-    number: order.order_number ?? `ORD-${orderId}`,
-    tariff_code: tariffCode,
-    sender: {
-      name: "Рекламная компания 2х2",
-      phones: [{ number: "+79324247740" }],
-    },
-    recipient: {
-      name: order.customer_name,
-      phones: [{ number: order.customer_phone }],
-      email: order.customer_email ?? undefined,
-    },
-    packages: [
-      {
-        number: `PKG-${orderId}`,
-        weight: 1000,
-        length: 30,
-        width: 20,
-        height: 15,
-        items: items.map((item: OrderItemRow) => ({
-          name: item.name,
-          ware_key: item.sku ?? `ITEM-${item.id}`,
-          payment: { value: 0 },
-          cost: item.price,
-          amount: item.quantity,
-          weight: 1000,
-        })),
-      },
-    ],
+  return {
+    success: false,
+    error: "Заказы упразднены — функция СДЭК-отправлений отключена",
   };
-
-  if (isOffice && order.delivery_point_code) {
-    cdekBody.delivery_point = order.delivery_point_code;
-    cdekBody.from_location = {
-      code: CDEK_FROM_LOCATION_CODE,
-      address: CDEK_FROM_ADDRESS,
-    };
-  } else {
-    const deliveryStreet =
-      addr?.street ?? order.delivery_point_address ?? "";
-
-    cdekBody.from_location = {
-      code: CDEK_FROM_LOCATION_CODE,
-      address: CDEK_FROM_ADDRESS,
-    };
-    cdekBody.to_location = {
-      code: toCityCode,
-      address: deliveryStreet,
-    };
-  }
-
-  try {
-    const result = await cdekFetch<CdekOrderResponse>("/orders", {
-      method: "POST",
-      body: cdekBody,
-    });
-
-    const uuid = result.entity?.uuid;
-    if (!uuid) {
-      const errMsg =
-        result.requests?.[0]?.errors?.[0]?.message ?? "No UUID in response";
-      return { success: false, error: errMsg };
-    }
-
-    await sql`
-      UPDATE orders
-      SET
-        cdek_order_uuid = ${uuid},
-        cdek_tracking_url = ${`https://cdek.ru/track?order_id=${uuid}`}
-      WHERE id = ${orderId}
-    `;
-
-    return {
-      success: true,
-      cdek_order_uuid: uuid,
-    };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown CDEK error";
-    console.error(`[cdek/shipment] Failed for order ${orderId}:`, msg);
-    return { success: false, error: msg };
-  }
 }

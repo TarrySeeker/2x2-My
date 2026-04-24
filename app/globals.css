@@ -86,6 +86,29 @@
   }
 }
 
+/* WebKit fix: tailwind v4 ставит backdrop-filter, но не всегда добавляет
+   `-webkit-backdrop-filter`. Без префикса в Safari ≤16 backdrop-blur
+   игнорируется → карточки/панели выглядят полупрозрачно-мутными
+   (regression замечена в QA-аудите 2026-04-24, P1-6). */
+@supports (-webkit-backdrop-filter: blur(0)) {
+  .backdrop-blur,
+  .backdrop-blur-sm,
+  .backdrop-blur-md,
+  .backdrop-blur-lg,
+  .backdrop-blur-xl,
+  .backdrop-blur-2xl,
+  .backdrop-blur-3xl {
+    -webkit-backdrop-filter: var(--tw-backdrop-blur, blur(8px));
+  }
+  .backdrop-blur-sm { -webkit-backdrop-filter: blur(4px); }
+  .backdrop-blur-md { -webkit-backdrop-filter: blur(12px); }
+  .backdrop-blur-lg { -webkit-backdrop-filter: blur(16px); }
+  .backdrop-blur-xl { -webkit-backdrop-filter: blur(24px); }
+  .backdrop-blur-2xl { -webkit-backdrop-filter: blur(40px); }
+  .backdrop-blur-3xl { -webkit-backdrop-filter: blur(64px); }
+  .backdrop-blur { -webkit-backdrop-filter: blur(8px); }
+}
+
 /* Единая ширина контента + отступы на телефоне и десктопе (переменные из @theme) */
 @layer utilities {
   .container {

@@ -3,6 +3,11 @@ import type { ProductStatus, OrderStatus, OrderType, PostStatus, Json } from "@/
 
 // ── Dashboard ──
 
+/**
+ * @deprecated Поля revenue/orders/avgCheck/newOrders — наследие
+ * корзинной версии. После миграции 006 всегда заполняются нулями.
+ * Новый дашборд читает `getDashboardStatsV2()` (RPC `get_dashboard_stats`).
+ */
 export interface DashboardStats {
   revenue: { today: number; yesterday: number };
   orders: { today: number; yesterday: number };
@@ -50,8 +55,10 @@ export interface CategoryTreeNode extends Row<"categories"> {
   children: CategoryTreeNode[];
 }
 
-// ── Orders ──
+// ── Orders (deprecated, удалены миграцией 006) ──
+// Типы оставлены как заглушки до зачистки UI в этапе 3.
 
+/** @deprecated */
 export interface AdminOrderFilters {
   search?: string;
   status?: OrderStatus;
@@ -63,17 +70,44 @@ export interface AdminOrderFilters {
   perPage: number;
 }
 
-export type OrderRow = Row<"orders">;
+/** @deprecated */
+export interface OrderRow {
+  id: number;
+  order_number: string | null;
+  type: OrderType;
+  status: OrderStatus;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string | null;
+  total: number;
+  payment_status: string;
+  delivery_type: string | null;
+  created_at: string;
+}
 
-export interface OrderItemWithProduct extends Row<"order_items"> {
+/** @deprecated */
+export interface OrderItemWithProduct {
+  id: number;
+  order_id: number;
+  product_id: number | null;
+  name: string;
+  price: number;
+  quantity: number;
+  total: number;
+  image_url: string | null;
   product_name: string | null;
   product_image: string | null;
 }
 
-export interface OrderFull extends Row<"orders"> {
+/** @deprecated */
+export interface OrderFull extends OrderRow {
   items: OrderItemWithProduct[];
-  status_history: Row<"order_status_history">[];
-  assigned_profile: { id: string; full_name: string | null; email: string | null } | null;
+  status_history: never[];
+  assigned_profile: {
+    id: string;
+    full_name: string | null;
+    email: string | null;
+  } | null;
 }
 
 // ── Customers ──

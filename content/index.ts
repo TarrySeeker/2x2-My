@@ -1,12 +1,15 @@
 /**
  * Barrel-экспорт TS-модулей контента для главной, каталога, блога,
- * акций и микрокопирайтинга.
+ * акций, микрокопирайтинга, cookie-баннера и SEO.
  *
- * Ведёт: content-manager (D-021, D-024).
- * Использование: `import { homeHero, promotions, emptyStates } from "@/content";`
+ * Использование: `import { cookieBanner, pageSeoDefaults } from "@/content"`
+ *
+ * Ведёт: content-manager (Этап 6, 2026-04-23).
  */
 
 export * from './home'
 export * from './promotions'
 export * from './empty-states'
 export * from './blog-starters'
+export * from './cookie-banner'
+export * from './seo-defaults'

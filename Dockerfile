@@ -31,7 +31,18 @@ RUN corepack enable pnpm
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
-# Копируем исходники и собираем
+# Копируем исходники и собираем.
+#
+# Часть serverless-роутов (например, /sitemap.xml) импортируется на этапе
+# `next build` для сбора page data, и они дёргают lib/db/client.ts,
+# которому нужен DATABASE_URL. Передаём минимальный набор переменных
+# через ARG → ENV. На этапе build они не используются для реального
+# подключения, но импорт модулей не должен падать.
+ARG DATABASE_URL=postgres://placeholder:placeholder@127.0.0.1:5432/placeholder
+ARG NEXT_PUBLIC_SITE_URL=https://example.com
+ENV DATABASE_URL=${DATABASE_URL}
+ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
+
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production

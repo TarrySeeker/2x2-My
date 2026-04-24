@@ -1,272 +1,135 @@
-'use client'
+import { readSectionContent, getSettingValue } from '@/lib/cms/section-content'
+import AboutPreviewClient, {
+  type AboutSectionData,
+  type AboutStat,
+  type AboutHighlightCard,
+} from './AboutPreviewClient'
 
-import { useRef, useEffect, useState } from 'react'
-import Image from 'next/image'
-import { motion, useInView, AnimatePresence } from 'framer-motion'
-import { Users, Calendar, Briefcase, MapPin, ArrowRight } from 'lucide-react'
-import Link from 'next/link'
-import { asset } from '@/lib/asset'
-
-const stats = [
-  { icon: Calendar, value: 12, suffix: '+', label: 'лет на рынке', color: 'from-orange-500 to-amber-400' },
-  { icon: Briefcase, value: 500, suffix: '+', label: 'проектов', color: 'from-brand-orange to-red-500' },
-  { icon: Users, value: 300, suffix: '+', label: 'клиентов', color: 'from-amber-500 to-orange-500' },
-  { icon: MapPin, value: 1, suffix: '', label: 'город — Ханты-Мансийск', color: 'from-orange-600 to-amber-500' },
+const DEFAULT_STATS: AboutStat[] = [
+  { icon: 'Calendar',  value: 12,  suffix: '+', label: 'лет на рынке' },
+  { icon: 'Briefcase', value: 500, suffix: '+', label: 'проектов' },
+  { icon: 'Users',     value: 300, suffix: '+', label: 'клиентов' },
+  { icon: 'MapPin',    value: 17,  suffix: '',  label: 'городов — ХМАО, ЯНАО' },
 ]
 
-import { Factory, UserCheck, Zap, ShieldCheck } from 'lucide-react'
+const DEFAULT_HIGHLIGHT: AboutHighlightCard = {
+  text: 'Мы вас понимаем',
+  icon: 'UserCheck',
+}
 
-const highlights = [
-  { text: 'Собственное производство', icon: Factory, gradient: 'from-orange-500 via-amber-400 to-yellow-400' },
-  { text: 'Индивидуальный подход', icon: UserCheck, gradient: 'from-brand-orange via-red-400 to-pink-400' },
-  { text: 'Быстрые сроки', icon: Zap, gradient: 'from-amber-500 via-orange-400 to-brand-orange' },
-  { text: 'Гарантия качества', icon: ShieldCheck, gradient: 'from-emerald-400 via-teal-400 to-cyan-400' },
-]
+const DEFAULT_ABOUT: AboutSectionData = {
+  badge: 'О компании',
+  headline: 'Рекламное агентство',
+  paragraphs: [
+    'Мы делаем рекламу для бизнеса в ХМАО и ЯНАО с 2012 года. Полиграфия, наружная реклама, вывески, световые буквы, оформление фасадов и транспорта — всё под ключ, от эскиза до монтажа.',
+    'Среди наших клиентов — ВТБ, Брусника, ЮКИОР, сети АЗС. Работаем с малым бизнесом, госструктурами и федеральными сетями. Полиграфию отправляем по всей России.',
+  ],
+  highlight_card: DEFAULT_HIGHLIGHT,
+  stats: DEFAULT_STATS,
+  cta_text: 'Подробнее о нас',
+  cta_url: '/about',
+}
 
-function AnimatedCounter({
-  value,
-  suffix,
-  inView,
-  className,
-}: {
-  value: number
-  suffix: string
-  inView: boolean
-  className?: string
-}) {
-  const [count, setCount] = useState(0)
+interface SiteStatsValue {
+  years_in_business?: number
+  projects_done?: number
+  clients_count?: number
+  cities_count?: number
+  regions?: string
+}
 
-  useEffect(() => {
-    if (!inView) return
-    let start = 0
-    const step = Math.max(1, Math.floor(value / 50))
-    const interval = setInterval(() => {
-      start += step
-      if (start >= value) {
-        setCount(value)
-        clearInterval(interval)
-      } else {
-        setCount(start)
+function isHighlightCard(v: unknown): v is AboutHighlightCard {
+  return (
+    !!v && typeof v === 'object' && 'text' in v && typeof (v as { text: unknown }).text === 'string'
+  )
+}
+
+function isStatArray(v: unknown): v is AboutStat[] {
+  return (
+    Array.isArray(v) &&
+    v.every(
+      (s) =>
+        s &&
+        typeof s === 'object' &&
+        typeof (s as { label?: unknown }).label === 'string' &&
+        ('value' in (s as Record<string, unknown>)),
+    )
+  )
+}
+
+/**
+ * Server-обёртка About-секции.
+ *
+ * Источники данных:
+ *  - homepage_sections.about (текст, параграфы, highlight_card, дефолтные stats)
+ *  - site_settings.stats — глобальные счётчики (если заданы — переопределяют
+ *    значения из секции, label оставляем из секции).
+ */
+export default async function AboutPreview() {
+  const cms = await readSectionContent('about')
+  const settingsStats = await getSettingValue<SiteStatsValue>('stats', {
+    years_in_business: 12,
+    projects_done: 500,
+    clients_count: 300,
+    cities_count: 17,
+    regions: 'ХМАО, ЯНАО',
+  })
+
+  const rawHighlight = cms?.highlight_card
+  const rawStats = cms?.stats
+
+  const highlightFromCms = isHighlightCard(rawHighlight) ? rawHighlight : null
+
+  const cmsStats: AboutStat[] = isStatArray(rawStats) ? rawStats : DEFAULT_STATS
+
+  // Если в site_settings.stats заданы свежие числа — подменяем их в cmsStats
+  // по эвристике: ищем stat с подходящим icon, обновляем value+suffix.
+  // Это позволяет клиенту менять «17 городов» одним сеттером в админке.
+  function pickValue(icon: string): { value: number | string; suffix: string } | null {
+    if (icon === 'Calendar' && settingsStats.years_in_business)
+      return { value: settingsStats.years_in_business, suffix: '+' }
+    if (icon === 'Briefcase' && settingsStats.projects_done)
+      return { value: settingsStats.projects_done, suffix: '+' }
+    if (icon === 'Users' && settingsStats.clients_count)
+      return { value: settingsStats.clients_count, suffix: '+' }
+    if (icon === 'MapPin' && settingsStats.cities_count)
+      return { value: settingsStats.cities_count, suffix: '' }
+    return null
+  }
+
+  const stats: AboutStat[] = cmsStats.map((s) => {
+    const override = pickValue(String(s.icon ?? ''))
+    if (!override) return s
+    // Если icon=MapPin и регионы есть — обновляем label на «… городов — РЕГИОНЫ»
+    if (s.icon === 'MapPin' && settingsStats.regions) {
+      return {
+        ...s,
+        value: override.value,
+        suffix: override.suffix,
+        label: `городов — ${settingsStats.regions}`,
       }
-    }, 25)
-    return () => clearInterval(interval)
-  }, [inView, value])
+    }
+    return { ...s, value: override.value, suffix: override.suffix }
+  })
 
-  return <span className={className ?? 'tabular-nums'}>{count}{suffix}</span>
-}
+  const data: AboutSectionData = {
+    badge: typeof cms?.badge === 'string' ? cms.badge : DEFAULT_ABOUT.badge,
+    headline: typeof cms?.headline === 'string' ? cms.headline : DEFAULT_ABOUT.headline,
+    paragraphs: (() => {
+      const raw = cms?.paragraphs
+      if (!Array.isArray(raw)) return DEFAULT_ABOUT.paragraphs
+      return raw.filter((p): p is string => typeof p === 'string')
+    })(),
+    // highlight_card: если в БД явно null — оставляем null (клиент мог отключить).
+    // Если в БД нет ключа вообще — берём дефолт.
+    highlight_card:
+      cms && 'highlight_card' in cms
+        ? highlightFromCms
+        : DEFAULT_HIGHLIGHT,
+    stats,
+    cta_text: typeof cms?.cta_text === 'string' ? cms.cta_text : DEFAULT_ABOUT.cta_text,
+    cta_url: typeof cms?.cta_url === 'string' ? cms.cta_url : DEFAULT_ABOUT.cta_url,
+  }
 
-function FloatingOrb({ className, delay }: { className: string; delay: number }) {
-  return (
-    <motion.div
-      className={`absolute rounded-full blur-3xl ${className}`}
-      animate={{
-        y: [0, -30, 0, 20, 0],
-        x: [0, 15, -10, 5, 0],
-        scale: [1, 1.1, 0.95, 1.05, 1],
-      }}
-      transition={{ duration: 8, repeat: Infinity, delay, ease: 'easeInOut' }}
-    />
-  )
-}
-
-function HighlightSlider({ inView }: { inView: boolean }) {
-  const [active, setActive] = useState(0)
-
-  useEffect(() => {
-    if (!inView) return
-    const timer = setInterval(() => {
-      setActive(prev => (prev + 1) % highlights.length)
-    }, 2500)
-    return () => clearInterval(timer)
-  }, [inView])
-
-  const current = highlights[active]
-  const Icon = current.icon
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.5, delay: 0.4 }}
-      className="mb-10"
-    >
-      <div className="relative flex min-h-[5.5rem] items-center justify-center px-2 sm:min-h-24 sm:px-0">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={active}
-            initial={{ opacity: 0, y: 20, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.9 }}
-            transition={{ duration: 0.4, type: 'spring', stiffness: 200, damping: 20 }}
-            className={`absolute inline-flex max-w-[min(100%,22rem)] items-center gap-3 rounded-2xl bg-gradient-to-r px-5 py-4 text-base font-bold text-white shadow-xl shadow-brand-orange/25 sm:max-w-none sm:gap-4 sm:px-8 sm:py-5 sm:text-lg md:text-xl lg:text-2xl ${current.gradient}`}
-          >
-            <motion.div
-              animate={{ rotate: [0, 10, -10, 0], scale: [1, 1.15, 1] }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-            >
-              <Icon className="w-8 h-8" />
-            </motion.div>
-            {current.text}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-
-      <div className="flex justify-center gap-2 mt-4">
-        {highlights.map((h, i) => (
-          <button
-            key={h.text}
-            type="button"
-            onClick={() => setActive(i)}
-            className="relative h-2 rounded-full overflow-hidden transition-all duration-300 ring-1 ring-emerald-300/50"
-            style={{ width: i === active ? 40 : 12 }}
-          >
-            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 opacity-25" />
-            {i === active && (
-              <motion.div
-                className="absolute inset-0 rounded-full bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400"
-                initial={{ scaleX: 0 }}
-                animate={{ scaleX: 1 }}
-                transition={{ duration: 2.5, ease: 'linear' }}
-                style={{ transformOrigin: 'left' }}
-              />
-            )}
-          </button>
-        ))}
-      </div>
-    </motion.div>
-  )
-}
-
-export default function AboutPreview() {
-  const ref = useRef(null)
-  const isInView = useInView(ref, { once: true, margin: '-80px' })
-
-  return (
-    <section ref={ref} className="section-padding bg-white relative overflow-hidden">
-      <FloatingOrb className="w-[400px] h-[400px] bg-brand-orange/5 top-0 left-0 -translate-x-1/2 -translate-y-1/2" delay={0} />
-      <FloatingOrb className="w-[300px] h-[300px] bg-amber-500/5 bottom-0 right-0 translate-x-1/3 translate-y-1/3" delay={2} />
-      <FloatingOrb className="w-[200px] h-[200px] bg-orange-500/5 top-1/2 right-1/4" delay={4} />
-
-      <div className="container relative z-10">
-        <div className="max-w-3xl mx-auto text-center">
-          <div>
-            <motion.span
-              initial={{ opacity: 0, y: -15 }}
-              animate={isInView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 bg-brand-orange text-white px-5 py-2 rounded-full text-sm font-bold mb-8 shadow-lg shadow-brand-orange/30"
-            >
-              <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
-              О компании
-            </motion.span>
-
-            <motion.h2
-              initial={{ opacity: 0, y: 20 }}
-              animate={isInView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-4xl md:text-6xl font-black text-brand-dark mb-8 leading-[1.05]"
-            >
-              Рекламное агентство{' '}
-              <motion.span
-                className="inline-block align-middle"
-                animate={isInView ? { scale: [1, 1.06, 1] } : {}}
-                transition={{ duration: 0.8, delay: 0.8 }}
-              >
-                <Image
-                  src={asset("/img/log-2.png")}
-                  alt="2×2"
-                  width={280}
-                  height={90}
-                  className="h-[0.92em] w-auto max-h-14 object-contain object-bottom sm:max-h-16 md:max-h-[4.5rem]"
-                  sizes="(max-width: 768px) 200px, 280px"
-                />
-              </motion.span>
-            </motion.h2>
-
-            <motion.p
-              initial={{ opacity: 0, y: 15 }}
-              animate={isInView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="text-gray-600 text-xl md:text-2xl leading-relaxed mb-5"
-            >
-              Мы — команда профессионалов, которая помогает бизнесу заявить о себе. Полиграфия, наружная
-              реклама, оформление фасадов — делаем всё, чтобы вас заметили.
-            </motion.p>
-
-            <motion.p
-              initial={{ opacity: 0, y: 15 }}
-              animate={isInView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="whitespace-pre-line text-gray-600 text-xl md:text-2xl leading-relaxed mb-10"
-            >
-              {`Быстрые сроки и индивидуальный подход к каждому клиенту — вот почему нам доверяют сотни компаний.
-
-Отправляем полиграфию по РФ с бесплатной доставкой в любой город, в ХМАО и ЯНАО в частности.`}
-            </motion.p>
-
-            <HighlightSlider inView={isInView} />
-
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={isInView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.5, delay: 0.7 }}
-            >
-              <Link href="/about" className="group relative inline-flex items-center gap-3 overflow-hidden">
-                <motion.span
-                  whileHover={{ scale: 1.03 }}
-                  className="inline-flex items-center gap-3 bg-brand-orange text-white px-9 py-4.5 rounded-xl
-                    font-bold text-lg shadow-lg shadow-brand-orange/30 hover:shadow-xl hover:shadow-brand-orange/40 transition-all duration-300"
-                >
-                  Подробнее о нас
-                  <motion.span
-                    className="inline-block"
-                    animate={{ x: [0, 5, 0] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  >
-                    <ArrowRight className="w-5 h-5" />
-                  </motion.span>
-                </motion.span>
-              </Link>
-            </motion.div>
-          </div>
-
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="mt-16 grid grid-cols-2 gap-x-6 gap-y-12 md:grid-cols-4 md:gap-x-0 md:gap-y-0 md:divide-x md:divide-gray-200/80"
-        >
-          {stats.map((stat, i) => {
-            const Icon = stat.icon
-            return (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 20 }}
-                animate={isInView ? { opacity: 1, y: 0 } : {}}
-                transition={{ duration: 0.45, delay: 0.45 + i * 0.08, ease: [0.22, 1, 0.36, 1] }}
-                className="group flex flex-col items-center px-2 text-center md:px-6 lg:px-8"
-              >
-                <div
-                  className={`mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm ring-1 ring-black/5 transition-transform duration-300 ease-out group-hover:scale-110 group-hover:rotate-6 md:h-11 md:w-11 ${stat.color}`}
-                >
-                  <Icon className="h-5 w-5 md:h-5 md:w-5" strokeWidth={2.25} />
-                </div>
-                <AnimatedCounter
-                  value={stat.value}
-                  suffix={stat.suffix}
-                  inView={isInView}
-                  className={`mb-2 block bg-gradient-to-br bg-clip-text font-black tabular-nums text-4xl leading-none text-transparent transition-transform duration-300 ease-out group-hover:scale-[1.03] md:text-5xl lg:text-6xl ${stat.color}`}
-                />
-                <p className="max-w-[10.5rem] text-pretty text-sm font-semibold leading-snug text-neutral-600 transition-colors duration-300 group-hover:text-brand-dark md:max-w-none md:text-base">
-                  {stat.label}
-                </p>
-              </motion.div>
-            )
-          })}
-        </motion.div>
-      </div>
-    </section>
-  )
+  return <AboutPreviewClient data={data} />
 }

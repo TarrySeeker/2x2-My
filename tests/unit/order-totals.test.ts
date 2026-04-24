@@ -16,15 +16,15 @@ describe("calculateTotals", () => {
     expect(result.total).toBe(3200);
   });
 
-  it("adds 500 RUB delivery cost for courier", () => {
+  it("defaults courier_local delivery cost to 0 (manager calculates after Chain 4a)", () => {
     const result = calculateTotals({
       items: [{ price: 1000, quantity: 2 }],
-      deliveryType: "courier",
+      deliveryType: "courier_local",
       installationRequired: false,
       promoDiscount: 0,
     });
-    expect(result.deliveryCost).toBe(500);
-    expect(result.total).toBe(2500);
+    expect(result.deliveryCost).toBe(0);
+    expect(result.total).toBe(2000);
   });
 
   it("sets delivery cost to 0 for pickup", () => {
@@ -98,7 +98,7 @@ describe("calculateTotals", () => {
     it("overrides courier default when deliveryCost is explicit", () => {
       const result = calculateTotals({
         items: [{ price: 1000, quantity: 1 }],
-        deliveryType: "courier",
+        deliveryType: "courier_local",
         installationRequired: false,
         promoDiscount: 0,
         deliveryCost: 800,

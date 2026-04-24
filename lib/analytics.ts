@@ -96,12 +96,40 @@ function getWin(): WindowWithAnalytics | null {
 }
 
 /**
+ * Cookie-consent gate. Аналитические события отправляем только после того,
+ * как пользователь явно нажал «Принять» в `CookieBanner`. До подтверждения
+ * — no-op (152-ФЗ + UX-обещание баннера).
+ *
+ * Исключение — событие `cookie_consent` (выбор «Принять»/«Отклонить» в самом
+ * баннере): оно функционально-необходимое и пишется всегда, чтобы клиент
+ * мог измерить долю отказов.
+ */
+const CONSENT_KEY = "cookie_consent";
+const CONSENT_BYPASS_EVENTS = new Set<string>(["cookie_consent"]);
+
+function hasConsent(win: WindowWithAnalytics): boolean {
+  try {
+    return win.localStorage.getItem(CONSENT_KEY) === "accepted";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Основной API для отправки события во все подключённые системы.
  * Безопасно вызывать на сервере — там станет no-op.
+ *
+ * До получения consent тоже no-op (кроме служебного `cookie_consent`).
  */
 export function trackEvent(name: EventName | string, params?: AnalyticsParams): void {
   const win = getWin();
   if (!win) return;
+  if (!CONSENT_BYPASS_EVENTS.has(name) && !hasConsent(win)) {
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[analytics] skipped (no consent)", name);
+    }
+    return;
+  }
 
   // Яндекс.Метрика
   if (YM_ID && typeof win.ym === "function") {
@@ -140,10 +168,13 @@ export function trackEvent(name: EventName | string, params?: AnalyticsParams): 
 /**
  * Shortcut для просмотра страницы (SPA-роуты).
  * Вызывать в клиентском layout при смене pathname.
+ *
+ * Также gated по cookie consent — без `accepted` no-op.
  */
 export function trackPageView(path: string, title?: string): void {
   const win = getWin();
   if (!win) return;
+  if (!hasConsent(win)) return;
 
   if (YM_ID && typeof win.ym === "function") {
     try {

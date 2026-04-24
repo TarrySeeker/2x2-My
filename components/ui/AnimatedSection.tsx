@@ -1,7 +1,7 @@
 'use client'
 
-import { motion, useInView } from 'framer-motion'
-import { useRef, ReactNode } from 'react'
+import { motion } from 'framer-motion'
+import { ReactNode } from 'react'
 
 type Props = {
   children: ReactNode
@@ -18,16 +18,24 @@ const dirs = {
   none:  { x: 0, y: 0 },
 }
 
+/**
+ * Анимация появления секции. Переведена на `whileInView` (вместо useInView +
+ * animate-gate), чтобы гарантированно отработать в Firefox и mobile-Chrome:
+ * при `animate={isInView ? {...} : {}}` если IntersectionObserver не
+ * успевает сработать до того, как пользователь оказался в viewport (а в
+ * FF/mobile-chrome это случалось), контент оставался сдвинут и невидим.
+ *
+ * Также держим `initial.opacity: 1` — даже если whileInView не сработает
+ * из-за отключённого IO, секция останется видимой, только без entry-анимации.
+ */
 export default function AnimatedSection({ children, className = '', delay = 0, direction = 'up', style }: Props) {
-  const ref = useRef(null)
-  const isInView = useInView(ref, { once: true, margin: '-50px' })
   const d = dirs[direction]
 
   return (
     <motion.div
-      ref={ref}
       initial={{ opacity: 1, x: d.x, y: d.y }}
-      animate={isInView ? { opacity: 1, x: 0, y: 0 } : { opacity: 1, x: d.x, y: d.y }}
+      whileInView={{ opacity: 1, x: 0, y: 0 }}
+      viewport={{ once: true, margin: '-50px' }}
       transition={{ duration: 0.6, delay, ease: 'easeOut' }}
       className={className}
       style={style}

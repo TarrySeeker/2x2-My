@@ -36,11 +36,6 @@ export async function GET() {
   );
   checks.cdek_api = cdekConfigured ? "ok" : "not_configured";
 
-  const payConfigured = !!(
-    process.env.CDEK_PAY_SHOP_LOGIN && process.env.CDEK_PAY_SECRET_KEY
-  );
-  checks.cdek_pay = payConfigured ? "ok" : "not_configured";
-
   return NextResponse.json(
     {
       status: healthy ? "healthy" : "degraded",

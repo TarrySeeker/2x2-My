@@ -23,13 +23,19 @@ const SESSION_COOKIE_NAME = "auth_session";
 export function middleware(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
 
+  // Прокидываем pathname в headers — server components читают его
+  // через `headers().get('x-pathname')`. Это нужно для force-change
+  // password redirect и role-based guard в `app/admin/layout.tsx`.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", pathname);
+
   // Логин не защищаем (иначе петля).
   if (pathname === "/admin/login" || pathname.startsWith("/admin/login/")) {
-    return NextResponse.next();
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   if (!pathname.startsWith("/admin")) {
-    return NextResponse.next();
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
@@ -40,7 +46,7 @@ export function middleware(request: NextRequest): NextResponse {
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

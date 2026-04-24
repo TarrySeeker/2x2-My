@@ -51,7 +51,7 @@ const defaultValues: ProductFormData = {
   price: 0,
   old_price: null,
   cost_price: null,
-  price_from: false,
+  price_to: null,
   unit: null,
   sku: null,
   barcode: null,
@@ -186,7 +186,7 @@ export default function ProductDialog({
             price: product.price,
             old_price: product.old_price,
             cost_price: product.cost_price,
-            price_from: product.price_from,
+            price_to: product.price_to,
             unit: product.unit,
             sku: product.sku,
             barcode: product.barcode,
@@ -403,16 +403,42 @@ export default function ProductDialog({
                   {/* Pricing tab */}
                   {tab === "pricing" && (
                     <div className="space-y-5">
+                      <p className="rounded-lg bg-neutral-50 px-3 py-2 text-xs text-neutral-500 dark:bg-white/5 dark:text-neutral-400">
+                        Цены показываются на витрине как «от X ₽» или «от X до Y ₽».
+                        Поле «Цена до» необязательно — если пусто, в каталоге будет
+                        только нижняя граница.
+                      </p>
                       <div className="grid grid-cols-2 gap-4">
-                        <Field label="Цена *" error={errors.price?.message}>
+                        <Field label="Цена от, ₽ *" error={errors.price?.message}>
                           <input
                             type="number"
                             step="0.01"
+                            min="0"
                             {...register("price", { valueAsNumber: true })}
                             className={inputClass(!!errors.price)}
                             placeholder="0"
                           />
                         </Field>
+                        <Field
+                          label="Цена до, ₽ — необязательно"
+                          error={errors.price_to?.message}
+                        >
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            {...register("price_to", {
+                              setValueAs: (v) =>
+                                v === "" || v === null || v === undefined
+                                  ? null
+                                  : Number(v),
+                            })}
+                            className={inputClass(!!errors.price_to)}
+                            placeholder="оставьте пустым, если без верхней границы"
+                          />
+                        </Field>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
                         <Field label="Старая цена">
                           <input
                             type="number"
@@ -421,8 +447,6 @@ export default function ProductDialog({
                             className={inputClass(false)}
                           />
                         </Field>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
                         <Field label="Себестоимость">
                           <input
                             type="number"
@@ -431,6 +455,8 @@ export default function ProductDialog({
                             className={inputClass(false)}
                           />
                         </Field>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
                         <Field label="Единица">
                           <input
                             {...register("unit")}
@@ -438,16 +464,16 @@ export default function ProductDialog({
                             placeholder="шт., м², кв.м."
                           />
                         </Field>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <label className="flex items-center gap-2 text-sm">
-                          <input type="checkbox" {...register("price_from")} className="accent-brand-orange" />
-                          Цена «от»
-                        </label>
-                        <label className="flex items-center gap-2 text-sm">
-                          <input type="checkbox" {...register("track_stock")} className="accent-brand-orange" />
-                          Учёт остатков
-                        </label>
+                        <Field label="Учёт остатков">
+                          <label className="flex h-10 items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              {...register("track_stock")}
+                              className="accent-brand-orange"
+                            />
+                            Списывать остатки автоматически
+                          </label>
+                        </Field>
                       </div>
                       <div className="grid grid-cols-3 gap-4">
                         <Field label="SKU">

@@ -61,7 +61,7 @@ export default function AboutValues() {
       <div className="container min-w-0">
         <div className="mb-14 text-center">
           <motion.h2
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 1, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-40px' }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
@@ -73,7 +73,7 @@ export default function AboutValues() {
             </span>
           </motion.h2>
           <motion.p
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 1, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-40px' }}
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: 0.06 }}
@@ -82,14 +82,14 @@ export default function AboutValues() {
             То, что отличает нас от других агентств
           </motion.p>
         </div>
-        <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 min-[480px]:gap-5 xl:grid-cols-4 xl:gap-6">
+        <div className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 min-[480px]:gap-5 lg:grid-cols-4 lg:gap-4 xl:gap-5">
           {values.map((v, i) => {
             const Icon = v.icon
             const t = themes[i % themes.length]!
             return (
               <motion.div
                 key={v.title}
-                initial={{ opacity: 0, y: 24 }}
+                initial={{ opacity: 1, y: 24 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-24px 0px -40px 0px' }}
                 transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: Math.min(i * 0.06, 0.24) }}
@@ -108,10 +108,10 @@ export default function AboutValues() {
                       <Icon className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={2} />
                     </span>
                     <div className="min-h-0 min-w-0 flex-1">
-                      <h3 className="mb-3 text-left text-xl font-black text-brand-dark sm:mb-4 sm:text-2xl md:text-3xl">
+                      <h3 className="mb-3 text-left text-lg font-black text-brand-dark sm:mb-4 sm:text-xl lg:text-xl xl:text-2xl">
                         {v.title}
                       </h3>
-                      <p className="text-base leading-relaxed text-gray-500 md:text-lg">{v.description}</p>
+                      <p className="text-sm leading-relaxed text-gray-500 md:text-base">{v.description}</p>
                     </div>
                   </div>
                 </div>

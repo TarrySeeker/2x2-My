@@ -14,7 +14,7 @@ const toListItem = (p: Product): CatalogListItem => ({
   short_description: p.short_description,
   pricing_mode: p.pricing_mode,
   price: Number(p.price),
-  price_from: p.price_from,
+  price_to: p.price_to == null ? null : Number(p.price_to),
   unit: p.unit,
   is_featured: p.is_featured,
   is_new: p.is_new,

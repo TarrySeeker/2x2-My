@@ -19,11 +19,11 @@
 # =============================================================
 FROM postgres:15-alpine
 
-# В alpine основной пакет — `postgresql15`, contrib — `postgresql15-contrib`.
-# Если установка идёт идемпотентно (apk не падает на already-installed),
-# это безопасно даже если contrib уже есть.
-RUN apk add --no-cache postgresql15-contrib
-
+# Расширения pg_trgm, unaccent, pgcrypto уже встроены в postgres:15-alpine
+# (проверено: ls /usr/local/share/postgresql/extension/), поэтому ставить
+# postgresql-contrib не нужно — пакет в alpine 3.22 называется иначе и
+# отсутствует в репозитории под именем postgresql15-contrib.
+#
 # Локализация ru_RU.UTF-8 нужна для корректной сортировки русских
 # названий товаров (иначе ORDER BY title даст ASCII-порядок).
 # musl-libc в alpine не имеет полноценного locale-supplement как glibc,

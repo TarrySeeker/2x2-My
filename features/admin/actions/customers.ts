@@ -1,15 +1,23 @@
 "use server";
 
-import { getCustomers, getCustomerOrders } from "@/features/admin/api/customers";
-import { requireAdmin } from "@/features/auth/api";
-import type { CustomerFilters } from "@/features/admin/types";
+import type {
+  CustomerFilters,
+  CustomerSummary,
+  OrderRow,
+} from "@/features/admin/types";
 
-export async function fetchCustomersAction(filters: CustomerFilters) {
-  await requireAdmin();
-  return getCustomers(filters);
+/**
+ * Заглушки. См. features/admin/api/customers.ts.
+ */
+
+export async function fetchCustomersAction(
+  _filters: CustomerFilters,
+): Promise<{ data: CustomerSummary[]; total: number }> {
+  return { data: [], total: 0 };
 }
 
-export async function fetchCustomerOrdersAction(phone: string) {
-  await requireAdmin();
-  return getCustomerOrders(phone);
+export async function fetchCustomerOrdersAction(
+  _phone: string,
+): Promise<OrderRow[]> {
+  return [];
 }

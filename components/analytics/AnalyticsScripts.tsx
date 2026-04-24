@@ -1,18 +1,75 @@
+"use client";
+
 import Script from "next/script";
+import { useSyncExternalStore } from "react";
+import { cookieBanner } from "@/content/cookie-banner";
 
 /**
  * Загружает счётчики аналитики: Яндекс.Метрика и GA4.
  *
- * Обе системы подключаются по env-переменным:
+ * Подключается по env-переменным:
  *   NEXT_PUBLIC_YM_ID   — ID счётчика Яндекс.Метрики ("99999999")
  *   NEXT_PUBLIC_GA4_ID  — Measurement ID GA4 ("G-XXXXXXXXXX")
  *
- * Если ID не заданы — ни один тег не рендерится.
- * Все события из `lib/analytics.ts` автоматически начнут работать.
+ * Скрипты грузятся ТОЛЬКО при условии:
+ *   1) Соответствующий ENV задан;
+ *   2) Пользователь явно нажал «Принять» в `CookieBanner`
+ *      (`localStorage.cookie_consent === 'accepted'`).
+ *
+ * До подтверждения cookie-баннера никакие сторонние теги не загружаются —
+ * это требование 152-ФЗ и обещание UI cookie-баннера.
+ *
+ * Реакция на изменение consent в рантайме:
+ *   - На клик «Принять» CookieBanner диспатчит `cookie-consent-changed`;
+ *   - Так же ловим `storage`-event (если consent изменили в другой вкладке).
+ *   - При смене на 'accepted' — компонент перерисовывается, скрипты
+ *     грузятся без полного reload страницы.
+ *
+ * Реализация через `useSyncExternalStore` — это «правильный» React-API
+ * для подписки на внешнее состояние без cascading effects.
  */
+
+const CONSENT_EVENT = "cookie-consent-changed";
+
+function readConsent(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(cookieBanner.storageKey) === "accepted";
+  } catch {
+    return false;
+  }
+}
+
+function subscribeConsent(callback: () => void): () => void {
+  function handleStorage(e: StorageEvent) {
+    if (e.key === cookieBanner.storageKey) callback();
+  }
+  window.addEventListener(CONSENT_EVENT, callback);
+  window.addEventListener("storage", handleStorage);
+  return () => {
+    window.removeEventListener(CONSENT_EVENT, callback);
+    window.removeEventListener("storage", handleStorage);
+  };
+}
+
+// SSR-snapshot: до hydration considers consent=false. Если пользователь уже
+// дал consent в прошлый раз, после mount произойдёт rehydrate и скрипты
+// смонтируются.
+function getServerConsent(): boolean {
+  return false;
+}
+
 export default function AnalyticsScripts() {
   const ymId = process.env.NEXT_PUBLIC_YM_ID;
   const ga4Id = process.env.NEXT_PUBLIC_GA4_ID;
+
+  const consented = useSyncExternalStore(
+    subscribeConsent,
+    readConsent,
+    getServerConsent,
+  );
+
+  if (!consented) return null;
 
   return (
     <>

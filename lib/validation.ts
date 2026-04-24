@@ -16,6 +16,13 @@ export const optionalEmailSchema = z.preprocess(
   z.string().email("Некорректный email").max(255).nullable(),
 );
 
+// ── PD-consent (152-ФЗ) ──
+// Все формы обратной связи требуют явное согласие чекбоксом.
+// На уровне Zod это `z.literal(true)` — любое другое значение → ошибка.
+const pdConsentField = z.literal(true, {
+  message: "Необходимо согласие на обработку персональных данных",
+});
+
 // ── Contact form ──
 export const contactSchema = z.object({
   name: z.string().min(1, "Имя обязательно").max(200),
@@ -25,6 +32,7 @@ export const contactSchema = z.object({
     .transform((v) => (v ? cleanPhone(v) : null)),
   subject: z.string().max(300).optional().nullable(),
   message: z.string().min(1, "Сообщение обязательно").max(5000),
+  pdConsent: pdConsentField,
 });
 export type ContactInput = z.infer<typeof contactSchema>;
 
@@ -40,6 +48,7 @@ export const oneClickSchema = z.object({
   }),
   product_name: z.string().max(500).optional().nullable(),
   page_url: z.string().max(2000).optional().nullable(),
+  pdConsent: pdConsentField,
 });
 export type OneClickInput = z.infer<typeof oneClickSchema>;
 
@@ -66,6 +75,7 @@ export const calcRequestSchema = z.object({
   params: z.record(z.unknown()).default({}),
   attachments: z.array(z.string().url()).max(10).default([]),
   source_url: z.string().max(2000).optional().nullable(),
+  pdConsent: pdConsentField,
 });
 export type CalcRequestInput = z.infer<typeof calcRequestSchema>;
 

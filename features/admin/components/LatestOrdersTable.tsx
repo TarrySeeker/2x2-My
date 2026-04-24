@@ -1,8 +1,6 @@
-import type { Row } from "@/lib/db/table-types";
+import type { OrderRow } from "@/features/admin/types";
 import StatusBadge from "./StatusBadge";
 import clsx from "clsx";
-
-type OrderRow = Row<"orders">;
 
 interface LatestOrdersTableProps {
   orders: OrderRow[];

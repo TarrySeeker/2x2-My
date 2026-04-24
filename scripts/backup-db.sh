@@ -1,81 +1,88 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # =============================================================
-# backup-db.sh — ежедневный бэкап PostgreSQL в файл .sql.gz
+# backup-db.sh — ежедневный бэкап PostgreSQL (custom format)
 # =============================================================
 # Запускается на ХОСТЕ (не в контейнере), через cron.
-#
-# Зависимости: docker (compose v2), gzip, find.
-# Команда `pg_dump` берётся из контейнера postgres
-# (через `docker compose exec`) — на хосте postgres не нужен.
+# pg_dump берётся из контейнера 2x2-postgres (через `docker exec`).
 #
 # Куда пишет:
-#   /var/backups/2x2/postgres/2x2-YYYYMMDD-HHMM.sql.gz
+#   ${BACKUP_DIR}/db-YYYYMMDD-HHMMSS.dump
+#   (custom format, восстановление через pg_restore)
 #
-# Retention: 30 дней (старше — удаляются).
+# Retention: ${RETENTION_DAYS:-14} дней (старше — удаляются).
 #
-# Установка cron-задачи (от root или sudo):
+# Переменные окружения (можно переопределить из cron):
+#   PROJECT_DIR    /home/deploy/2x2-shop
+#   BACKUP_DIR     /home/deploy/backups/db
+#   RETENTION_DAYS 14
+#   PG_CONTAINER   2x2-postgres
+#
+# Установка cron-задачи (от пользователя deploy):
 #   crontab -e
-#   # Ежедневно в 03:00 по времени сервера:
-#   0 3 * * * /opt/2x2/scripts/backup-db.sh >> /var/log/2x2-backup.log 2>&1
+#   0 3 * * * /home/deploy/2x2-shop/scripts/backup-db.sh \
+#               >> /home/deploy/backups/backup.log 2>&1
 #
 # Ручной запуск:
-#   sudo bash /opt/2x2/scripts/backup-db.sh
+#   bash /home/deploy/2x2-shop/scripts/backup-db.sh
 #
-# Восстановление из бэкапа:
-#   gunzip -c /var/backups/2x2/postgres/2x2-YYYYMMDD-HHMM.sql.gz | \
-#     docker compose -f /opt/2x2/docker-compose.yml exec -T postgres \
-#       psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+# Восстановление:
+#   docker exec -i 2x2-postgres pg_restore -U "$POSTGRES_USER" \
+#       -d "$POSTGRES_DB" --clean --if-exists --no-owner \
+#       < /home/deploy/backups/db/db-YYYYMMDD-HHMMSS.dump
 # =============================================================
-set -eu
+set -euo pipefail
 
-# Куда положить бэкап + сколько дней хранить.
-BACKUP_DIR="${BACKUP_DIR:-/var/backups/2x2/postgres}"
-RETENTION_DAYS="${RETENTION_DAYS:-30}"
+PROJECT_DIR="${PROJECT_DIR:-/home/deploy/2x2-shop}"
+BACKUP_DIR="${BACKUP_DIR:-/home/deploy/backups/db}"
+RETENTION_DAYS="${RETENTION_DAYS:-14}"
+PG_CONTAINER="${PG_CONTAINER:-2x2-postgres}"
 
-# Где живёт docker-compose.yml + .env проекта.
-PROJECT_DIR="${PROJECT_DIR:-/opt/2x2}"
+ts() { date +'%Y-%m-%d %H:%M:%S'; }
 
-# Загружаем переменные из .env, чтобы знать POSTGRES_USER/DB.
 if [ ! -f "$PROJECT_DIR/.env" ]; then
-  echo "ERROR: $PROJECT_DIR/.env not found" >&2
+  echo "[$(ts)] ERROR: $PROJECT_DIR/.env not found" >&2
   exit 1
 fi
 
+# .env содержит значения с пробелами в одинарных кавычках,
+# поэтому нужен `set -a` + `source` в bash (не sh).
+set -a
 # shellcheck disable=SC1091
-. "$PROJECT_DIR/.env"
+source "$PROJECT_DIR/.env"
+set +a
 
-if [ -z "${POSTGRES_USER:-}" ] || [ -z "${POSTGRES_DB:-}" ]; then
-  echo "ERROR: POSTGRES_USER / POSTGRES_DB not set in .env" >&2
+if [ -z "${POSTGRES_USER:-}" ] || [ -z "${POSTGRES_DB:-}" ] || [ -z "${POSTGRES_PASSWORD:-}" ]; then
+  echo "[$(ts)] ERROR: POSTGRES_USER / POSTGRES_DB / POSTGRES_PASSWORD not set in .env" >&2
   exit 1
 fi
 
 mkdir -p "$BACKUP_DIR"
-chmod 700 "$BACKUP_DIR"  # бэкапы содержат хеши паролей юзеров — только root
+chmod 700 "$BACKUP_DIR"
 
-DATE="$(date +%Y%m%d-%H%M)"
-TARGET="$BACKUP_DIR/2x2-$DATE.sql.gz"
+DATE="$(date +%Y%m%d-%H%M%S)"
+TARGET="$BACKUP_DIR/db-$DATE.dump"
 
-echo "[$(date)] Starting backup → $TARGET"
+echo "[$(ts)] Starting backup → $TARGET"
 
-# pg_dump через docker compose exec.
-# -T (без TTY) — обязательно для скриптов через cron, иначе cron упадёт.
-cd "$PROJECT_DIR"
-docker compose exec -T postgres \
-  pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --no-owner \
-  | gzip -9 > "$TARGET"
+# pg_dump custom format (-F c) — компактнее, поддерживает pg_restore с
+# параллельной загрузкой и выборочным восстановлением таблиц.
+# Передаём пароль через PGPASSWORD внутрь контейнера.
+docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" "$PG_CONTAINER" \
+  pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -F c --no-owner \
+  > "$TARGET"
 
-# Проверка, что файл реально создался и не пустой.
 if [ ! -s "$TARGET" ]; then
-  echo "ERROR: backup is empty: $TARGET" >&2
+  echo "[$(ts)] ERROR: backup is empty: $TARGET" >&2
   rm -f "$TARGET"
   exit 1
 fi
 
 SIZE="$(du -h "$TARGET" | cut -f1)"
-echo "[$(date)] Backup OK: $TARGET ($SIZE)"
+SIZE_BYTES="$(stat -c%s "$TARGET")"
+echo "[$(ts)] Backup OK: $TARGET ($SIZE / $SIZE_BYTES bytes)"
 
-# Ротация старых бэкапов.
-echo "[$(date)] Cleaning backups older than $RETENTION_DAYS days"
-find "$BACKUP_DIR" -name "2x2-*.sql.gz" -type f -mtime +"$RETENTION_DAYS" -delete
+echo "[$(ts)] Cleaning backups older than $RETENTION_DAYS days"
+DELETED="$(find "$BACKUP_DIR" -name 'db-*.dump' -type f -mtime +"$RETENTION_DAYS" -print -delete | wc -l)"
+echo "[$(ts)] Deleted $DELETED old backup(s)"
 
-echo "[$(date)] Done."
+echo "[$(ts)] Done."

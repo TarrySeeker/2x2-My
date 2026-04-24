@@ -192,6 +192,7 @@ export function toPortfolioItemShape(stub: PortfolioStub): PortfolioItem {
     images: stub.images,
     video_url: null,
     is_featured: stub.is_featured,
+    featured_order: null,
     is_published: stub.is_published,
     sort_order: stub.sort_order,
     seo_title: null,

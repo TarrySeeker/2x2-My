@@ -2,10 +2,11 @@ import type { Metadata, Viewport } from "next";
 import { Manrope, Rubik } from "next/font/google";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import CartDrawer from "@/components/shop/cart/CartDrawer";
 import AnalyticsScripts from "@/components/analytics/AnalyticsScripts";
 import ShopModals from "@/components/shop/modals/ShopModals";
 import ShopShell from "@/components/layout/ShopShell";
+import CookieBanner from "@/components/shop/CookieBanner";
+import PromoPopupBanner from "@/components/shop/PromoPopupBanner";
 import {
   JsonLdScript,
   buildLocalBusiness,
@@ -91,15 +92,7 @@ export const metadata: Metadata = {
     ...(yandexVerification ? { yandex: yandexVerification } : {}),
   },
   formatDetection: { telephone: true, email: true, address: true },
-  icons: {
-    icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
-    ],
-    apple: "/apple-touch-icon.png",
-    shortcut: "/favicon.ico",
-  },
+  // icons подхватываются автоматически из app/icon.svg, app/apple-icon.png, app/favicon.ico
 };
 
 export const viewport: Viewport = {
@@ -129,7 +122,7 @@ export default function RootLayout({
           <SupabaseProvider>
             <ShopShell>
               <Header />
-              <CartDrawer />
+              <PromoPopupBanner />
               <JsonLdScript
                 data={[buildOrganization(), buildLocalBusiness(), buildWebSite()]}
               />
@@ -138,6 +131,7 @@ export default function RootLayout({
             <ShopShell>
               <Footer />
               <ShopModals />
+              <CookieBanner />
             </ShopShell>
             <ToastProvider />
             <AnalyticsScripts />

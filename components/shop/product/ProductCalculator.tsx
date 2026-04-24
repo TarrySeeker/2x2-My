@@ -6,7 +6,6 @@ import clsx from "clsx";
 import Button from "@/components/ui/Button";
 import CalculatorField, { type FieldDescriptor } from "./CalculatorField";
 import { formatRub } from "@/lib/format";
-import { useCartStore } from "@/store/cart";
 import { useUIStore } from "@/store/ui";
 import type { ProductWithRelations } from "@/types";
 import { trackEvent, EVENTS } from "@/lib/analytics";
@@ -28,7 +27,6 @@ export default function ProductCalculator({
   className,
 }: ProductCalculatorProps) {
   const calc = product.calculator;
-  const addItem = useCartStore((s) => s.addItem);
   const openQuote = useUIStore((s) => s.openQuote);
   const calcStarted = useRef(false);
 
@@ -125,22 +123,12 @@ export default function ProductCalculator({
   const breakdown = result?.breakdown ?? [];
   const notes = result?.notes ?? calc?.notes;
 
-  const handleAddToCart = () => {
-    trackEvent(EVENTS.add_to_cart, { productId: product.id, name: product.name, price: total });
-    addItem({
+  const handleQuote = () => {
+    trackEvent('order_request_from_calculator', {
       productId: product.id,
       name: product.name,
-      slug: product.slug,
-      price: total,
-      imageUrl: product.images[0]?.url ?? "",
-      attributes: Object.fromEntries(
-        Object.entries(values).map(([k, v]) => [k, String(v)]),
-      ),
-      maxStock: 9999,
+      total,
     });
-  };
-
-  const handleQuote = () => {
     openQuote({
       id: product.id,
       name: product.name,
@@ -226,11 +214,8 @@ export default function ProductCalculator({
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row">
-        <Button onClick={handleAddToCart} className="flex-1">
-          В корзину
-        </Button>
-        <Button onClick={handleQuote} variant="outline" className="flex-1">
-          Уточнить у менеджера
+        <Button onClick={handleQuote} className="flex-1">
+          Заказать
         </Button>
       </div>
     </section>

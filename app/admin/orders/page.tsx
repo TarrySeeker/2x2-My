@@ -1,16 +1,13 @@
-import { getNewOrdersCount } from "@/features/admin/api/orders";
-import { fetchOrdersAction } from "@/features/admin/actions/orders";
-import OrdersPageClient from "@/features/admin/components/OrdersPageClient";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "Заказы" };
+/**
+ * Раздел «Заказы» удалён вместе с таблицей `orders` (миграция 006).
+ * Заявки клиентов теперь — `/admin/leads` (calculation_requests + leads).
+ *
+ * Редирект, чтобы старые ссылки/закладки не вели в 404.
+ */
+export const metadata = { title: "Заказы → Заявки" };
 
-export default async function OrdersPage() {
-  const newCount = await getNewOrdersCount();
-
-  return (
-    <OrdersPageClient
-      newOrdersCount={newCount}
-      fetchOrders={fetchOrdersAction}
-    />
-  );
+export default function OrdersPage() {
+  redirect("/admin/leads");
 }

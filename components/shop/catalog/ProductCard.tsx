@@ -7,7 +7,6 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import PriceTag from "./PriceTag";
-import { tokens } from "@/styles/tokens";
 import type { CatalogListItem } from "@/lib/data/catalog-demo";
 
 type ProductCardProps = {
@@ -34,7 +33,11 @@ export default function ProductCard({
 
   return (
     <motion.article
-      initial={reduce ? false : { opacity: 0, y: 16 }}
+      // P1-6 (повтор 2026-04-24): в WebKit IntersectionObserver иногда не
+      // срабатывает вовремя — карточка остаётся с opacity: 0 и выглядит
+      // полупрозрачно/мутно. Гарантируем видимость через initial: opacity: 1.
+      // Анимация — только для transform (y-слайд).
+      initial={reduce ? false : { opacity: 1, y: 16 }}
       whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-80px" }}
       transition={{ duration: 0.45, ease: SOFT_OUT }}
@@ -43,7 +46,11 @@ export default function ProductCard({
         "group relative flex h-[420px] flex-col overflow-hidden rounded-2xl border border-neutral-200/70 bg-white shadow-sm transition-shadow hover:shadow-xl",
         className,
       )}
-      style={{ backgroundImage: tokens.noiseBackground }}
+      // Ранее на карточку клался noise SVG через backgroundImage. В WebKit
+      // (Safari) SVG-шум с feTurbulence рендерится сильно плотнее, чем в
+      // Chromium/FF — из-за этого карточки выглядели полупрозрачно-мутно.
+      // QA 2026-04-24 P1-6: убираем текстуру из самой карточки
+      // (плотный белый фон + тонкий border и так обеспечивают нужный контраст).
     >
       <Link
         href={href}
@@ -100,7 +107,7 @@ export default function ProductCard({
         <div className="mt-auto flex items-end justify-between gap-3 pt-2">
           <PriceTag
             price={product.price}
-            priceFrom={product.price_from}
+            priceTo={product.price_to}
             unit={product.unit}
             pricingMode={product.pricing_mode}
             size="md"

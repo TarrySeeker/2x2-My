@@ -1,140 +1,124 @@
 import "server-only";
+import { createHmac, timingSafeEqual } from "node:crypto";
+
 import { NextRequest, NextResponse } from "next/server";
-import { sql } from "@/lib/db/client";
-import type { CdekWebhookPayload } from "@/lib/cdek";
-import type { OrderStatus } from "@/types/database";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/**
+ * Webhook СДЭК.
+ *
+ * История: ранее обновлял `orders.status` по статусам трекинга. После
+ * миграции 006 таблица `orders` удалена (бизнес-модель «только
+ * индивидуальный расчёт»), накладные больше не создаются автоматически
+ * с сайта. Endpoint оставлен:
+ *  - чтобы СДЭК не получал 404 при доставке вебхуков по подписке,
+ *    которая могла остаться в кабинете;
+ *  - чтобы добавить корректную HMAC-проверку как требование security-аудита (P1-4);
+ *  - на случай возврата интеграции в будущем.
+ *
+ * Сейчас: принимаем JSON, проверяем HMAC, логируем тип события и
+ * возвращаем `{ ok: true, ignored: true }`. БД не трогаем.
+ *
+ * Безопасность:
+ *  1. CDEK_WEBHOOK_SECRET — env, обязателен. Без него возвращаем 503.
+ *  2. Подпись считается HMAC-SHA256 от raw body, ожидаем в заголовке
+ *     `X-Service-Sign` (имя из доков СДЭК; альтернативно `X-Cdek-Sign`).
+ *  3. Сравнение через `timingSafeEqual` — защита от timing-attack.
+ *  4. Дополнительный whitelist по IP остался — `CDEK_WEBHOOK_ALLOWED_IPS`.
+ */
 
 const CDEK_ALLOWED_IPS = (process.env.CDEK_WEBHOOK_ALLOWED_IPS ?? "")
   .split(",")
   .map((ip) => ip.trim())
   .filter(Boolean);
 
-const CDEK_TO_ORDER_STATUS: Record<string, OrderStatus> = {
-  "3": "confirmed",
-  "6": "shipped",
-  "7": "shipped",
-  "13": "shipped",
-  "16": "shipped",
-  "18": "delivered",
-  "20": "cancelled",
-};
+function verifyHmac(rawBody: string, signatureHeader: string | null): boolean {
+  const secret = process.env.CDEK_WEBHOOK_SECRET;
+  if (!secret) return false;
+  if (!signatureHeader) return false;
 
-interface OrderRow {
-  id: number;
-  status: string;
+  const computed = createHmac("sha256", secret).update(rawBody).digest("hex");
+  // Подпись может прийти как hex (64 символа) или base64. Сначала
+  // сравним hex — самый частый формат.
+  try {
+    const a = Buffer.from(computed, "hex");
+    const b = Buffer.from(signatureHeader.trim(), "hex");
+    if (a.length === b.length && timingSafeEqual(a, b)) return true;
+  } catch {
+    /* fallthrough */
+  }
+  try {
+    const a = Buffer.from(computed, "hex");
+    const b = Buffer.from(signatureHeader.trim(), "base64");
+    if (a.length === b.length && timingSafeEqual(a, b)) return true;
+  } catch {
+    /* nope */
+  }
+  return false;
 }
 
 export async function POST(request: NextRequest) {
+  // 1. IP whitelist (если задан).
   if (CDEK_ALLOWED_IPS.length > 0) {
-    const forwarded = request.headers.get("x-forwarded-for");
-    const realIp = request.headers.get("x-real-ip");
-    const clientIp = forwarded?.split(",")[0]?.trim() || realIp || "";
+    const fwd = request.headers.get("x-forwarded-for");
+    const real = request.headers.get("x-real-ip");
+    const clientIp = fwd?.split(",")[0]?.trim() || real || "";
     if (!CDEK_ALLOWED_IPS.includes(clientIp)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }
 
-  try {
-    const payload = (await request.json()) as CdekWebhookPayload;
-
-    if (payload.type !== "ORDER_STATUS") {
-      return NextResponse.json({ ok: true });
-    }
-
-    const { attributes } = payload;
-    if (!attributes?.number && !attributes?.cdek_number) {
-      return NextResponse.json({ ok: true });
-    }
-
-    const statusCode = attributes.status_code;
-    if (!statusCode) {
-      return NextResponse.json({ ok: true });
-    }
-
-    const newStatus = CDEK_TO_ORDER_STATUS[statusCode];
-    if (!newStatus) {
-      return NextResponse.json({ ok: true });
-    }
-
-    let orders: OrderRow[] = [];
-    if (attributes.cdek_number) {
-      orders = await sql<OrderRow[]>`
-        SELECT id, status FROM orders
-        WHERE cdek_order_number = ${attributes.cdek_number}
-        LIMIT 1
-      `;
-    } else if (attributes.number) {
-      orders = await sql<OrderRow[]>`
-        SELECT id, status FROM orders
-        WHERE order_number = ${attributes.number}
-        LIMIT 1
-      `;
-    }
-
-    let order = orders[0];
-    if (!order && payload.uuid) {
-      const byUuid = await sql<OrderRow[]>`
-        SELECT id, status FROM orders
-        WHERE cdek_order_uuid = ${payload.uuid}
-        LIMIT 1
-      `;
-      order = byUuid[0];
-    }
-
-    if (!order) {
-      return NextResponse.json({ ok: true, note: "order not found" });
-    }
-
-    await updateOrderStatus(
-      order.id,
-      order.status,
-      newStatus,
-      statusCode,
-      attributes.cdek_number,
+  // 2. Секрет должен быть настроен.
+  if (!process.env.CDEK_WEBHOOK_SECRET) {
+    console.error(
+      "[cdek/webhook] CDEK_WEBHOOK_SECRET is not configured — rejecting webhook",
     );
+    return NextResponse.json(
+      { error: "Webhook secret is not configured" },
+      { status: 503 },
+    );
+  }
 
-    return NextResponse.json({ ok: true });
+  // 3. Читаем raw body для HMAC.
+  let raw: string;
+  try {
+    raw = await request.text();
   } catch (err) {
-    console.error("[cdek/webhook]", err);
-    return NextResponse.json({ ok: false }, { status: 500 });
-  }
-}
-
-async function updateOrderStatus(
-  orderId: number,
-  currentStatus: string,
-  newStatus: OrderStatus,
-  cdekStatusCode: string,
-  cdekNumber?: string,
-) {
-  const finalStatuses = ["completed", "cancelled", "returned"];
-  if (finalStatuses.includes(currentStatus)) return;
-
-  if (cdekNumber) {
-    await sql`
-      UPDATE orders
-      SET status = ${newStatus},
-          cdek_order_number = ${cdekNumber}
-      WHERE id = ${orderId}
-    `;
-  } else {
-    await sql`
-      UPDATE orders
-      SET status = ${newStatus}
-      WHERE id = ${orderId}
-    `;
+    console.error("[cdek/webhook] failed to read body:", err);
+    return NextResponse.json({ error: "Bad request" }, { status: 400 });
   }
 
-  await sql`
-    INSERT INTO order_status_history (order_id, status, comment, changed_by)
-    VALUES (
-      ${orderId},
-      ${newStatus},
-      ${`СДЭК статус: ${cdekStatusCode}${cdekNumber ? `, номер: ${cdekNumber}` : ""}`},
-      NULL
-    )
-  `;
+  // 4. Подпись.
+  const signature =
+    request.headers.get("x-service-sign") ??
+    request.headers.get("x-cdek-sign") ??
+    request.headers.get("x-signature");
+
+  if (!verifyHmac(raw, signature)) {
+    console.warn("[cdek/webhook] HMAC verification failed");
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+  }
+
+  // 5. Парсим тело (best-effort) и логируем.
+  let payload: unknown;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    payload = null;
+  }
+
+  const eventType =
+    payload && typeof payload === "object" && "type" in payload
+      ? String((payload as { type?: unknown }).type ?? "unknown")
+      : "unknown";
+
+  console.info(
+    `[cdek/webhook] received ${eventType} event (orders table is gone — ignored)`,
+  );
+
+  // 6. Бизнес-логика отсутствует — orders таблица дропнута. Возвращаем
+  //    200, чтобы СДЭК не делал retry бесконечно.
+  return NextResponse.json({ ok: true, ignored: true });
 }

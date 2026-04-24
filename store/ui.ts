@@ -4,7 +4,12 @@ export interface QuickLeadProduct {
   id: number;
   name: string;
   slug: string;
-  price: number;
+  /**
+   * После Chain 4a фиксированных цен в каталоге нет. Поле оставлено
+   * опциональным — если у товара задано `price` (нижняя граница), модалка
+   * может показать его как ориентир, но это не цена сделки.
+   */
+  price?: number;
   imageUrl?: string | null;
 }
 

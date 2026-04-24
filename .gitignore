@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+/test-results
+/playwright-report
+/playwright/.cache
 
 # next.js
 /.next/
@@ -39,3 +42,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local secrets (server credentials, etc.)
+.secrets/
+
+# QA screenshots (генерируются Playwright'ом, не коммитим)
+/qa-screenshots/
+/qa-screenshots-viewport/

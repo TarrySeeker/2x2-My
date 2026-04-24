@@ -268,7 +268,7 @@ export async function getRelatedProducts(
       price: p.price,
       old_price: null,
       cost_price: null,
-      price_from: p.price_from,
+      price_to: p.price_to,
       unit: p.unit,
       stock: 999,
       track_stock: false,

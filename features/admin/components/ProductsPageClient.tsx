@@ -208,17 +208,29 @@ export default function ProductsPageClient({
       }),
       col.accessor("price", {
         header: "Цена",
-        size: 120,
+        size: 160,
         cell: (info) => {
           const product = info.row.original;
+          const fmt = (n: number) => new Intl.NumberFormat("ru-RU").format(n);
+          const hasRange =
+            product.price_to != null && product.price_to > product.price;
+          const isQuote = product.pricing_mode === "quote";
           return (
-            <div>
-              <span className="font-medium">
-                {new Intl.NumberFormat("ru-RU").format(info.getValue())} ₽
-              </span>
+            <div className="flex flex-col leading-tight">
+              {isQuote ? (
+                <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  По запросу
+                </span>
+              ) : (
+                <span className="font-medium tabular-nums">
+                  {hasRange
+                    ? `${fmt(product.price)} – ${fmt(product.price_to as number)} ₽`
+                    : `от ${fmt(product.price)} ₽`}
+                </span>
+              )}
               {product.old_price && (
-                <span className="ml-1.5 text-xs text-neutral-400 line-through">
-                  {new Intl.NumberFormat("ru-RU").format(product.old_price)} ₽
+                <span className="text-[11px] text-neutral-400 line-through tabular-nums">
+                  {fmt(product.old_price)} ₽
                 </span>
               )}
             </div>

@@ -63,7 +63,8 @@ export default function ProductInfo({ product, className }: ProductInfoProps) {
       <div className="rounded-2xl border border-neutral-200 bg-white/60 p-5 backdrop-blur">
         <PriceTag
           price={product.price}
-          priceFrom={product.price_from}
+          priceTo={product.price_to}
+          oldPrice={product.old_price}
           unit={product.unit}
           pricingMode={product.pricing_mode}
           size="lg"
@@ -75,7 +76,6 @@ export default function ProductInfo({ product, className }: ProductInfoProps) {
           productId={product.id}
           productName={product.name}
           productSlug={product.slug}
-          productPrice={product.price}
           productImageUrl={product.images[0]?.url ?? null}
         />
       )}

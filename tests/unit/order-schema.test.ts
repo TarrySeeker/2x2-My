@@ -11,17 +11,17 @@ const validItem = {
 const validPayload = {
   customer: { name: "Иван Иванов", phone: "+79324247740", email: "", isB2B: false },
   delivery: { type: "pickup" as const },
-  payment: { method: "cash_on_delivery" as const },
+  payment: { method: "bank_transfer" as const },
   items: [validItem],
 };
 
 describe("orderSchema", () => {
-  it("accepts valid retail order (pickup + cash)", () => {
+  it("accepts valid retail order (pickup + bank_transfer)", () => {
     const result = orderSchema.safeParse(validPayload);
     expect(result.success).toBe(true);
   });
 
-  it("accepts valid B2B order (invoice + company)", () => {
+  it("accepts valid B2B order (bank_transfer + company)", () => {
     const result = orderSchema.safeParse({
       ...validPayload,
       customer: {
@@ -36,7 +36,7 @@ describe("orderSchema", () => {
           address: "г. Ханты-Мансийск, ул. Мира 1",
         },
       },
-      payment: { method: "invoice" as const },
+      payment: { method: "bank_transfer" as const },
     });
     expect(result.success).toBe(true);
   });
@@ -72,10 +72,10 @@ describe("orderSchema", () => {
     }
   });
 
-  it("rejects courier without delivery address (superRefine)", () => {
+  it("rejects courier_local without delivery address (superRefine)", () => {
     const result = orderSchema.safeParse({
       ...validPayload,
-      delivery: { type: "courier" as const },
+      delivery: { type: "courier_local" as const },
     });
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -84,10 +84,13 @@ describe("orderSchema", () => {
     }
   });
 
-  it("accepts courier with delivery address", () => {
+  it("accepts courier_local with delivery address", () => {
     const result = orderSchema.safeParse({
       ...validPayload,
-      delivery: { type: "courier" as const, address: "ул. Ленина 10, кв. 5" },
+      delivery: {
+        type: "courier_local" as const,
+        address: "ул. Ленина 10, кв. 5",
+      },
     });
     expect(result.success).toBe(true);
   });
@@ -123,7 +126,7 @@ describe("orderSchema", () => {
         isB2B: true,
         company: { name: "ИП Сидоров А.В.", inn: "860112345678" },
       },
-      payment: { method: "invoice" as const },
+      payment: { method: "bank_transfer" as const },
     });
     expect(result.success).toBe(true);
   });
@@ -158,69 +161,34 @@ describe("orderSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  describe("delivery CDEK fields (stage 3.3)", () => {
-    it("accepts cdek delivery with tariffCode and pointCode", () => {
+  describe("delivery (Chain 4a)", () => {
+    it("accepts cdek delivery with city", () => {
       const result = orderSchema.safeParse({
         ...validPayload,
-        delivery: {
-          type: "cdek" as const,
-          tariffCode: 136,
-          pointCode: "MSK-001",
-          pointAddress: "Москва, ул. Ленина 1",
-          cityCode: 44,
-          cost: 350,
-        },
+        delivery: { type: "cdek" as const, city: "Москва" },
       });
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.delivery.tariffCode).toBe(136);
-        expect(result.data.delivery.pointCode).toBe("MSK-001");
-        expect(result.data.delivery.pointAddress).toBe("Москва, ул. Ленина 1");
-        expect(result.data.delivery.cityCode).toBe(44);
-        expect(result.data.delivery.cost).toBe(350);
+        expect(result.data.delivery.city).toBe("Москва");
       }
     });
 
-    it("allows cdek without optional fields", () => {
+    it("rejects cdek delivery without city", () => {
       const result = orderSchema.safeParse({
         ...validPayload,
         delivery: { type: "cdek" as const },
       });
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.delivery.tariffCode).toBeUndefined();
-        expect(result.data.delivery.pointCode).toBeUndefined();
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const paths = result.error.issues.map((i) => i.path.join("."));
+        expect(paths).toContain("delivery.city");
       }
     });
 
-    it("rejects negative tariffCode", () => {
+    it("rejects unknown payment method (cdek_pay removed)", () => {
       const result = orderSchema.safeParse({
         ...validPayload,
-        delivery: { type: "cdek" as const, tariffCode: -1 },
-      });
-      expect(result.success).toBe(false);
-    });
-
-    it("rejects negative cityCode", () => {
-      const result = orderSchema.safeParse({
-        ...validPayload,
-        delivery: { type: "cdek" as const, cityCode: -5 },
-      });
-      expect(result.success).toBe(false);
-    });
-
-    it("accepts zero delivery cost", () => {
-      const result = orderSchema.safeParse({
-        ...validPayload,
-        delivery: { type: "cdek" as const, cost: 0 },
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it("rejects negative delivery cost", () => {
-      const result = orderSchema.safeParse({
-        ...validPayload,
-        delivery: { type: "cdek" as const, cost: -100 },
+        payment: { method: "cdek_pay" },
       });
       expect(result.success).toBe(false);
     });

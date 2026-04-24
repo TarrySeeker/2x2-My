@@ -4,8 +4,28 @@
  * ВАЖНО: analytics.ts читает process.env.NEXT_PUBLIC_YM_ID и NEXT_PUBLIC_GA4_ID
  * на верхнем уровне (module-scope). Если хочешь переключать env между тестами —
  * используй vi.resetModules() + динамический import внутри теста.
+ *
+ * Для тестов, проверяющих фактическую отправку событий, в beforeEach
+ * проставляется `cookie_consent='accepted'` — иначе включённый в Этапе
+ * cleanup'а consent gate отрежет события (см. блок «cookie consent gate»).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+function grantConsent() {
+  try {
+    window.localStorage.setItem("cookie_consent", "accepted");
+  } catch {
+    /* jsdom always has localStorage */
+  }
+}
+
+function revokeConsent() {
+  try {
+    window.localStorage.removeItem("cookie_consent");
+  } catch {
+    /* noop */
+  }
+}
 
 describe("EVENTS registry", () => {
   it("exposes 26 events as specified in metrics.md + Cart UI Stage 3.1", async () => {
@@ -79,6 +99,11 @@ describe("trackEvent — no-op без env", () => {
     delete window.gtag;
     // @ts-expect-error — тестовый reset
     delete window.dataLayer;
+    grantConsent();
+  });
+
+  afterEach(() => {
+    revokeConsent();
   });
 
   it("does not throw when YM_ID and GA4_ID are not set", async () => {
@@ -117,6 +142,7 @@ describe("trackEvent — с YM_ID", () => {
     vi.resetModules();
     process.env.NEXT_PUBLIC_YM_ID = "99999999";
     delete process.env.NEXT_PUBLIC_GA4_ID;
+    grantConsent();
   });
 
   afterEach(() => {
@@ -125,6 +151,7 @@ describe("trackEvent — с YM_ID", () => {
     // @ts-expect-error — dataLayer добавляется внешним скриптом, в тестах мокаем
     delete window.dataLayer;
     delete process.env.NEXT_PUBLIC_YM_ID;
+    revokeConsent();
   });
 
   it("calls window.ym with reachGoal when ym is defined", async () => {
@@ -220,5 +247,72 @@ describe("captureUtm / getCapturedUtm", () => {
     expect(() => captureUtm()).not.toThrow();
     expect(() => getCapturedUtm()).not.toThrow();
     expect(getCapturedUtm()).toBeNull();
+  });
+});
+
+describe("trackEvent — cookie consent gate (P2 fix 2026-04-23)", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    process.env.NEXT_PUBLIC_YM_ID = "99999999";
+    revokeConsent();
+    // @ts-expect-error — dataLayer добавляется внешним скриптом
+    delete window.dataLayer;
+    // @ts-expect-error — ym мок
+    delete window.ym;
+  });
+
+  afterEach(() => {
+    delete process.env.NEXT_PUBLIC_YM_ID;
+    revokeConsent();
+    // @ts-expect-error — dataLayer добавляется внешним скриптом
+    delete window.dataLayer;
+    // @ts-expect-error — ym мок
+    delete window.ym;
+  });
+
+  it("без consent — не вызывает ym, не пишет в dataLayer", async () => {
+    const ym = vi.fn();
+    // @ts-expect-error — ym мок
+    window.ym = ym;
+    const { trackEvent, EVENTS } = await import("@/lib/analytics");
+    trackEvent(EVENTS.add_to_cart, {
+      value: 100,
+      ecommerce: { items: [{ id: "x" }] },
+    });
+    expect(ym).not.toHaveBeenCalled();
+    // @ts-expect-error — dataLayer
+    expect(window.dataLayer).toBeUndefined();
+  });
+
+  it("после grantConsent — события снова летят", async () => {
+    const ym = vi.fn();
+    // @ts-expect-error — ym мок
+    window.ym = ym;
+    const { trackEvent, EVENTS } = await import("@/lib/analytics");
+    trackEvent(EVENTS.phone_click);
+    expect(ym).not.toHaveBeenCalled();
+
+    grantConsent();
+    trackEvent(EVENTS.phone_click, { source: "header" });
+    expect(ym).toHaveBeenCalledWith(
+      99999999,
+      "reachGoal",
+      "phone_click",
+      { source: "header" },
+    );
+  });
+
+  it("служебное событие 'cookie_consent' пробивается даже без consent", async () => {
+    const ym = vi.fn();
+    // @ts-expect-error — ym мок
+    window.ym = ym;
+    const { trackEvent } = await import("@/lib/analytics");
+    trackEvent("cookie_consent", { consent: "declined" });
+    expect(ym).toHaveBeenCalledWith(
+      99999999,
+      "reachGoal",
+      "cookie_consent",
+      { consent: "declined" },
+    );
   });
 });

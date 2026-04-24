@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function ContentPage() {
-  redirect("/admin/content/banners");
+  redirect("/admin/content/homepage");
 }

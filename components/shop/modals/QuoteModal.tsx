@@ -8,6 +8,7 @@ import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { useUIStore } from "@/store/ui";
 import { trackEvent, EVENTS } from "@/lib/analytics";
+import PdConsentField from "./PdConsentField";
 
 const PHONE_REGEX = /^\+?\d[\d\s\-()]{6,}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -20,8 +21,17 @@ export default function QuoteModal() {
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
   const [comment, setComment] = useState("");
+  const [consent, setConsent] = useState(false);
   const [sending, setSending] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Один Idempotency-Key на сессию модалки. Перегенерируется при reset()
+  // (после успешной отправки), чтобы следующая отправка считалась новой.
+  const [idempotencyKey, setIdempotencyKey] = useState(() =>
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
 
   const reset = () => {
     setName("");
@@ -29,7 +39,13 @@ export default function QuoteModal() {
     setEmail("");
     setCompany("");
     setComment("");
+    setConsent(false);
     setErrors({});
+    setIdempotencyKey(
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
   };
 
   const handleClose = () => {
@@ -44,14 +60,21 @@ export default function QuoteModal() {
     if (!name.trim()) next.name = "Укажите имя";
     if (!PHONE_REGEX.test(phone)) next.phone = "Некорректный телефон";
     if (email && !EMAIL_REGEX.test(email)) next.email = "Некорректный email";
+    if (!consent) next.consent = "Нужно согласие на обработку персональных данных";
     setErrors(next);
     if (Object.keys(next).length) return;
 
     setSending(true);
+    let ok = false;
+    let serverMessage: string | null = null;
+
     try {
       const res = await fetch("/api/leads/quote", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
         body: JSON.stringify({
           customer_name: name,
           customer_phone: phone,
@@ -61,21 +84,51 @@ export default function QuoteModal() {
           product_id: calcRequestProduct?.id,
           category_id: calcRequestProduct?.categoryId ?? undefined,
           params: calcRequestProduct?.prefillParams ?? {},
+          pdConsent: true,
         }),
       });
-      if (!res.ok && res.status !== 404) throw new Error(`HTTP ${res.status}`);
-    } catch {
-      // backend может ещё не быть готов — всё равно считаем, что заявка ушла
+
+      const json = (await res.json().catch(() => null)) as
+        | { ok?: boolean; success?: boolean; lead_id?: number; error?: string }
+        | null;
+
+      // Считаем успехом только реально 2xx + положительный JSON-флаг
+      // (если он есть). Если backend вернул `ok: false` — даже при 200
+      // это ошибка для пользователя.
+      if (res.ok && json?.ok === false) {
+        serverMessage = json?.error ?? null;
+      } else if (res.ok) {
+        ok = true;
+      } else {
+        serverMessage = json?.error ?? null;
+        console.warn("[QuoteModal] /api/leads/quote not ok", res.status, json);
+      }
+    } catch (err) {
+      console.warn("[QuoteModal] network error", err);
     } finally {
       setSending(false);
     }
 
-    trackEvent(EVENTS.calc_request_submit, { productId: calcRequestProduct?.id });
-    toast.success(
-      "Заявка принята. Подготовим КП и пришлём в течение 1 часа в рабочее время (Пн–Пт 9:00–19:00).",
+    trackEvent(EVENTS.calc_request_submit, {
+      productId: calcRequestProduct?.id,
+      ok,
+    });
+
+    if (ok) {
+      toast.success(
+        "Заявка принята. Подготовим КП и пришлём в течение 1 часа в рабочее время (Пн–Пт 9:00–19:00).",
+      );
+      reset();
+      closeQuote();
+      return;
+    }
+
+    toast.error(
+      serverMessage ??
+        "Не удалось отправить заявку. Позвоните: +7-932-424-77-40",
     );
-    reset();
-    closeQuote();
+    // Форму НЕ сбрасываем и модалку НЕ закрываем — пользователь
+    // должен иметь возможность повторить отправку с теми же данными.
   };
 
   return (
@@ -84,7 +137,7 @@ export default function QuoteModal() {
       onClose={handleClose}
       title="Заказать расчёт стоимости"
       description={
-        calcRequestProduct
+        calcRequestProduct?.name
           ? `${calcRequestProduct.name} — пришлём коммерческое предложение с вариантами и сроками в течение 1 часа`
           : "Опишите задачу — пришлём коммерческое предложение с вариантами и сроками в течение 1 часа"
       }
@@ -134,11 +187,12 @@ export default function QuoteModal() {
         </div>
 
         <Input
-          label="Задача"
+          label="Опишите вашу задачу"
           name="comment"
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           placeholder="Размеры, материал, тираж, адрес монтажа, сроки, референсы"
+          aria-label="Опишите вашу задачу"
         />
 
         {calcRequestProduct?.prefillParams && (
@@ -152,15 +206,18 @@ export default function QuoteModal() {
           </div>
         )}
 
-        <p className="text-xs text-neutral-500">
-          Нажимая «Отправить», вы соглашаетесь с{" "}
-          <a href="/privacy" className="text-brand-orange hover:underline">
-            политикой обработки данных
-          </a>
-          . Данные используем только для связи по заявке.
-        </p>
+        <PdConsentField
+          checked={consent}
+          onChange={setConsent}
+          error={errors.consent}
+        />
 
-        <Button type="submit" loading={sending} className="w-full">
+        <Button
+          type="submit"
+          loading={sending}
+          disabled={!consent || sending}
+          className="w-full"
+        >
           {sending ? "Отправляем…" : "Отправить заявку на расчёт"}
         </Button>
       </form>

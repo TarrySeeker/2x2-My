@@ -1,10 +1,67 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { asset } from '@/lib/asset'
-import TrackedLink from '@/components/ui/TrackedLink'
+import { getSettingValue } from '@/lib/data/settings'
+import FooterPhoneLink from './FooterPhoneLink'
 
-export default function Footer() {
+interface ContactsValue {
+  phone_primary?: string
+  phone_secondary?: string
+  email?: string
+  address?: string
+}
+
+interface BusinessHoursValue {
+  weekdays?: string
+  weekend?: string
+  weekdays_short?: string
+  weekend_short?: string
+}
+
+interface SocialsValue {
+  vk?: string
+  telegram?: string
+  dzen?: string
+}
+
+const DEFAULT_CONTACTS: ContactsValue = {
+  phone_primary: '+7-932-424-77-40',
+  phone_secondary: '+7-904-480-77-40',
+  email: 'sj_alex86@mail.ru',
+  address: 'г. Ханты-Мансийск, ул. Парковая 92 Б',
+}
+
+const DEFAULT_HOURS: BusinessHoursValue = {
+  weekdays: '09:00–19:00',
+  weekend: 'По телефону',
+  weekdays_short: 'Пн–Пт',
+  weekend_short: 'Сб–Вс',
+}
+
+const DEFAULT_SOCIALS: SocialsValue = { vk: '', telegram: '', dzen: '' }
+
+function digitsOnly(phone: string): string {
+  const cleaned = phone.replace(/[^\d+]/g, '')
+  if (!cleaned) return '+79324247740'
+  return cleaned
+}
+
+export default async function Footer() {
   const year = new Date().getFullYear()
+  const contacts = await getSettingValue<ContactsValue>('contacts', DEFAULT_CONTACTS)
+  const hours = await getSettingValue<BusinessHoursValue>('business_hours', DEFAULT_HOURS)
+  const socials = await getSettingValue<SocialsValue>('socials', DEFAULT_SOCIALS)
+
+  const phoneDisplay = contacts.phone_primary || DEFAULT_CONTACTS.phone_primary!
+  const phoneTel = digitsOnly(phoneDisplay)
+  const email = contacts.email || DEFAULT_CONTACTS.email!
+  const address = contacts.address || DEFAULT_CONTACTS.address!
+
+  const socialEntries: Array<{ label: string; href: string }> = []
+  if (socials.vk) socialEntries.push({ label: 'ВКонтакте', href: socials.vk })
+  if (socials.telegram) socialEntries.push({ label: 'Telegram', href: socials.telegram })
+  if (socials.dzen) socialEntries.push({ label: 'Дзен', href: socials.dzen })
+
   return (
     <footer className="bg-brand-dark text-white">
       <div className="container py-16">
@@ -15,7 +72,7 @@ export default function Footer() {
               className="mb-4 inline-flex max-w-full rounded-lg bg-white p-3 shadow-sm ring-1 ring-white/10"
             >
               <Image
-                src={asset("/img/logo.svg")}
+                src={asset('/img/logo.svg')}
                 alt="2×2 — рекламное агентство"
                 className="h-9 w-auto max-h-10 max-w-[min(100%,260px)] object-contain object-left sm:h-10"
                 width={498}
@@ -23,8 +80,7 @@ export default function Footer() {
               />
             </Link>
             <p className="text-gray-400 text-sm leading-relaxed">
-              Рекламное агентство полного цикла. Создаём рекламу, которую
-              замечают.
+              Рекламное агентство полного цикла. Создаём рекламу, которую замечают.
             </p>
           </div>
 
@@ -60,11 +116,7 @@ export default function Footer() {
               Услуги
             </h3>
             <ul className="space-y-2">
-              {[
-                'Полиграфия',
-                'Наружная реклама',
-                'Оформление фасадов',
-              ].map((s) => (
+              {['Полиграфия', 'Наружная реклама', 'Оформление фасадов'].map((s) => (
                 <li key={s}>
                   <Link
                     href="/services"
@@ -83,40 +135,34 @@ export default function Footer() {
             </h3>
             <ul className="space-y-3 text-sm">
               <li>
-                <TrackedLink
-                  href="tel:+79044807740"
-                  event="phone_click"
-                  eventParams={{ source: 'footer' }}
-                  className="text-gray-300 hover:text-brand-orange transition-colors"
-                >
-                  +7-904-480-77-40
-                </TrackedLink>
+                <FooterPhoneLink href={`tel:${phoneTel}`}>{phoneDisplay}</FooterPhoneLink>
               </li>
               <li>
                 <a
-                  href="mailto:Sj_alex86@mail.ru"
+                  href={`mailto:${email}`}
                   className="text-gray-300 hover:text-brand-orange transition-colors break-all"
                 >
-                  Sj_alex86@mail.ru
+                  {email}
                 </a>
               </li>
-              <li>
-                <a
-                  href="https://vk.com/ra2x2"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-300 hover:text-brand-orange transition-colors"
-                >
-                  ВКонтакте
-                </a>
-              </li>
+              {socialEntries.length > 0 &&
+                socialEntries.map((s) => (
+                  <li key={s.href}>
+                    <a
+                      href={s.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-gray-300 hover:text-brand-orange transition-colors"
+                    >
+                      {s.label}
+                    </a>
+                  </li>
+                ))}
+              <li className="text-gray-400">{address}</li>
               <li className="text-gray-400">
-                г. Ханты-Мансийск, ул. Парковая, 92Б
-              </li>
-              <li className="text-gray-400">
-                Пн–Пт: 9:00–19:00
+                {hours.weekdays_short || 'Пн–Пт'}: {hours.weekdays || '09:00–19:00'}
                 <br />
-                Сб–Вс: На телефоне
+                {hours.weekend_short || 'Сб–Вс'}: {hours.weekend || 'По телефону'}
               </li>
             </ul>
           </div>

@@ -27,6 +27,7 @@ type SqlMock = ReturnType<typeof vi.fn> & {
   unsafe: ReturnType<typeof vi.fn>;
   begin: ReturnType<typeof vi.fn>;
   end: ReturnType<typeof vi.fn>;
+  json: ReturnType<typeof vi.fn>;
 };
 
 function createSqlMock(): SqlMock {
@@ -34,6 +35,10 @@ function createSqlMock(): SqlMock {
   m.unsafe = vi.fn();
   m.begin = vi.fn(async (cb: (sql: SqlMock) => unknown) => cb(m));
   m.end = vi.fn(async () => undefined);
+  // postgres-js: sql.json(value) → JSON-обёртка для safe-инъекции в JSONB
+  // колонку. В тестах достаточно вернуть исходное значение — реальная
+  // сериализация не нужна (мы не пишем в реальную БД).
+  m.json = vi.fn((value: unknown) => value);
   return m;
 }
 
@@ -47,6 +52,8 @@ export function resetSqlMock(): void {
     cb(mockSql),
   );
   mockSql.end.mockReset();
+  mockSql.json.mockReset();
+  mockSql.json.mockImplementation((value: unknown) => value);
 }
 
 vi.mock("@/lib/db/client", () => ({

@@ -1,5 +1,5 @@
 import Image from 'next/image'
-import { Printer, Megaphone, Building2, ArrowRight, type LucideIcon } from 'lucide-react'
+import { Newspaper, Signpost, Lightbulb, ArrowRight, type LucideIcon } from 'lucide-react'
 import AnimatedSection from '@/components/ui/AnimatedSection'
 import Button from '@/components/ui/Button'
 import { asset } from '@/lib/asset'
@@ -17,26 +17,26 @@ type Service = {
 const services: Service[] = [
   {
     id: 'polygraphy',
-    icon: Printer,
+    icon: Newspaper,
     title: 'Офсетная печать',
     description: 'Визитки, журналы, каталоги, буклеты. Экономим ваш бюджет. Офсет — это дешевле!',
-    badge: 'Визитки от 1.7 р./шт (тираж 1000 шт)',
+    badge: 'Визитки от 1.7 ₽/шт.',
     image: '/img/pint.png',
   },
   {
     id: 'outdoor',
-    icon: Megaphone,
+    icon: Signpost,
     title: 'Наружная реклама',
     description: 'Стелы, фасады, фигуры и многое другое. Реализуем любые, даже самые невероятные идеи!',
     badge: 'Световые буквы от 150 р./см.',
     image: '/port/1.png',
   },
   {
-    id: 'facades',
-    icon: Building2,
-    title: 'Фасады, МАФы и пр.',
-    description: 'Работаем с подсветкой, комплексные решения по индивидуальным ТЗ, поможем придумать!',
-    badge: 'Индивидуально',
+    id: 'svetovye-bukvy',
+    icon: Lightbulb,
+    title: 'Световые буквы',
+    description: 'Объёмные световые буквы: открытые, закрытые, контражур. LED-подсветка с гарантией 36 месяцев.',
+    badge: 'От 150 ₽/см периметра',
     image: '/img/facades-maf.png',
   },
 ]
@@ -55,8 +55,8 @@ export default function ServicesCards() {
                 className={`grid grid-cols-1 items-center gap-12 lg:grid-cols-2 ${!isEven ? 'direction-rtl' : ''}`}
               >
                 <div className={isEven ? 'lg:order-1' : 'lg:order-2'}>
-                  <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-100">
-                    <Icon className="h-7 w-7 text-brand-orange" />
+                  <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-100 via-amber-50 to-orange-50 shadow-[0_8px_24px_-8px_rgba(255,102,0,0.25)] ring-1 ring-orange-200/60">
+                    <Icon className="h-8 w-8 text-brand-orange" strokeWidth={1.5} />
                   </div>
                   <h2 className="mb-3 text-xl font-black text-brand-dark sm:mb-4 sm:text-2xl md:mb-4 md:text-3xl">
                     {service.title}

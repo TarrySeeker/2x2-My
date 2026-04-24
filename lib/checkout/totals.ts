@@ -1,8 +1,15 @@
+export type DeliveryType = "pickup" | "courier_local" | "cdek";
+
 export interface TotalsInput {
   items: Array<{ price: number; quantity: number }>;
-  deliveryType: "pickup" | "courier" | "cdek";
+  deliveryType: DeliveryType;
   installationRequired: boolean;
   promoDiscount: number;
+  /**
+   * На чекауте всегда 0 — стоимость доставки фиксируется менеджером
+   * после согласования заявки. Параметр оставлен для тестов и будущих
+   * расчётов в админке.
+   */
   deliveryCost?: number;
 }
 
@@ -20,17 +27,14 @@ export function calculateTotals(params: TotalsInput): TotalsResult {
     0,
   );
 
-  let deliveryCost = 0;
-  if (params.deliveryCost !== undefined) {
-    deliveryCost = params.deliveryCost;
-  } else if (params.deliveryType === "courier") {
-    deliveryCost = 500;
-  }
-
+  const deliveryCost = params.deliveryCost ?? 0;
   const installationCost = 0; // placeholder for future pricing
 
   const discountAmount = Math.min(params.promoDiscount, subtotal);
-  const total = Math.max(0, subtotal + deliveryCost + installationCost - discountAmount);
+  const total = Math.max(
+    0,
+    subtotal + deliveryCost + installationCost - discountAmount,
+  );
 
   return { subtotal, deliveryCost, installationCost, discountAmount, total };
 }

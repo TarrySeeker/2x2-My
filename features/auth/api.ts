@@ -37,9 +37,15 @@ import type { UserRole } from "@/types/database";
 // ============================================================
 // Константы rate-limit — защита от brute-force на /admin/login
 // ============================================================
+// 1. Per-IP rate-limit (in-process Map, для cluster нужен Redis).
 const LOGIN_MAX_ATTEMPTS = 5;
 const LOGIN_WINDOW_MS = 60_000 * 10; // 10 минут
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+
+// 2. Per-account lockout (БД, переживает рестарт). Если на аккаунт
+//    за короткое время идёт N failed-логинов → users.locked_until = now() + 30m.
+const ACCOUNT_LOCKOUT_THRESHOLD = 5;
+const ACCOUNT_LOCKOUT_DURATION_MIN = 30;
 
 function recordLoginAttempt(key: string): boolean {
   const now = Date.now();
@@ -63,9 +69,11 @@ function resetLoginAttempts(key: string): void {
 
 function toProfile(user: SessionUser): Profile {
   // Profile = Tables["users"]["Row"] (алиас для совместимости).
-  // Row требует `password_hash` и timestamps — наружу НЕ вытягиваем,
-  // поэтому добавляем заглушки. Никакой код не использует эти поля
-  // от текущего юзера, но типы хотят их видеть.
+  // Row требует `password_hash`, lockout-поля и timestamps — наружу
+  // НЕ вытягиваем, поэтому добавляем безопасные заглушки. Никакой код
+  // не использует эти поля от текущего юзера, но типы хотят их видеть.
+  // Реальные значения lockout/must_change_password читаются отдельным
+  // SELECT в layout (см. requireAdminRedirect) и в changePasswordAction.
   return {
     id: user.id,
     username: user.username,
@@ -75,6 +83,9 @@ function toProfile(user: SessionUser): Profile {
     role: user.role,
     avatar_url: user.avatar_url,
     is_active: user.is_active,
+    must_change_password: false,
+    failed_login_attempts: 0,
+    locked_until: null,
     created_at: new Date(0).toISOString(),
     updated_at: new Date(0).toISOString(),
   };
@@ -183,9 +194,12 @@ export async function signIn(
       id: string;
       password_hash: string;
       is_active: boolean;
+      failed_login_attempts: number;
+      locked_until: string | null;
     }>
   >`
-    SELECT id, password_hash, is_active
+    SELECT id, password_hash, is_active,
+           failed_login_attempts, locked_until
     FROM users
     WHERE LOWER(username) = ${identifier}
        OR LOWER(email) = ${identifier}
@@ -208,9 +222,54 @@ export async function signIn(
     return "Аккаунт заблокирован";
   }
 
+  // ── Account lockout check ──
+  if (userRow.locked_until) {
+    const lockedUntil = new Date(userRow.locked_until);
+    if (lockedUntil.getTime() > Date.now()) {
+      // Запускаем bcrypt всё равно — чтобы тайминг не выдавал состояние блокировки.
+      await bcrypt.compare(password, userRow.password_hash);
+      return `Аккаунт временно заблокирован, попробуйте через ${ACCOUNT_LOCKOUT_DURATION_MIN} минут`;
+    }
+  }
+
   const ok = await bcrypt.compare(password, userRow.password_hash);
   if (!ok) {
+    // Регистрируем неудачную попытку. Если порог достигнут — лочим аккаунт.
+    try {
+      const nextCount = (userRow.failed_login_attempts ?? 0) + 1;
+      if (nextCount >= ACCOUNT_LOCKOUT_THRESHOLD) {
+        await sql`
+          UPDATE users
+          SET failed_login_attempts = 0,
+              locked_until = NOW() + make_interval(mins => ${ACCOUNT_LOCKOUT_DURATION_MIN}),
+              updated_at = NOW()
+          WHERE id = ${userRow.id}
+        `;
+      } else {
+        await sql`
+          UPDATE users
+          SET failed_login_attempts = ${nextCount},
+              updated_at = NOW()
+          WHERE id = ${userRow.id}
+        `;
+      }
+    } catch (err) {
+      console.warn("[signIn] failed to update lockout counters:", err);
+    }
     return GENERIC_ERROR;
+  }
+
+  // Успешный вход — сбрасываем счётчики.
+  try {
+    await sql`
+      UPDATE users
+      SET failed_login_attempts = 0,
+          locked_until = NULL,
+          updated_at = NOW()
+      WHERE id = ${userRow.id}
+    `;
+  } catch (err) {
+    console.warn("[signIn] failed to reset lockout counters:", err);
   }
 
   const token = generateSessionToken();

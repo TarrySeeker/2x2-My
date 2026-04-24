@@ -49,6 +49,8 @@ services:
       - ./db/init/00_apply_migrations.sh:/docker-entrypoint-initdb.d/00_apply_migrations.sh:ro
       - ./db/migrations:/docker-entrypoint-initdb.d/migrations:ro
       - ./db/seed.sql:/docker-entrypoint-initdb.d/zz_seed.sql:ro
+      # Сидинг CMS-таблиц (homepage_sections, site_settings) — после основного seed.
+      - ./db/seed_cms.sql:/docker-entrypoint-initdb.d/zz_seed_cms.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d shop2x2"]
       interval: 5s

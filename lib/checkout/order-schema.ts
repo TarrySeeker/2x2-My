@@ -28,13 +28,13 @@ const _baseSchema = z.object({
     company: companySchema.optional(),
   }),
   delivery: z.object({
-    type: z.enum(["pickup", "courier", "cdek"]),
+    type: z.enum(["pickup", "courier_local", "cdek"]),
+    // Город:
+    //   pickup        — игнорируется (всегда офис в Ханты-Мансийске).
+    //   courier_local — фиксируется как «Ханты-Мансийск» (default).
+    //   cdek          — произвольный город (заполняет клиент).
+    city: z.string().max(120).optional(),
     address: z.string().max(500).optional(),
-    tariffCode: z.number().int().positive().optional(),
-    pointCode: z.string().max(50).optional(),
-    pointAddress: z.string().max(500).optional(),
-    cityCode: z.number().int().positive().optional(),
-    cost: z.number().nonnegative().optional(),
   }),
   installation: z
     .object({
@@ -45,7 +45,10 @@ const _baseSchema = z.object({
     })
     .optional(),
   payment: z.object({
-    method: z.enum(["cash_on_delivery", "invoice", "cdek_pay"]),
+    // Онлайн-оплата выпилена. Доступны:
+    //   bank_transfer — счёт от менеджера (default для всех B2C/B2B).
+    //   cash          — оплата наличными при самовывозе.
+    method: z.enum(["bank_transfer", "cash"]).default("bank_transfer"),
   }),
   promoCode: z.string().optional(),
   customerComment: z.string().max(2000).optional(),
@@ -69,11 +72,18 @@ export const orderSchema = _baseSchema.superRefine((data, ctx) => {
       path: ["customer", "company"],
     });
   }
-  if (data.delivery.type === "courier" && !data.delivery.address) {
+  if (data.delivery.type === "courier_local" && !data.delivery.address) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: "Укажите адрес доставки курьером",
       path: ["delivery", "address"],
+    });
+  }
+  if (data.delivery.type === "cdek" && !data.delivery.city) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Укажите город доставки СДЭК",
+      path: ["delivery", "city"],
     });
   }
 });

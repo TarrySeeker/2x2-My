@@ -36,20 +36,23 @@
         X-Frame-Options           "SAMEORIGIN"
         Referrer-Policy           "strict-origin-when-cross-origin"
         Permissions-Policy        "camera=(), microphone=(), geolocation=()"
+        # Content-Security-Policy (минимально-безопасный baseline).
+        # 'unsafe-inline' для script-src — компромисс из-за inline JSON-LD
+        # и Next.js inline-runtime. Ужесточение до nonce-based — задача P2.
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://mc.yandex.ru https://www.googletagmanager.com https://api-maps.yandex.ru; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://mc.yandex.ru https://www.google-analytics.com https://api.cdek.ru https://api.edu.cdek.ru https://api-maps.yandex.ru; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+        Cross-Origin-Opener-Policy "same-origin"
+        Cross-Origin-Resource-Policy "same-site"
+        X-Permitted-Cross-Domain-Policies "none"
         # Скрываем технические заголовки.
         -Server
         -X-Powered-By
     }
 
     # ---- Long-cache headers для immutable статики ----
+    # ВАЖНО: в named matcher несколько `path` директив работают как
+    # replace, а не append. Объединяем все пути в одну строку (OR-семантика).
     @static {
-        path /_next/static/*
-        path /favicon.ico
-        path /robots.txt
-        path /sitemap.xml
-        path /manifest.json
-        path *.woff2
-        path *.woff
+        path /_next/static/* /favicon.ico /robots.txt /sitemap.xml /manifest.json *.woff2 *.woff
     }
     header @static Cache-Control "public, max-age=31536000, immutable"
 
@@ -58,13 +61,25 @@
         max_size 20MB
     }
 
-    # ---- Reverse proxy на Next.js ----
-    # Health-check (/api/health) идёт через тот же proxy — Caddy сам
-    # пробрасывает X-Forwarded-* заголовки.
-    reverse_proxy app:3000 {
-        header_up X-Real-IP        {remote_host}
-        header_up X-Forwarded-For  {remote_host}
-        header_up X-Forwarded-Proto {scheme}
+    # ---- Маршрутизация ----
+    # ВАЖНО: используем `handle` блоки, чтобы порядок был детерминирован
+    # (Caddy сортирует одинаковые директивы по специфичности path-matcher,
+    # но смешивание `handle` + голый `reverse_proxy` приводит к коллизии).
+
+    # /2x2-media/* → MinIO (path-style, бакет = 2x2-media).
+    # MinIO ждёт полный путь GET /2x2-media/<key>, поэтому `handle`,
+    # а не `handle_path` (который бы срезал префикс).
+    handle /2x2-media/* {
+        reverse_proxy minio:9000
+    }
+
+    # Всё остальное → Next.js. Caddy сам корректно проставляет
+    # X-Forwarded-For (с цепочкой IP при наличии CDN перед собой)
+    # и X-Forwarded-Proto. Кастомизируем только X-Real-IP.
+    handle {
+        reverse_proxy app:3000 {
+            header_up X-Real-IP {remote_host}
+        }
     }
 
     # ---- Логи доступа ----

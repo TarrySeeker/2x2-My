@@ -54,9 +54,11 @@ export default function PortfolioPage() {
           { name: "Портфолио", url: "/portfolio" },
         ])}
       />
+      {/* H1 = «Портфолио» — единый формат с навигацией Header, breadcrumb и
+          metadata.title (QA P0-3). Badge оставляем как описание секции. */}
       <ServicesHero
-        badge="Портфолио"
-        title="Наши работы"
+        badge="Реализованные проекты"
+        title="Портфолио"
         description={description}
       />
       <PortfolioGallery items={items} />
