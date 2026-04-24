@@ -17,6 +17,7 @@ import { SITE, absoluteUrl } from "@/lib/seo/site";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { SupabaseProvider } from "@/providers/supabase-provider";
 import { ToastProvider } from "@/providers/toast-provider";
+import UiStringsProviderServer from "@/features/cms/UiStringsProviderServer";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -106,7 +107,7 @@ export const viewport: Viewport = {
   colorScheme: "dark light",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -120,21 +121,27 @@ export default function RootLayout({
       <body className="flex min-h-screen min-w-0 flex-col">
         <ThemeProvider>
           <SupabaseProvider>
-            <ShopShell>
-              <Header />
-              <PromoPopupBanner />
-              <JsonLdScript
-                data={[buildOrganization(), buildLocalBusiness(), buildWebSite()]}
-              />
-            </ShopShell>
-            <div className="flex-1">{children}</div>
-            <ShopShell>
-              <Footer />
-              <ShopModals />
-              <CookieBanner />
-            </ShopShell>
-            <ToastProvider />
-            <AnalyticsScripts />
+            <UiStringsProviderServer>
+              <ShopShell>
+                <Header />
+                <PromoPopupBanner />
+                <JsonLdScript
+                  data={[
+                    buildOrganization(),
+                    buildLocalBusiness(),
+                    buildWebSite(),
+                  ]}
+                />
+              </ShopShell>
+              <div className="flex-1">{children}</div>
+              <ShopShell>
+                <Footer />
+                <ShopModals />
+                <CookieBanner />
+              </ShopShell>
+              <ToastProvider />
+              <AnalyticsScripts />
+            </UiStringsProviderServer>
           </SupabaseProvider>
         </ThemeProvider>
       </body>
