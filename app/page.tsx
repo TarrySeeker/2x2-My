@@ -6,6 +6,23 @@ import AboutPreview from '@/components/sections/AboutPreview'
 import FeaturesSection from '@/components/sections/FeaturesSection'
 import FaqPreviewSection from '@/components/sections/FaqPreviewSection'
 import CtaSection from '@/components/sections/CtaSection'
+import { makeGenerateMetadata } from '@/lib/seo/metadata-cms'
+import { SITE } from '@/lib/seo/site'
+
+/**
+ * Мета главной страницы читается из БД (`page_metadata.path = '/'`).
+ * Fallback — константы из `lib/seo/site.ts` (SITE.description/keywords).
+ * При пустой БД работает как было.
+ */
+export const generateMetadata = makeGenerateMetadata({
+  path: '/',
+  fallback: {
+    title:
+      'Рекламная компания 2х2 — полиграфия, вывески, наружная реклама в Ханты-Мансийске',
+    description: SITE.description,
+    keywords: [...SITE.keywords],
+  },
+})
 
 /**
  * Порядок секций главной (master-plan правка 5, 2026-04-23):
