@@ -30,6 +30,49 @@ interface LegalEntityValue {
   ogrn?: string
 }
 
+interface FooterColumn {
+  title: string
+  items: Array<{ href: string; label: string }>
+}
+
+interface NavigationFooterValue {
+  columns?: Array<{
+    title?: string
+    items?: Array<{ href?: string; label?: string }>
+  }>
+}
+
+interface OrganizationValue {
+  slogan?: string
+  short_description?: string
+  description?: string
+}
+
+const DEFAULT_FOOTER_COLUMNS: FooterColumn[] = [
+  {
+    title: 'Навигация',
+    items: [
+      { href: '/', label: 'Главная' },
+      { href: '/about', label: 'О нас' },
+      { href: '/services', label: 'Услуги' },
+      { href: '/portfolio', label: 'Портфолио' },
+      { href: '/faq', label: 'FAQ' },
+      { href: '/contacts', label: 'Контакты' },
+    ],
+  },
+  {
+    title: 'Услуги',
+    items: [
+      { href: '/services', label: 'Полиграфия' },
+      { href: '/services', label: 'Наружная реклама' },
+      { href: '/services', label: 'Оформление фасадов' },
+    ],
+  },
+]
+
+const DEFAULT_TAGLINE =
+  'Рекламное агентство полного цикла. Создаём рекламу, которую замечают.'
+
 const DEFAULT_LEGAL: LegalEntityValue = {
   legal_name: '',
   inn: '',
@@ -64,6 +107,42 @@ export default async function Footer() {
   const hours = await getSettingValue<BusinessHoursValue>('business_hours', DEFAULT_HOURS)
   const socials = await getSettingValue<SocialsValue>('socials', DEFAULT_SOCIALS)
   const legal = await getSettingValue<LegalEntityValue>('legal_entity', DEFAULT_LEGAL)
+  const navFooter = await getSettingValue<NavigationFooterValue>(
+    'navigation_footer',
+    { columns: [] },
+  )
+  const organization = await getSettingValue<OrganizationValue>('organization', {})
+
+  const cmsColumns = Array.isArray(navFooter.columns) ? navFooter.columns : []
+  const footerColumns: FooterColumn[] =
+    cmsColumns.length > 0
+      ? cmsColumns
+          .filter(
+            (c) =>
+              c &&
+              typeof c.title === 'string' &&
+              c.title.length > 0 &&
+              Array.isArray(c.items),
+          )
+          .map((c) => ({
+            title: c.title!,
+            items: (c.items ?? [])
+              .filter(
+                (i) =>
+                  i &&
+                  typeof i.href === 'string' &&
+                  i.href.length > 0 &&
+                  typeof i.label === 'string' &&
+                  i.label.length > 0,
+              )
+              .map((i) => ({ href: i.href!, label: i.label! })),
+          }))
+      : DEFAULT_FOOTER_COLUMNS
+
+  const tagline =
+    organization.short_description?.trim() ||
+    organization.description?.trim() ||
+    DEFAULT_TAGLINE
 
   const legalName = legal.legal_name?.trim() ?? ''
   const legalInn = legal.inn?.trim() ?? ''
@@ -106,55 +185,28 @@ export default async function Footer() {
                 height={71}
               />
             </Link>
-            <p className="text-gray-400 text-sm leading-relaxed">
-              Рекламное агентство полного цикла. Создаём рекламу, которую замечают.
-            </p>
+            <p className="text-gray-400 text-sm leading-relaxed">{tagline}</p>
           </div>
 
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-4">
-              Навигация
-            </h3>
-            <ul className="space-y-2">
-              {(
-                [
-                  ['/', 'Главная'],
-                  ['/about', 'О нас'],
-                  ['/services', 'Услуги'],
-                  ['/portfolio', 'Портфолио'],
-                  ['/faq', 'FAQ'],
-                  ['/contacts', 'Контакты'],
-                ] as const
-              ).map(([href, label]) => (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    className="text-gray-300 hover:text-brand-orange transition-colors text-sm"
-                  >
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-4">
-              Услуги
-            </h3>
-            <ul className="space-y-2">
-              {['Полиграфия', 'Наружная реклама', 'Оформление фасадов'].map((s) => (
-                <li key={s}>
-                  <Link
-                    href="/services"
-                    className="text-gray-300 hover:text-brand-orange transition-colors text-sm"
-                  >
-                    {s}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {footerColumns.map((col) => (
+            <div key={col.title}>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-4">
+                {col.title}
+              </h3>
+              <ul className="space-y-2">
+                {col.items.map((it) => (
+                  <li key={`${col.title}-${it.href}-${it.label}`}>
+                    <Link
+                      href={it.href}
+                      className="text-gray-300 hover:text-brand-orange transition-colors text-sm"
+                    >
+                      {it.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
 
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-4">

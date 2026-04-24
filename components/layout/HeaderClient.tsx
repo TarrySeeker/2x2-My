@@ -7,14 +7,10 @@ import { Menu, X } from 'lucide-react'
 import { trackEvent, EVENTS } from '@/lib/analytics'
 import HeaderSocials from './HeaderSocials'
 
-const navLinks = [
-  { href: '/', label: 'Главная' },
-  { href: '/about', label: 'О нас' },
-  { href: '/services', label: 'Услуги' },
-  { href: '/portfolio', label: 'Портфолио' },
-  { href: '/faq', label: 'FAQ' },
-  { href: '/contacts', label: 'Контакты' },
-] as const
+export interface HeaderNavLink {
+  href: string
+  label: string
+}
 
 export interface HeaderClientProps {
   phoneDisplay: string
@@ -24,9 +20,15 @@ export interface HeaderClientProps {
     telegram?: string
     dzen?: string
   }
+  navLinks: HeaderNavLink[]
 }
 
-export default function HeaderClient({ phoneDisplay, phoneTel, socials }: HeaderClientProps) {
+export default function HeaderClient({
+  phoneDisplay,
+  phoneTel,
+  socials,
+  navLinks,
+}: HeaderClientProps) {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
