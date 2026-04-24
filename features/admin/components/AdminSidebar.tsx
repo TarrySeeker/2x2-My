@@ -32,6 +32,10 @@ import {
   ListTree,
   FileType,
   ImagePlus,
+  Layers,
+  Languages,
+  ScrollText,
+  ShieldCheck,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -166,6 +170,30 @@ const NAV_ITEMS: NavEntry[] = [
         href: "/admin/content/menu",
         icon: ListTree,
         roles: ["owner", "manager"],
+      },
+      {
+        label: "SEO страниц",
+        href: "/admin/content/metadata",
+        icon: ShieldCheck,
+        roles: ["owner", "manager", "content"],
+      },
+      {
+        label: "Секции страниц",
+        href: "/admin/content/sections",
+        icon: Layers,
+        roles: ["owner", "manager", "content"],
+      },
+      {
+        label: "Микротексты UI",
+        href: "/admin/content/ui-strings",
+        icon: Languages,
+        roles: ["owner", "manager", "content"],
+      },
+      {
+        label: "Правовые страницы",
+        href: "/admin/content/legal-pages",
+        icon: ScrollText,
+        roles: ["owner", "manager", "content"],
       },
     ],
   },

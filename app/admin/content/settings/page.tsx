@@ -44,6 +44,25 @@ const DEFAULTS: SiteSettingsBundle = {
     bank_name: "",
     bik: "",
   },
+  organization: {
+    name: "Рекламная компания 2×2",
+    short_name: "2×2",
+    legal_name: "",
+    slogan: "",
+    description: "",
+    short_description: "",
+    locale: "ru_RU",
+    language: "ru",
+    theme_color: "#FF6600",
+    og_image: "",
+    founding_year: 2014,
+    price_range: "",
+    area_served: [],
+    keywords_global: [],
+  },
+  navigation_header: { items: [] },
+  navigation_footer: { columns: [] },
+  homepage_trust_bar: { text: "", clients: [] },
 };
 
 export default async function SiteSettingsPage() {
@@ -68,6 +87,18 @@ export default async function SiteSettingsPage() {
     legal_entity:
       (map.get("legal_entity") as SiteSettingsBundle["legal_entity"]) ??
       DEFAULTS.legal_entity,
+    organization:
+      (map.get("organization") as SiteSettingsBundle["organization"]) ??
+      DEFAULTS.organization,
+    navigation_header:
+      (map.get("navigation_header") as SiteSettingsBundle["navigation_header"]) ??
+      DEFAULTS.navigation_header,
+    navigation_footer:
+      (map.get("navigation_footer") as SiteSettingsBundle["navigation_footer"]) ??
+      DEFAULTS.navigation_footer,
+    homepage_trust_bar:
+      (map.get("homepage_trust_bar") as SiteSettingsBundle["homepage_trust_bar"]) ??
+      DEFAULTS.homepage_trust_bar,
   };
 
   return <SiteSettingsPageClient initial={bundle} />;
