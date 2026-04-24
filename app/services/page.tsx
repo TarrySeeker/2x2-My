@@ -1,9 +1,10 @@
-import type { Metadata } from 'next'
 import ServicesHero from '@/components/sections/services/ServicesHero'
 import ServicesCards from '@/components/sections/services/ServicesCards'
 import CtaSection from '@/components/sections/CtaSection'
 import JsonLd from '@/components/JsonLd'
 import { siteUrl } from '@/lib/siteConfig'
+import { readPageSectionContent } from '@/lib/cms/page-section-content'
+import { makeGenerateMetadata } from '@/lib/seo/metadata-cms'
 
 const servicesSchema = {
   '@context': 'https://schema.org',
@@ -31,22 +32,28 @@ const servicesSchema = {
   ],
 }
 
-import { buildMetadata } from '@/lib/seo/metadata'
 import { JsonLdScript, buildBreadcrumbList } from '@/lib/seo/json-ld'
 
-export const metadata: Metadata = buildMetadata({
-  title: 'Услуги рекламной компании «2х2» — полиграфия, наружная реклама, фасады',
-  description:
-    'Полный спектр рекламных услуг в Ханты-Мансийске: печать визиток, листовок, вывески, световые буквы, стелы, оформление фасадов. Онлайн-калькулятор и стартовые цены.',
+export const generateMetadata = makeGenerateMetadata({
   path: '/services',
-  keywords: [
-    'услуги рекламной компании',
-    'реклама под ключ ханты-мансийск',
-    'полиграфия и наружная реклама',
-  ],
+  fallback: {
+    title: 'Услуги рекламной компании «2х2» — полиграфия, наружная реклама, фасады',
+    description:
+      'Полный спектр рекламных услуг в Ханты-Мансийске: печать визиток, листовок, вывески, световые буквы, стелы, оформление фасадов. Онлайн-калькулятор и стартовые цены.',
+    keywords: [
+      'услуги рекламной компании',
+      'реклама под ключ ханты-мансийск',
+      'полиграфия и наружная реклама',
+    ],
+  },
 })
 
-export default function ServicesPage() {
+export default async function ServicesPage() {
+  const heroCms = await readPageSectionContent('/services', 'hero', 'hero')
+  const heroBadge = heroCms?.content.badge || undefined
+  const heroTitle = heroCms?.content.title || undefined
+  const heroDescription = heroCms?.content.description || undefined
+
   return (
     <main>
       <JsonLd data={servicesSchema} />
@@ -56,7 +63,7 @@ export default function ServicesPage() {
           { name: 'Услуги', url: '/services' },
         ])}
       />
-      <ServicesHero />
+      <ServicesHero badge={heroBadge} title={heroTitle} description={heroDescription} />
       <ServicesCards />
       <CtaSection />
     </main>

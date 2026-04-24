@@ -1,10 +1,11 @@
-import type { Metadata } from 'next'
 import Link from 'next/link'
 import ServicesHero from '@/components/sections/services/ServicesHero'
 import AnimatedSection from '@/components/ui/AnimatedSection'
-import { buildMetadata } from '@/lib/seo/metadata'
+import { makeGenerateMetadata } from '@/lib/seo/metadata-cms'
 import { JsonLdScript, buildBreadcrumbList } from '@/lib/seo/json-ld'
 import { getSettingValue } from '@/lib/data/settings'
+import { getPageContent } from '@/lib/data/page-content'
+import { renderSimpleMarkdown } from '@/lib/cms/simple-markdown'
 
 interface LegalEntityValue {
   legal_name?: string
@@ -39,26 +40,89 @@ function orPlaceholder(value: string | undefined | null): string {
   return trimmed || PLACEHOLDER
 }
 
-export const metadata: Metadata = buildMetadata({
-  title: 'Политика конфиденциальности — Рекламная компания «2х2»',
-  description:
-    'Политика обработки персональных данных сайта рекламной компании «2х2» (Ханты-Мансийск) в соответствии с Федеральным законом № 152-ФЗ «О персональных данных».',
+export const generateMetadata = makeGenerateMetadata({
   path: '/privacy',
-  noindex: false,
-  keywords: [
-    'политика конфиденциальности 2х2',
-    'обработка персональных данных',
-    '152-ФЗ',
-    'рекламное агентство ханты-мансийск',
-    'согласие на обработку персональных данных',
-  ],
+  fallback: {
+    title: 'Политика конфиденциальности — Рекламная компания «2х2»',
+    description:
+      'Политика обработки персональных данных сайта рекламной компании «2х2» (Ханты-Мансийск) в соответствии с Федеральным законом № 152-ФЗ «О персональных данных».',
+    noindex: false,
+    keywords: [
+      'политика конфиденциальности 2х2',
+      'обработка персональных данных',
+      '152-ФЗ',
+      'рекламное агентство ханты-мансийск',
+      'согласие на обработку персональных данных',
+    ],
+  },
 })
 
-/** Дата последнего обновления документа. Обновляйте при каждой редакции. */
-const POLICY_VERSION = '2026-04-23'
-const POLICY_DATE = '23 апреля 2026 г.'
+/** Дата последнего обновления документа для fallback-JSX. Обновляйте при редакции. */
+const POLICY_VERSION_FALLBACK = '2026-04-23'
+const POLICY_DATE_FALLBACK = '23 апреля 2026 г.'
+
+function formatPolicyDate(iso: string | undefined | null): string {
+  if (!iso) return POLICY_DATE_FALLBACK
+  // YYYY-MM-DD → "23 апреля 2026 г."
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim())
+  if (!m) return iso
+  const [, y, mo, d] = m
+  const months = [
+    'января',
+    'февраля',
+    'марта',
+    'апреля',
+    'мая',
+    'июня',
+    'июля',
+    'августа',
+    'сентября',
+    'октября',
+    'ноября',
+    'декабря',
+  ]
+  const monthIdx = parseInt(mo!, 10) - 1
+  if (monthIdx < 0 || monthIdx > 11) return iso
+  const dayNum = parseInt(d!, 10)
+  return `${dayNum} ${months[monthIdx]} ${y} г.`
+}
 
 export default async function PrivacyPage() {
+  // Приоритет CMS: если /privacy есть в page_content — рендерим markdown.
+  const cmsContent = await getPageContent('/privacy')
+
+  if (cmsContent && cmsContent.contentMarkdown.trim().length > 0) {
+    const publishedDate = formatPolicyDate(cmsContent.updatedAt.slice(0, 10))
+    return (
+      <main>
+        <JsonLdScript
+          data={buildBreadcrumbList([
+            { name: 'Главная', url: '/' },
+            { name: 'Политика конфиденциальности', url: '/privacy' },
+          ])}
+        />
+        <ServicesHero
+          badge="Юридическая информация"
+          title={cmsContent.title || 'Политика конфиденциальности'}
+          description="Как мы обрабатываем и защищаем ваши персональные данные в соответствии с 152-ФЗ."
+        />
+        <section className="bg-white py-16">
+          <div className="container">
+            <AnimatedSection>
+              <article className="mx-auto max-w-3xl space-y-6 text-[15px] leading-relaxed text-neutral-700 [&_a]:text-brand-orange [&_a]:underline [&_h2]:mt-10 [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:text-brand-dark [&_h3]:mt-6 [&_h3]:font-display [&_h3]:text-xl [&_h3]:font-bold [&_h3]:text-brand-dark [&_ul]:list-disc [&_ul]:pl-6 [&_ul_li]:mt-1">
+                <p className="text-sm text-neutral-500">
+                  Версия: {cmsContent.version} · Дата публикации: {publishedDate}
+                </p>
+                {renderSimpleMarkdown(cmsContent.contentMarkdown)}
+              </article>
+            </AnimatedSection>
+          </div>
+        </section>
+      </main>
+    )
+  }
+
+  // Fallback: старый JSX, если CMS-запись отсутствует / выключена.
   const legal = await getSettingValue<LegalEntityValue>(
     'legal_entity',
     LEGAL_ENTITY_DEFAULTS,
@@ -78,6 +142,9 @@ export default async function PrivacyPage() {
       legal.ogrn?.trim() &&
       legal.legal_address?.trim(),
   )
+
+  const POLICY_VERSION = POLICY_VERSION_FALLBACK
+  const POLICY_DATE = POLICY_DATE_FALLBACK
 
   return (
     <main>

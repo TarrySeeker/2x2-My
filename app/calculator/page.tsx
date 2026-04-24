@@ -1,10 +1,10 @@
-import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Calculator, ArrowRight } from 'lucide-react'
 import ServicesHero from '@/components/sections/services/ServicesHero'
 import AnimatedSection from '@/components/ui/AnimatedSection'
 import CtaSection from '@/components/sections/CtaSection'
-import { buildMetadata } from '@/lib/seo/metadata'
+import { makeGenerateMetadata } from '@/lib/seo/metadata-cms'
+import { readPageSectionContent } from '@/lib/cms/page-section-content'
 import {
   JsonLdScript,
   buildBreadcrumbList,
@@ -13,19 +13,21 @@ import {
 
 export const revalidate = 86400
 
-export const metadata: Metadata = buildMetadata({
-  title: 'Калькулятор стоимости рекламы онлайн — «2х2» Ханты-Мансийск',
-  description:
-    'Онлайн-калькулятор стоимости вывесок, визиток, баннеров и световых букв. Рассчитайте цену за 1 минуту — реальные тарифы «2х2» в Ханты-Мансийске и ХМАО.',
+export const generateMetadata = makeGenerateMetadata({
   path: '/calculator',
-  keywords: [
-    'калькулятор стоимости рекламы',
-    'калькулятор вывески онлайн',
-    'рассчитать стоимость баннера',
-    'рассчитать печать визиток',
-    'калькулятор рекламы ханты-мансийск',
-    'цена вывески онлайн',
-  ],
+  fallback: {
+    title: 'Калькулятор стоимости рекламы онлайн — «2х2» Ханты-Мансийск',
+    description:
+      'Онлайн-калькулятор стоимости вывесок, визиток, баннеров и световых букв. Рассчитайте цену за 1 минуту — реальные тарифы «2х2» в Ханты-Мансийске и ХМАО.',
+    keywords: [
+      'калькулятор стоимости рекламы',
+      'калькулятор вывески онлайн',
+      'рассчитать стоимость баннера',
+      'рассчитать печать визиток',
+      'калькулятор рекламы ханты-мансийск',
+      'цена вывески онлайн',
+    ],
+  },
 })
 
 type CalcLink = {
@@ -35,7 +37,7 @@ type CalcLink = {
   badge: string
 }
 
-const CALC_LINKS: CalcLink[] = [
+const CALC_LINKS_FALLBACK: CalcLink[] = [
   {
     title: 'Визитки',
     description: 'Тираж, бумага, ламинация — цена за 1 тираж и за штуку.',
@@ -74,7 +76,7 @@ const CALC_LINKS: CalcLink[] = [
   },
 ]
 
-const FAQ = [
+const FAQ_FALLBACK = [
   {
     question: 'Насколько точен калькулятор?',
     answer:
@@ -97,7 +99,38 @@ const FAQ = [
   },
 ]
 
-export default function CalculatorPage() {
+export default async function CalculatorPage() {
+  const [heroCms, categoriesCms, faqCms, ctaCms] = await Promise.all([
+    readPageSectionContent('/calculator', 'hero', 'hero'),
+    readPageSectionContent('/calculator', 'categories', 'cards_grid'),
+    readPageSectionContent('/calculator', 'faq', 'faq'),
+    readPageSectionContent('/calculator', 'cta', 'cta'),
+  ])
+
+  // Categories: используем CMS, если есть, иначе fallback
+  const calcLinks: CalcLink[] =
+    categoriesCms?.content.items && categoriesCms.content.items.length > 0
+      ? categoriesCms.content.items.map((i) => ({
+          title: i.title,
+          description: i.description ?? '',
+          href: i.href,
+          badge: i.badge ?? '',
+        }))
+      : CALC_LINKS_FALLBACK
+
+  const categoriesHeadline =
+    categoriesCms?.content.headline || 'Какую услугу считаем?'
+  const categoriesSubheadline =
+    categoriesCms?.content.subheadline ||
+    'Выберите категорию — калькулятор откроется внутри карточки услуги.'
+
+  // FAQ: CMS приоритет
+  const faqItems =
+    faqCms?.content.items && faqCms.content.items.length > 0
+      ? faqCms.content.items.map((i) => ({ question: i.question, answer: i.answer }))
+      : FAQ_FALLBACK
+  const faqHeadline = faqCms?.content.headline || 'Частые вопросы о калькуляторе'
+
   return (
     <main>
       <JsonLdScript
@@ -106,14 +139,17 @@ export default function CalculatorPage() {
             { name: 'Главная', url: '/' },
             { name: 'Калькулятор', url: '/calculator' },
           ]),
-          buildFaqPage(FAQ),
+          buildFaqPage(faqItems),
         ]}
       />
 
       <ServicesHero
-        badge="Онлайн-калькулятор"
-        title="Рассчитайте стоимость рекламы за 1 минуту"
-        description="Визитки, баннеры, вывески, световые буквы — введите параметры и получите цену сразу. Без регистрации."
+        badge={heroCms?.content.badge || 'Онлайн-калькулятор'}
+        title={heroCms?.content.title || 'Рассчитайте стоимость рекламы за 1 минуту'}
+        description={
+          heroCms?.content.description ||
+          'Визитки, баннеры, вывески, световые буквы — введите параметры и получите цену сразу. Без регистрации.'
+        }
       />
 
       <section className="bg-white py-16">
@@ -122,14 +158,12 @@ export default function CalculatorPage() {
             <div className="mx-auto max-w-5xl">
               <div className="mb-12 text-center">
                 <h2 className="font-display text-2xl font-bold text-brand-dark md:text-3xl">
-                  Какую услугу считаем?
+                  {categoriesHeadline}
                 </h2>
-                <p className="mt-3 text-neutral-600">
-                  Выберите категорию — калькулятор откроется внутри карточки услуги.
-                </p>
+                <p className="mt-3 text-neutral-600">{categoriesSubheadline}</p>
               </div>
               <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-                {CALC_LINKS.map((item) => (
+                {calcLinks.map((item) => (
                   <Link
                     key={item.title}
                     href={item.href}
@@ -150,7 +184,8 @@ export default function CalculatorPage() {
                       <p className="text-sm text-neutral-600">{item.description}</p>
                     </div>
                     <div className="mt-5 inline-flex items-center gap-1 text-sm font-semibold text-brand-orange">
-                      К калькулятору <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                      {categoriesCms?.content.cta_text_on_card || 'К калькулятору'}{' '}
+                      <ArrowRight className="h-4 w-4" aria-hidden="true" />
                     </div>
                   </Link>
                 ))}
@@ -165,10 +200,10 @@ export default function CalculatorPage() {
           <AnimatedSection>
             <div className="mx-auto max-w-3xl">
               <h2 className="mb-8 text-center font-display text-2xl font-bold text-brand-dark md:text-3xl">
-                Частые вопросы о калькуляторе
+                {faqHeadline}
               </h2>
               <div className="space-y-4">
-                {FAQ.map((f) => (
+                {faqItems.map((f) => (
                   <details
                     key={f.question}
                     className="group rounded-xl border border-neutral-200 bg-white p-5 open:shadow-md"
@@ -193,8 +228,11 @@ export default function CalculatorPage() {
       </section>
 
       <CtaSection
-        title="Не нашли свою услугу в калькуляторе?"
-        subtitle="Закажите индивидуальный расчёт — ответим в течение часа в рабочее время"
+        title={ctaCms?.content.headline || 'Не нашли свою услугу в калькуляторе?'}
+        subtitle={
+          ctaCms?.content.subheadline ||
+          'Закажите индивидуальный расчёт — ответим в течение часа в рабочее время'
+        }
       />
     </main>
   )

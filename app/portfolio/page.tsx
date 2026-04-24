@@ -1,24 +1,26 @@
-import type { Metadata } from "next";
 import type { PortfolioItem } from "@/lib/types";
 import PortfolioGallery from "@/components/sections/portfolio/PortfolioGallery";
 import ServicesHero from "@/components/sections/services/ServicesHero";
 import CtaSection from "@/components/sections/CtaSection";
 import { featuredPortfolioWorks } from "@/lib/featuredPortfolioWorks";
 import { getPortfolioStub } from "@/lib/data/portfolio";
-import { buildMetadata } from "@/lib/seo/metadata";
+import { makeGenerateMetadata } from "@/lib/seo/metadata-cms";
+import { readPageSectionContent } from "@/lib/cms/page-section-content";
 import { JsonLdScript, buildBreadcrumbList } from "@/lib/seo/json-ld";
 
-export const metadata: Metadata = buildMetadata({
-  title: "Портфолио — наши работы в Ханты-Мансийске и Сургуте",
-  description:
-    "Реализованные проекты «2х2» в ХМАО: крышная вывеска ВТБ, стелы АЗС, оформление ЮКИОР, световые фигуры Брусники, новогоднее оформление автобусов.",
+export const generateMetadata = makeGenerateMetadata({
   path: "/portfolio",
-  keywords: [
-    "портфолио 2х2",
-    "реклама ханты-мансийск примеры",
-    "вывески ханты-мансийск работы",
-    "стелы азс хмао",
-  ],
+  fallback: {
+    title: "Портфолио — наши работы в Ханты-Мансийске и Сургуте",
+    description:
+      "Реализованные проекты «2х2» в ХМАО: крышная вывеска ВТБ, стелы АЗС, оформление ЮКИОР, световые фигуры Брусники, новогоднее оформление автобусов.",
+    keywords: [
+      "портфолио 2х2",
+      "реклама ханты-мансийск примеры",
+      "вывески ханты-мансийск работы",
+      "стелы азс хмао",
+    ],
+  },
 });
 
 /**
@@ -39,12 +41,14 @@ function toLegacyItem(stub: ReturnType<typeof getPortfolioStub>[number]): Portfo
   };
 }
 
-export default function PortfolioPage() {
+export default async function PortfolioPage() {
   const stubs = getPortfolioStub();
   const items: PortfolioItem[] =
     stubs.length > 0 ? stubs.map(toLegacyItem) : featuredPortfolioWorks;
 
-  const description = `${items.length} реализованных проектов — и сотни других задач`;
+  const fallbackDescription = `${items.length} реализованных проектов — и сотни других задач`;
+
+  const heroCms = await readPageSectionContent("/portfolio", "hero", "hero");
 
   return (
     <main>
@@ -57,9 +61,9 @@ export default function PortfolioPage() {
       {/* H1 = «Портфолио» — единый формат с навигацией Header, breadcrumb и
           metadata.title (QA P0-3). Badge оставляем как описание секции. */}
       <ServicesHero
-        badge="Реализованные проекты"
-        title="Портфолио"
-        description={description}
+        badge={heroCms?.content.badge || "Реализованные проекты"}
+        title={heroCms?.content.title || "Портфолио"}
+        description={heroCms?.content.description || fallbackDescription}
       />
       <PortfolioGallery items={items} />
       <CtaSection />

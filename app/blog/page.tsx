@@ -1,28 +1,30 @@
-import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 import ServicesHero from '@/components/sections/services/ServicesHero'
 import AnimatedSection from '@/components/ui/AnimatedSection'
-import { buildMetadata } from '@/lib/seo/metadata'
+import { makeGenerateMetadata } from '@/lib/seo/metadata-cms'
+import { readPageSectionContent } from '@/lib/cms/page-section-content'
 import { JsonLdScript, buildBreadcrumbList } from '@/lib/seo/json-ld'
 import { blogStarters } from '@/content/blog-starters'
 import { SITE, absoluteUrl } from '@/lib/seo/site'
 
 export const revalidate = 3600
 
-export const metadata: Metadata = buildMetadata({
-  title: 'Блог о рекламе, вывесках и полиграфии — «2х2» Ханты-Мансийск',
-  description:
-    'Статьи о наружной рекламе, вывесках, полиграфии и оформлении фасадов. Цены, требования ХМАО, практические гайды от рекламной компании «2х2» в Ханты-Мансийске.',
+export const generateMetadata = makeGenerateMetadata({
   path: '/blog',
-  keywords: [
-    'блог о рекламе',
-    'статьи о вывесках',
-    'наружная реклама ханты-мансийск',
-    'как выбрать вывеску',
-    'сколько стоит вывеска',
-    'требования к рекламным конструкциям хмао',
-  ],
+  fallback: {
+    title: 'Блог о рекламе, вывесках и полиграфии — «2х2» Ханты-Мансийск',
+    description:
+      'Статьи о наружной рекламе, вывесках, полиграфии и оформлении фасадов. Цены, требования ХМАО, практические гайды от рекламной компании «2х2» в Ханты-Мансийске.',
+    keywords: [
+      'блог о рекламе',
+      'статьи о вывесках',
+      'наружная реклама ханты-мансийск',
+      'как выбрать вывеску',
+      'сколько стоит вывеска',
+      'требования к рекламным конструкциям хмао',
+    ],
+  },
 })
 
 function buildBlogListJsonLd() {
@@ -48,7 +50,8 @@ function buildBlogListJsonLd() {
   }
 }
 
-export default function BlogPage() {
+export default async function BlogPage() {
+  const heroCms = await readPageSectionContent('/blog', 'hero', 'hero')
   return (
     <main>
       <JsonLdScript
@@ -61,9 +64,12 @@ export default function BlogPage() {
         ]}
       />
       <ServicesHero
-        badge="Блог"
-        title="Статьи, гайды и кейсы"
-        description="Цены, практика и требования к рекламе в Ханты-Мансийске и ХМАО. Материалы от команды «2х2»."
+        badge={heroCms?.content.badge || 'Блог'}
+        title={heroCms?.content.title || 'Статьи, гайды и кейсы'}
+        description={
+          heroCms?.content.description ||
+          'Цены, практика и требования к рекламе в Ханты-Мансийске и ХМАО. Материалы от команды «2х2».'
+        }
       />
 
       <section className="bg-white py-16">
