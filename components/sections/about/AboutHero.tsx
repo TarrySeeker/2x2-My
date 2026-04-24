@@ -1,6 +1,23 @@
 import AnimatedSection from '@/components/ui/AnimatedSection'
+import { readPageSectionContent } from '@/lib/cms/page-section-content'
 
-export default function AboutHero() {
+const DEFAULT_HERO = {
+  badge: 'О нас',
+  title: 'Рекламное агентство с характером',
+  description:
+    'Мы создаём рекламу, которая работает. Помогаем бизнесу быть заметным.',
+} as const
+
+/**
+ * Server-component для hero-секции страницы /about.
+ * Читает из CMS `page_sections('/about', 'hero')`; fallback — константы выше.
+ */
+export default async function AboutHero() {
+  const cms = await readPageSectionContent('/about', 'hero', 'hero')
+  const badge = cms?.content.badge || DEFAULT_HERO.badge
+  const title = cms?.content.title || DEFAULT_HERO.title
+  const description = cms?.content.description || DEFAULT_HERO.description
+
   return (
     <section className="relative overflow-hidden bg-brand-dark pt-32 pb-20">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,107,0,0.1),transparent_50%)]" />
@@ -15,13 +32,13 @@ export default function AboutHero() {
       <div className="container relative z-10">
         <AnimatedSection>
           <div className="inline-flex items-center gap-2 bg-brand-orange/20 text-brand-orange px-4 py-2 rounded-full text-sm font-medium mb-6">
-            О нас
+            {badge}
           </div>
           <h1 className="mb-6 max-w-3xl text-4xl font-black text-white md:text-6xl">
-            Рекламное агентство с характером
+            {title}
           </h1>
           <p className="text-gray-300 text-lg md:text-xl max-w-2xl leading-relaxed">
-            Мы создаём рекламу, которая работает. Помогаем бизнесу быть заметным.
+            {description}
           </p>
         </AnimatedSection>
       </div>
