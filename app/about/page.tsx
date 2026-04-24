@@ -6,6 +6,9 @@ import CtaSection from '@/components/sections/CtaSection'
 import { makeGenerateMetadata } from '@/lib/seo/metadata-cms'
 import { JsonLdScript, buildBreadcrumbList } from '@/lib/seo/json-ld'
 
+// CMS-driven (hero/story/values + team из БД). См. app/page.tsx.
+export const dynamic = 'force-dynamic'
+
 export const generateMetadata = makeGenerateMetadata({
   path: '/about',
   fallback: {

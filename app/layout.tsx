@@ -107,6 +107,25 @@ export const viewport: Viewport = {
   colorScheme: "dark light",
 };
 
+// Архитектурное решение: проект массово CMS-driven. Header, Footer,
+// UiStringsProviderServer (всё в RootLayout), а также все top-level
+// страницы (главная, услуги, портфолио, о компании, контакты, FAQ,
+// калькулятор, блог, админка) делают server-side SQL-запросы в Postgres.
+//
+// При `next build` в Docker DATABASE_URL=...placeholder... → SSG-prerender
+// зависает на 60с per worker × 45 страниц = 30+ минут. Workaround
+// `--network app-network` ломает воспроизводимость и BuildKit.
+//
+// Корректное решение: вся витрина — dynamic. Кеширование — через
+// unstable_cache (60s) внутри data-layer (lib/data/*) и встроенный
+// fetch-cache Next.js. Это даёт похожую скорость без проблем сборки.
+//
+// Когда контент перестанет меняться часто — можно вернуться к ISR на
+// per-page основе (revalidate=600), при условии что DATABASE_URL на build
+// будет указывать на реальную dev-БД (например, через docker compose
+// run --network app-network) или внешний read-replica.
+export const dynamic = "force-dynamic";
+
 export default async function RootLayout({
   children,
 }: Readonly<{

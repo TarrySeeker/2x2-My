@@ -11,7 +11,11 @@ import {
   buildFaqPage,
 } from '@/lib/seo/json-ld'
 
-export const revalidate = 86400
+// Был revalidate = 86400, но ISR всё равно пытается prerender на build —
+// с placeholder-DATABASE_URL это вызывает 10s × 4 запроса зависания.
+// Переводим в dynamic; per-request кеш data-layer (60s) даёт похожий
+// эффект скорости без проблем сборки. См. комментарий в app/page.tsx.
+export const dynamic = 'force-dynamic'
 
 export const generateMetadata = makeGenerateMetadata({
   path: '/calculator',

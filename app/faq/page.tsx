@@ -8,6 +8,9 @@ import { makeGenerateMetadata } from '@/lib/seo/metadata-cms'
 import { readPageSectionContent } from '@/lib/cms/page-section-content'
 import { JsonLdScript, buildBreadcrumbList } from '@/lib/seo/json-ld'
 
+// CMS-driven hero + faq items + cta. См. app/page.tsx.
+export const dynamic = 'force-dynamic'
+
 export const generateMetadata = makeGenerateMetadata({
   path: '/faq',
   fallback: {

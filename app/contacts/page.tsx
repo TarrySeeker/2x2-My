@@ -6,6 +6,9 @@ import { makeGenerateMetadata } from '@/lib/seo/metadata-cms'
 import { JsonLdScript, buildBreadcrumbList } from '@/lib/seo/json-ld'
 import { readPageSectionContent } from '@/lib/cms/page-section-content'
 
+// CMS-driven hero + contact_info. См. app/page.tsx.
+export const dynamic = 'force-dynamic'
+
 export const generateMetadata = makeGenerateMetadata({
   path: '/contacts',
   fallback: {

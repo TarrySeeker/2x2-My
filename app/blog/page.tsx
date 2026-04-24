@@ -8,7 +8,9 @@ import { JsonLdScript, buildBreadcrumbList } from '@/lib/seo/json-ld'
 import { blogStarters } from '@/content/blog-starters'
 import { SITE, absoluteUrl } from '@/lib/seo/site'
 
-export const revalidate = 3600
+// CMS-driven hero. См. app/page.tsx про build network.
+// blogStarters — статический content/, поэтому page быстро рендерится.
+export const dynamic = 'force-dynamic'
 
 export const generateMetadata = makeGenerateMetadata({
   path: '/blog',

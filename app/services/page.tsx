@@ -6,6 +6,10 @@ import { siteUrl } from '@/lib/siteConfig'
 import { readPageSectionContent } from '@/lib/cms/page-section-content'
 import { makeGenerateMetadata } from '@/lib/seo/metadata-cms'
 
+// CMS-driven: hero читается из page_sections. См. комментарий в app/page.tsx
+// про deplой без --network workaround.
+export const dynamic = 'force-dynamic'
+
 const servicesSchema = {
   '@context': 'https://schema.org',
   '@type': 'ItemList',

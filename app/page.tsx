@@ -10,6 +10,16 @@ import CtaSection from '@/components/sections/CtaSection'
 import { makeGenerateMetadata } from '@/lib/seo/metadata-cms'
 import { SITE } from '@/lib/seo/site'
 
+// CMS-driven: каждая секция (Hero, Services, Promotions, …) делает
+// свой server-side fetch в Postgres через readSectionContent / listActive*.
+// На `next build` это вызывает зависание билда (DATABASE_URL=postgres://placeholder
+// → connect_timeout 10s × N), а workaround `--network app-network` для
+// buildx ломает воспроизводимость. Переводим главную в dynamic-режим:
+// рендеринг выполняется на каждом запросе, кеширование — через unstable_cache
+// внутри data-layer (revalidate: 60s в lib/data/page-sections.ts и т.п.).
+// При перезагрузке БД CMS изменения видны в течение ~60s.
+export const dynamic = 'force-dynamic'
+
 /**
  * Мета главной страницы читается из БД (`page_metadata.path = '/'`).
  * Fallback — константы из `lib/seo/site.ts` (SITE.description/keywords).

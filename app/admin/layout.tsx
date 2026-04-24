@@ -16,6 +16,12 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
+// Все страницы админки — закрытые, авторизация по cookie через
+// getProfile() / headers(). SSG им не нужен, а попытка prerender на build
+// с placeholder-DATABASE_URL приводит к 60s-таймауту worker'а × N страниц.
+// Перевод layout в dynamic-режим распространяется на все вложенные routes.
+export const dynamic = "force-dynamic";
+
 const FORCE_CHANGE_PATH = "/admin/settings/account/password";
 
 /**
