@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState, useEffect } from 'react'
-import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion'
+import { motion, useScroll, useTransform } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { useUIStore } from '@/store/ui'
@@ -93,13 +93,37 @@ export default function HeroSectionClient({ data }: { data: HeroSectionData }) {
   const rotatingTitles = (data.titles || []).filter((t) => t && t.trim().length > 0)
   const useRotation = rotatingTitles.length >= 2
   const [titleIndex, setTitleIndex] = useState(0)
+  // Явный fade-state: управляем opacity руками вместо AnimatePresence,
+  // чтобы в Safari/WebKit не было «наложения» двух стейтов (одного уходящего,
+  // другого приходящего) — баг QA P0-1, 2026-04-24. Цикл:
+  //   1. visible=true (fade in) → через HOLD_MS
+  //   2. visible=false (fade out) → через FADE_MS меняем индекс
+  //   3. visible=true снова.
+  const [titleVisible, setTitleVisible] = useState(true)
 
   useEffect(() => {
     if (!useRotation) return
-    const id = window.setInterval(() => {
-      setTitleIndex((i) => (i + 1) % rotatingTitles.length)
-    }, 2000)
-    return () => window.clearInterval(id)
+    const HOLD_MS = 2400
+    const FADE_MS = 400
+    let advanceTimer: number | undefined
+    let fadeInTimer: number | undefined
+
+    const scheduleNext = () => {
+      advanceTimer = window.setTimeout(() => {
+        // fade out
+        setTitleVisible(false)
+        fadeInTimer = window.setTimeout(() => {
+          setTitleIndex((i) => (i + 1) % rotatingTitles.length)
+          setTitleVisible(true)
+          scheduleNext()
+        }, FADE_MS)
+      }, HOLD_MS)
+    }
+    scheduleNext()
+    return () => {
+      if (advanceTimer) window.clearTimeout(advanceTimer)
+      if (fadeInTimer) window.clearTimeout(fadeInTimer)
+    }
   }, [useRotation, rotatingTitles.length])
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -205,21 +229,20 @@ export default function HeroSectionClient({ data }: { data: HeroSectionData }) {
             >
               {useRotation ? (
                 /*
-                 * Чередование заголовков (P0-1, повторная регрессия 2026-04-24).
+                 * Чередование заголовков (P0-1, повтор 2026-04-24).
                  *
-                 * Прежняя реализация (invisible-распорщик + AnimatePresence
-                 * mode="wait" с absolute inset-0 overlay) в WebKit оставляла
-                 * глиф `bg-clip-text text-transparent` на экране дольше exit-
-                 * анимации: композитор Safari не успевал перерисовать
-                 * gradient-clipped текст и накладывал старый+новый стейты.
+                 * Почему не AnimatePresence: в Safari/WebKit при смене key в
+                 * AnimatePresence mode="wait" между exit старого и initial
+                 * нового элемента иногда происходит двойной коммит DOM —
+                 * и на экране оставались оба стейта одновременно (см. QA
+                 * screenshots webkit/home-top.png 2026-04-24).
                  *
-                 * Новый подход: single source-of-truth — один span с текущим
-                 * текстом без overlay/absolute и без gradient (gradient оставлен
-                 * только в неактивной — non-rotation — ветке). На время exit
-                 * мы НЕ монтируем второй элемент; key + переход opacity (без
-                 * transform/clip) дают чистый кросс-фейд. Высота резервируется
-                 * через min-height (clamp), чтобы layout не прыгал даже на
-                 * самой длинной строке.
+                 * Теперь — один неизменный <span>, текст меняется только когда
+                 * opacity уже === 0. Управление state-машиной: setTimeout-цикл
+                 * в useEffect (HOLD→fade-out→swap→fade-in). Никаких overlay,
+                 * никаких absolute, никаких двух одновременных DOM-узлов.
+                 * Transition через CSS (className) — чтобы исключить интерференцию
+                 * с framer-motion transform/clip в Safari.
                  */
                 <span
                   className="relative block text-[clamp(2rem,6.5vw,4.25rem)] text-brand-orange [min-height:calc(var(--rot-lines,3)*1em*0.95)]"
@@ -233,18 +256,12 @@ export default function HeroSectionClient({ data }: { data: HeroSectionData }) {
                     } as React.CSSProperties
                   }
                 >
-                  <AnimatePresence mode="wait" initial={false}>
-                    <motion.span
-                      key={titleIndex}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-                      className="block"
-                    >
-                      {rotatingTitles[titleIndex]}
-                    </motion.span>
-                  </AnimatePresence>
+                  <span
+                    className="block transition-opacity duration-[400ms] ease-out will-change-[opacity]"
+                    style={{ opacity: titleVisible ? 1 : 0 }}
+                  >
+                    {rotatingTitles[titleIndex]}
+                  </span>
                 </span>
               ) : (
                 <>
