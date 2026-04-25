@@ -713,6 +713,41 @@ export interface Database {
         Relationships: [];
       };
 
+      // Каталог услуг (карточки на главной и /services). Введён миграцией
+      // 018_services.sql. PK = uuid; slug уникален. Подробнее — в
+      // db/migrations/018_services.sql.
+      services: {
+        Row: {
+          id: string;
+          slug: string;
+          title: string;
+          short_description: string | null;
+          long_description: string | null;
+          price_from: number | null;
+          price_unit: string | null;
+          price_label: string | null;
+          icon: string | null;
+          cover_image: string | null;
+          category: string | null;
+          href: string | null;
+          enabled: boolean;
+          display_order: number;
+          features: unknown | null;
+          seo_title: string | null;
+          seo_description: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["services"]["Row"],
+          "id" | "created_at" | "updated_at"
+        > & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<
+          Database["public"]["Tables"]["services"]["Insert"]
+        >;
+        Relationships: [];
+      };
+
       wishlist_items: {
         Row: {
           id: number;

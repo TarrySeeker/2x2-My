@@ -45,6 +45,10 @@ export type SiteSetting = Tables["site_settings"]["Row"];
 export type TeamMember = Tables["team_members"]["Row"];
 export type Promotion = Tables["promotions"]["Row"];
 
+// Каталог услуг (`services`) — миграция 018. Карточки на главной и /services.
+// Используется как источник истины вместо `content/home.ts → servicesTeasers`.
+export type Service = Tables["services"]["Row"];
+
 // ============================================================
 // Insert-типы (для форм / API)
 // ============================================================
@@ -54,6 +58,8 @@ export type ContactRequestInsert = Tables["contact_requests"]["Insert"];
 export type ReviewInsert = Tables["reviews"]["Insert"];
 export type TeamMemberInsert = Tables["team_members"]["Insert"];
 export type PromotionInsert = Tables["promotions"]["Insert"];
+export type ServiceInsert = Tables["services"]["Insert"];
+export type ServiceUpdate = Tables["services"]["Update"];
 
 // ============================================================
 // Расширенные типы (с join-ами)
