@@ -35,6 +35,10 @@ const FALLBACK: QuoteModalStrings = {
   phoneInvalid: "Некорректный телефон",
   emailInvalid: "Некорректный email",
   consentRequired: "Нужно согласие на обработку персональных данных",
+  promoToggleLabel: "Есть промокод?",
+  promoFieldLabel: "Промокод",
+  promoPlaceholder: "Если есть",
+  promoCodeInvalid: "Только латиница, цифры, _ и -",
 };
 
 const CONSENT_FALLBACK: PdConsentStrings = {
@@ -120,6 +124,26 @@ export default async function QuoteModal() {
       dict,
       "validation.agreement_required",
       FALLBACK.consentRequired,
+    ),
+    promoToggleLabel: pick(
+      dict,
+      "form.promo.toggle_label",
+      FALLBACK.promoToggleLabel,
+    ),
+    promoFieldLabel: pick(
+      dict,
+      "form.promo.field_label",
+      FALLBACK.promoFieldLabel,
+    ),
+    promoPlaceholder: pick(
+      dict,
+      "form.promo.placeholder",
+      FALLBACK.promoPlaceholder,
+    ),
+    promoCodeInvalid: pick(
+      dict,
+      "validation.promo_code_invalid",
+      FALLBACK.promoCodeInvalid,
     ),
   };
 

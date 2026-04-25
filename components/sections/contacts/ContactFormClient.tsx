@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { CheckCircle2, Loader2 } from 'lucide-react'
+import { CheckCircle2, Loader2, Tag } from 'lucide-react'
 import Link from 'next/link'
 
 export interface ContactFormStrings {
@@ -41,6 +41,11 @@ export interface ContactFormStrings {
   messageRequired: string
   messageMin: string
   consentRequired: string
+  // Promo code (опциональный маркер на форме контактов)
+  promoToggleLabel: string
+  promoFieldLabel: string
+  promoPlaceholder: string
+  promoCodeInvalid: string
 }
 
 export interface ContactFormClientProps {
@@ -55,8 +60,13 @@ type FormData = {
   email: string
   service: string
   message: string
+  promoCode: string
   consent: boolean
 }
+
+// Серверная Zod-схема (`promoCodeSchema` в `lib/validation.ts`) использует
+// тот же regex — синхронизированы: только латиница/цифры/_/-, длина 4..50.
+const PROMO_CODE_REGEX = /^[A-Za-z0-9_-]{4,50}$/
 
 interface ContactApiResponse {
   success?: boolean
@@ -88,6 +98,7 @@ export default function ContactFormClient({
 }: ContactFormClientProps) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [idempotencyKey, setIdempotencyKey] = useState<string>(() => makeIdempotencyKey())
+  const [promoExpanded, setPromoExpanded] = useState(false)
   const {
     register,
     handleSubmit,
@@ -95,7 +106,7 @@ export default function ContactFormClient({
     watch,
     formState: { errors },
   } = useForm<FormData>({
-    defaultValues: { consent: false },
+    defaultValues: { consent: false, promoCode: '' },
   })
 
   const consentChecked = watch('consent')
@@ -126,6 +137,7 @@ export default function ContactFormClient({
     }
     setStatus('loading')
     try {
+      const promoTrim = (data.promoCode ?? '').trim()
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: {
@@ -138,6 +150,7 @@ export default function ContactFormClient({
           email: data.email || undefined,
           subject: subjectByService[data.service] ?? data.service ?? null,
           message: data.message,
+          promoCode: promoTrim || undefined,
           pdConsent: true,
         }),
       })
@@ -261,6 +274,55 @@ export default function ContactFormClient({
         />
         {errors.message && (
           <p className="text-red-500 text-xs mt-1">{errors.message.message}</p>
+        )}
+      </div>
+
+      {/*
+        Промокод-маркер: collapsed по умолчанию. Если клиент пришёл по
+        ссылке акции — раскрывает поле и вводит. Сервер пишет в
+        contact_requests.promo_code как простой текст; авто-скидки нет
+        (модель индивидуального расчёта), это маркер для менеджера.
+      */}
+      <div className="flex flex-col gap-2">
+        {!promoExpanded ? (
+          <button
+            type="button"
+            onClick={() => setPromoExpanded(true)}
+            className="self-start inline-flex items-center gap-1.5 text-sm text-brand-orange hover:underline underline-offset-2"
+          >
+            <Tag className="h-3.5 w-3.5" />
+            {strings.promoToggleLabel}
+          </button>
+        ) : (
+          <div>
+            <label
+              htmlFor="contact-promo"
+              className="text-sm font-medium text-brand-dark mb-1 block"
+            >
+              {strings.promoFieldLabel}
+            </label>
+            <input
+              id="contact-promo"
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              maxLength={50}
+              placeholder={strings.promoPlaceholder}
+              className={inputCls(!!errors.promoCode)}
+              {...register('promoCode', {
+                // Client-валидация формата только если непусто. Поле
+                // опциональное — никогда не required.
+                validate: (v) => {
+                  const t = (v ?? '').trim()
+                  if (!t) return true
+                  return PROMO_CODE_REGEX.test(t) || strings.promoCodeInvalid
+                },
+              })}
+            />
+            {errors.promoCode && (
+              <p className="text-red-500 text-xs mt-1">{errors.promoCode.message}</p>
+            )}
+          </div>
         )}
       </div>
 

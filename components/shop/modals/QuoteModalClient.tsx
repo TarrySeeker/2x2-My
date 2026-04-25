@@ -9,6 +9,7 @@ import Button from "@/components/ui/Button";
 import { useUIStore } from "@/store/ui";
 import { trackEvent, EVENTS } from "@/lib/analytics";
 import PdConsentField, { type PdConsentStrings } from "./PdConsentField";
+import PromoCodeField, { validatePromoCode } from "./PromoCodeField";
 
 const PHONE_REGEX = /^\+?\d[\d\s\-()]{6,}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -39,6 +40,11 @@ export interface QuoteModalStrings {
   phoneInvalid: string;
   emailInvalid: string;
   consentRequired: string;
+  // Promo code (опциональное поле-маркер на форме заявки на расчёт).
+  promoToggleLabel: string;
+  promoFieldLabel: string;
+  promoPlaceholder: string;
+  promoCodeInvalid: string;
 }
 
 function formatTemplate(tpl: string, vars: Record<string, string>): string {
@@ -68,6 +74,7 @@ export default function QuoteModalClient({
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
   const [comment, setComment] = useState("");
+  const [promoCode, setPromoCode] = useState("");
   const [consent, setConsent] = useState(false);
   const [sending, setSending] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -84,6 +91,7 @@ export default function QuoteModalClient({
     setEmail("");
     setCompany("");
     setComment("");
+    setPromoCode("");
     setConsent(false);
     setErrors({});
     setIdempotencyKey(
@@ -106,6 +114,10 @@ export default function QuoteModalClient({
     if (!PHONE_REGEX.test(phone)) next.phone = strings.phoneInvalid;
     if (email && !EMAIL_REGEX.test(email)) next.email = strings.emailInvalid;
     if (!consent) next.consent = strings.consentRequired;
+    const promoTrim = promoCode.trim();
+    if (promoTrim && validatePromoCode(promoTrim)) {
+      next.promoCode = strings.promoCodeInvalid;
+    }
     setErrors(next);
     if (Object.keys(next).length) return;
 
@@ -129,6 +141,7 @@ export default function QuoteModalClient({
           product_id: calcRequestProduct?.id,
           category_id: calcRequestProduct?.categoryId ?? undefined,
           params: calcRequestProduct?.prefillParams ?? {},
+          promoCode: promoTrim || undefined,
           pdConsent: true,
         }),
       });
@@ -154,6 +167,8 @@ export default function QuoteModalClient({
     trackEvent(EVENTS.calc_request_submit, {
       productId: calcRequestProduct?.id,
       ok,
+      // Маркер «клиент знает про акцию» — без раскрытия самого кода.
+      has_promo_code: promoTrim.length > 0,
     });
 
     if (ok) {
@@ -241,6 +256,19 @@ export default function QuoteModalClient({
             <span>{strings.calcHint}</span>
           </div>
         )}
+
+        <PromoCodeField
+          id="quote-promo"
+          value={promoCode}
+          onChange={setPromoCode}
+          error={errors.promoCode}
+          strings={{
+            toggleLabel: strings.promoToggleLabel,
+            fieldLabel: strings.promoFieldLabel,
+            placeholder: strings.promoPlaceholder,
+            formatError: strings.promoCodeInvalid,
+          }}
+        />
 
         <PdConsentField
           checked={consent}

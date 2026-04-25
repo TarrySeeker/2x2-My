@@ -31,6 +31,10 @@ const FALLBACK: OneClickModalStrings = {
   nameRequired: "Укажите имя",
   phoneInvalid: "Некорректный телефон",
   consentRequired: "Нужно согласие на обработку персональных данных",
+  promoToggleLabel: "Есть промокод?",
+  promoFieldLabel: "Промокод",
+  promoPlaceholder: "Если есть",
+  promoCodeInvalid: "Только латиница, цифры, _ и -",
 };
 
 const CONSENT_FALLBACK: PdConsentStrings = {
@@ -111,6 +115,29 @@ export default async function OneClickModal() {
       dict,
       "validation.agreement_required",
       FALLBACK.consentRequired,
+    ),
+    // Промокод-маркер: ui_strings ключи опциональные, fallback —
+    // русские дефолты выше. При желании клиент сможет переименовать
+    // через админку → /admin/content/ui-strings.
+    promoToggleLabel: pick(
+      dict,
+      "form.promo.toggle_label",
+      FALLBACK.promoToggleLabel,
+    ),
+    promoFieldLabel: pick(
+      dict,
+      "form.promo.field_label",
+      FALLBACK.promoFieldLabel,
+    ),
+    promoPlaceholder: pick(
+      dict,
+      "form.promo.placeholder",
+      FALLBACK.promoPlaceholder,
+    ),
+    promoCodeInvalid: pick(
+      dict,
+      "validation.promo_code_invalid",
+      FALLBACK.promoCodeInvalid,
     ),
   };
 

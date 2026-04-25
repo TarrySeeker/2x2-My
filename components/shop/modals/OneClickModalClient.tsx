@@ -9,6 +9,7 @@ import Button from "@/components/ui/Button";
 import { useUIStore } from "@/store/ui";
 import { trackEvent, EVENTS } from "@/lib/analytics";
 import PdConsentField, { type PdConsentStrings } from "./PdConsentField";
+import PromoCodeField, { validatePromoCode } from "./PromoCodeField";
 
 const PHONE_REGEX = /^\+?\d[\d\s\-()]{6,}$/;
 
@@ -37,6 +38,12 @@ export interface OneClickModalStrings {
   nameRequired: string;
   phoneInvalid: string;
   consentRequired: string;
+  // Промокод — все строки опциональные, для UX-cohесии задаём
+  // дефолты в server-обёртке (OneClickModal.tsx) если не пришло из ui_strings.
+  promoToggleLabel: string;
+  promoFieldLabel: string;
+  promoPlaceholder: string;
+  promoCodeInvalid: string;
 }
 
 function formatTemplate(tpl: string, vars: Record<string, string>): string {
@@ -65,9 +72,15 @@ export default function OneClickModalClient({
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [comment, setComment] = useState("");
+  const [promoCode, setPromoCode] = useState("");
   const [consent, setConsent] = useState(false);
   const [sending, setSending] = useState(false);
-  const [errors, setErrors] = useState<{ name?: string; phone?: string; consent?: string }>({});
+  const [errors, setErrors] = useState<{
+    name?: string;
+    phone?: string;
+    consent?: string;
+    promoCode?: string;
+  }>({});
 
   const [idempotencyKey, setIdempotencyKey] = useState(() =>
     typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -79,6 +92,7 @@ export default function OneClickModalClient({
     setName("");
     setPhone("");
     setComment("");
+    setPromoCode("");
     setConsent(false);
     setErrors({});
     setIdempotencyKey(
@@ -100,6 +114,12 @@ export default function OneClickModalClient({
     if (!name.trim()) nextErrors.name = strings.nameRequired;
     if (!PHONE_REGEX.test(phone)) nextErrors.phone = strings.phoneInvalid;
     if (!consent) nextErrors.consent = strings.consentRequired;
+    // Промокод опциональный, но если введён — должен пройти client-валидацию.
+    // Серверная Zod-схема дублирует тот же regex (см. lib/validation.ts).
+    const promoTrim = promoCode.trim();
+    if (promoTrim && validatePromoCode(promoTrim)) {
+      nextErrors.promoCode = strings.promoCodeInvalid;
+    }
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
 
@@ -121,6 +141,7 @@ export default function OneClickModalClient({
           product_id: oneClickProduct?.id,
           product_name: oneClickProduct?.name ?? undefined,
           page_url: typeof window !== "undefined" ? window.location.href : undefined,
+          promoCode: promoTrim || undefined,
           pdConsent: true,
         }),
       });
@@ -141,6 +162,9 @@ export default function OneClickModalClient({
     trackEvent(EVENTS.one_click_submit, {
       productId: oneClickProduct?.id,
       ok: success,
+      // Маркер «клиент знает про акцию» — без раскрытия самого кода
+      // в аналитику (промокоды могут попасть в SEO-таргеты).
+      has_promo_code: promoTrim.length > 0,
     });
 
     if (success) {
@@ -203,6 +227,19 @@ export default function OneClickModalClient({
           placeholder={strings.commentPlaceholder}
           leftSlot={<MessageSquare className="h-4 w-4" />}
           aria-label={strings.commentLabel}
+        />
+
+        <PromoCodeField
+          id="oneclick-promo"
+          value={promoCode}
+          onChange={setPromoCode}
+          error={errors.promoCode}
+          strings={{
+            toggleLabel: strings.promoToggleLabel,
+            fieldLabel: strings.promoFieldLabel,
+            placeholder: strings.promoPlaceholder,
+            formatError: strings.promoCodeInvalid,
+          }}
         />
 
         <PdConsentField
