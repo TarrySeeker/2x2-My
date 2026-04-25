@@ -9,12 +9,9 @@ import {
   Inbox,
   Package,
   FolderTree,
-  Users,
-  MessageSquare,
   Ticket,
   FileText,
   Paintbrush,
-  Search,
   Settings,
   LogOut,
   Moon,
@@ -28,14 +25,12 @@ import {
   Megaphone,
   UsersRound,
   Image as ImageIcon,
-  Globe2,
-  ListTree,
-  FileType,
-  ImagePlus,
   Layers,
   Languages,
   ScrollText,
   ShieldCheck,
+  ShoppingBag,
+  LibraryBig,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -65,6 +60,16 @@ function isGroup(entry: NavEntry): entry is NavGroup {
   return (entry as NavGroup).type === "group";
 }
 
+// ВАЖНО: пункты sidebar намеренно сокращены (cleanup 2026-04-25).
+// Скрыты разделы, у которых нет читателя на витрине либо они дублируют
+// другие. Сами роуты и страницы остались — доступны по прямому URL,
+// но не отображаются в навигации:
+//   /admin/customers          (нет учёта клиентов на сайте)
+//   /admin/reviews            (TestimonialsSection удалён с витрины)
+//   /admin/content/banners    (нет компонента-читателя на витрине)
+//   /admin/content/pages      (дублирует legal-pages, таблица не читается)
+//   /admin/content/menu       (Header/Footer hardcoded)
+//   /admin/seo                (дублирует /admin/content/metadata)
 const NAV_ITEMS: NavEntry[] = [
   {
     label: "Дашборд",
@@ -75,46 +80,46 @@ const NAV_ITEMS: NavEntry[] = [
   // Раздел «Заказы» удалён вместе с таблицей orders (миграция 006).
   // Вместо него — «Заявки» (calculation_requests + leads + contact_requests).
   {
-    label: "Заявки",
-    href: "/admin/leads",
-    icon: Inbox,
+    type: "group",
+    label: "Заявки и продажи",
+    icon: ShoppingBag,
+    basePath: "/admin/leads",
     roles: ["owner", "manager"],
+    items: [
+      {
+        label: "Заявки",
+        href: "/admin/leads",
+        icon: Inbox,
+        roles: ["owner", "manager"],
+      },
+      {
+        label: "Промокоды",
+        href: "/admin/promos",
+        icon: Ticket,
+        roles: ["owner", "manager"],
+      },
+    ],
   },
   {
-    label: "Товары",
-    href: "/admin/products",
-    icon: Package,
+    type: "group",
+    label: "Каталог",
+    icon: LibraryBig,
+    basePath: "/admin/products",
     roles: ["owner", "manager"],
-  },
-  {
-    label: "Категории",
-    href: "/admin/categories",
-    icon: FolderTree,
-    roles: ["owner", "manager"],
-  },
-  {
-    label: "Клиенты",
-    href: "/admin/customers",
-    icon: Users,
-    roles: ["owner", "manager"],
-  },
-  {
-    label: "Отзывы",
-    href: "/admin/reviews",
-    icon: MessageSquare,
-    roles: ["owner", "manager"],
-  },
-  {
-    label: "Промокоды",
-    href: "/admin/promos",
-    icon: Ticket,
-    roles: ["owner", "manager"],
-  },
-  {
-    label: "Блог",
-    href: "/admin/blog",
-    icon: FileText,
-    roles: ["owner", "manager", "content"],
+    items: [
+      {
+        label: "Товары",
+        href: "/admin/products",
+        icon: Package,
+        roles: ["owner", "manager"],
+      },
+      {
+        label: "Категории",
+        href: "/admin/categories",
+        icon: FolderTree,
+        roles: ["owner", "manager"],
+      },
+    ],
   },
   {
     type: "group",
@@ -124,9 +129,33 @@ const NAV_ITEMS: NavEntry[] = [
     roles: ["owner", "manager", "content"],
     items: [
       {
-        label: "Главная страница",
+        label: "Главная (секции)",
         href: "/admin/content/homepage",
         icon: Layout,
+        roles: ["owner", "manager", "content"],
+      },
+      {
+        label: "Внутренние страницы (секции)",
+        href: "/admin/content/sections",
+        icon: Layers,
+        roles: ["owner", "manager", "content"],
+      },
+      {
+        label: "Мета-теги (SEO)",
+        href: "/admin/content/metadata",
+        icon: ShieldCheck,
+        roles: ["owner", "manager", "content"],
+      },
+      {
+        label: "Политика и оферты",
+        href: "/admin/content/legal-pages",
+        icon: ScrollText,
+        roles: ["owner", "manager", "content"],
+      },
+      {
+        label: "Тексты кнопок и ошибок",
+        href: "/admin/content/ui-strings",
+        icon: Languages,
         roles: ["owner", "manager", "content"],
       },
       {
@@ -136,76 +165,28 @@ const NAV_ITEMS: NavEntry[] = [
         roles: ["owner", "manager", "content"],
       },
       {
-        label: "Команда",
-        href: "/admin/content/team",
-        icon: UsersRound,
-        roles: ["owner", "manager", "content"],
-      },
-      {
         label: "Портфолио",
         href: "/admin/content/portfolio",
         icon: ImageIcon,
         roles: ["owner", "manager", "content"],
       },
       {
-        label: "Настройки сайта",
-        href: "/admin/content/settings",
-        icon: Globe2,
-        roles: ["owner", "manager"],
-      },
-      {
-        label: "Баннеры",
-        href: "/admin/content/banners",
-        icon: ImagePlus,
+        label: "Команда",
+        href: "/admin/content/team",
+        icon: UsersRound,
         roles: ["owner", "manager", "content"],
       },
       {
-        label: "Страницы",
-        href: "/admin/content/pages",
-        icon: FileType,
-        roles: ["owner", "manager", "content"],
-      },
-      {
-        label: "Меню",
-        href: "/admin/content/menu",
-        icon: ListTree,
-        roles: ["owner", "manager"],
-      },
-      {
-        label: "SEO страниц",
-        href: "/admin/content/metadata",
-        icon: ShieldCheck,
-        roles: ["owner", "manager", "content"],
-      },
-      {
-        label: "Секции страниц",
-        href: "/admin/content/sections",
-        icon: Layers,
-        roles: ["owner", "manager", "content"],
-      },
-      {
-        label: "Микротексты UI",
-        href: "/admin/content/ui-strings",
-        icon: Languages,
-        roles: ["owner", "manager", "content"],
-      },
-      {
-        label: "Правовые страницы",
-        href: "/admin/content/legal-pages",
-        icon: ScrollText,
+        label: "Блог",
+        href: "/admin/blog",
+        icon: FileText,
         roles: ["owner", "manager", "content"],
       },
     ],
   },
   {
-    label: "SEO",
-    href: "/admin/seo",
-    icon: Search,
-    roles: ["owner", "manager"],
-  },
-  {
-    label: "Настройки",
-    href: "/admin/settings",
+    label: "Настройки сайта",
+    href: "/admin/content/settings",
     icon: Settings,
     roles: ["owner", "manager"],
   },
@@ -245,7 +226,14 @@ function GroupItem({
   pathname: string;
   badges?: Record<string, number>;
 }) {
-  const isInGroup = pathname.startsWith(group.basePath);
+  // Группа считается активной только если активен один из её подпунктов.
+  // basePath НЕ используем — иначе группа «Контент сайта» (/admin/content)
+  // ложно срабатывает на «Настройках сайта» (/admin/content/settings),
+  // которая теперь top-level. Проверка по подпунктам корректнее: «Блог»
+  // лежит в /admin/blog, но визуально относится к «Контент сайта».
+  const isInGroup = group.items.some(
+    (sub) => pathname === sub.href || pathname.startsWith(sub.href + "/"),
+  );
   const [open, setOpen] = useState(isInGroup);
   const Icon = group.icon;
 
@@ -517,9 +505,9 @@ export default function AdminSidebar({
   // newOrdersCount всегда 0 (orders таблица удалена). Параметр оставлен
   // для API-совместимости — admin layout его пока ещё передаёт.
   void newOrdersCount;
-  if (pendingReviewsCount > 0) {
-    badges["/admin/reviews"] = pendingReviewsCount;
-  }
+  // pendingReviewsCount — раздел «Отзывы» скрыт из sidebar (cleanup
+  // 2026-04-25), бейдж выводить негде. Проп оставлен для совместимости.
+  void pendingReviewsCount;
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -531,22 +519,26 @@ export default function AdminSidebar({
     }
   }
 
-  // Find current page title for mobile top bar
+  // Find current page title for mobile top bar.
+  // Сначала проверяем top-level leaf'ы (включая Настройки сайта =
+  // /admin/content/settings), затем подпункты групп. Так избегаем
+  // ложного срабатывания группы «Контент сайта» по префиксу.
   const currentPage = (() => {
     for (const entry of NAV_ITEMS) {
-      if (isGroup(entry)) {
-        const sub = entry.items.find(
-          (s) => pathname === s.href || pathname.startsWith(s.href + "/"),
-        );
-        if (sub) return sub.label;
-        if (pathname.startsWith(entry.basePath)) return entry.label;
-      } else if (
+      if (isGroup(entry)) continue;
+      if (
         pathname === entry.href ||
-        (entry.href !== "/admin/dashboard" &&
-          pathname.startsWith(entry.href))
+        (entry.href !== "/admin/dashboard" && pathname.startsWith(entry.href))
       ) {
         return entry.label;
       }
+    }
+    for (const entry of NAV_ITEMS) {
+      if (!isGroup(entry)) continue;
+      const sub = entry.items.find(
+        (s) => pathname === s.href || pathname.startsWith(s.href + "/"),
+      );
+      if (sub) return sub.label;
     }
     return "Админ-панель";
   })();
