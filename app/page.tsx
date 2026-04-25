@@ -11,13 +11,16 @@ import { makeGenerateMetadata } from '@/lib/seo/metadata-cms'
 import { SITE } from '@/lib/seo/site'
 
 // CMS-driven: каждая секция (Hero, Services, Promotions, …) делает
-// свой server-side fetch в Postgres через readSectionContent / listActive*.
-// На `next build` это вызывает зависание билда (DATABASE_URL=postgres://placeholder
-// → connect_timeout 10s × N), а workaround `--network app-network` для
-// buildx ломает воспроизводимость. Переводим главную в dynamic-режим:
-// рендеринг выполняется на каждом запросе, кеширование — через unstable_cache
-// внутри data-layer (revalidate: 60s в lib/data/page-sections.ts и т.п.).
-// При перезагрузке БД CMS изменения видны в течение ~60s.
+// свой server-side fetch в Postgres через readPageSectionContent('/', key)
+// (миграция 017 — унифицированный источник истины page_sections) и
+// listActive*. На `next build` это вызывает зависание билда
+// (DATABASE_URL=postgres://placeholder → connect_timeout 10s × N), а
+// workaround `--network app-network` для buildx ломает воспроизводимость.
+// Переводим главную в dynamic-режим: рендеринг выполняется на каждом
+// запросе, кеширование — через unstable_cache внутри data-layer
+// (revalidate: 60s в lib/data/page-sections.ts и т.п.). При сохранении
+// в админке упсёрт инвалидирует тег `page-sections:/` — изменения
+// появляются на сайте мгновенно (read-your-own-writes).
 export const dynamic = 'force-dynamic'
 
 /**

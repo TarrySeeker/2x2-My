@@ -1,4 +1,4 @@
-import { readSectionContent } from '@/lib/cms/section-content'
+import { readPageSectionContent } from '@/lib/cms/page-section-content'
 import ServicesPreviewClient, {
   type ServicesSectionData,
   type ServiceItem,
@@ -98,7 +98,8 @@ function isAlsoArray(v: unknown): v is AlsoWeDoItem[] {
 }
 
 export default async function ServicesPreview() {
-  const cms = await readSectionContent('services')
+  const result = await readPageSectionContent('/', 'services', 'home_services')
+  const cms = (result?.content ?? null) as Record<string, unknown> | null
   const rawItems = cms?.items
   const rawAlso = cms?.also_we_do_items
 

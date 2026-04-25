@@ -1,4 +1,4 @@
-import { readSectionContent } from '@/lib/cms/section-content'
+import { readPageSectionContent } from '@/lib/cms/page-section-content'
 import { listFeaturedPortfolioItems } from '@/lib/data/portfolio'
 import PortfolioPreviewClient, {
   type PortfolioSectionData,
@@ -14,7 +14,8 @@ const DEFAULT_DATA: PortfolioSectionData = {
 }
 
 export default async function PortfolioPreview() {
-  const cms = await readSectionContent('portfolio')
+  const result = await readPageSectionContent('/', 'portfolio', 'home_portfolio')
+  const cms = (result?.content ?? null) as Record<string, unknown> | null
 
   const section: PortfolioSectionData = {
     headline: typeof cms?.headline === 'string' ? cms.headline : DEFAULT_DATA.headline,

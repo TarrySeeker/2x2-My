@@ -1,4 +1,5 @@
-import { readSectionContent, getSettingValue } from '@/lib/cms/section-content'
+import { readPageSectionContent } from '@/lib/cms/page-section-content'
+import { getSettingValue } from '@/lib/data/settings'
 import AboutPreviewClient, {
   type AboutSectionData,
   type AboutStat,
@@ -61,12 +62,14 @@ function isStatArray(v: unknown): v is AboutStat[] {
  * Server-обёртка About-секции.
  *
  * Источники данных:
- *  - homepage_sections.about (текст, параграфы, highlight_card, дефолтные stats)
+ *  - page_sections('/', 'about', 'home_about') — текст, параграфы,
+ *    highlight_card, дефолтные stats
  *  - site_settings.stats — глобальные счётчики (если заданы — переопределяют
  *    значения из секции, label оставляем из секции).
  */
 export default async function AboutPreview() {
-  const cms = await readSectionContent('about')
+  const result = await readPageSectionContent('/', 'about', 'home_about')
+  const cms = (result?.content ?? null) as Record<string, unknown> | null
   const settingsStats = await getSettingValue<SiteStatsValue>('stats', {
     years_in_business: 12,
     projects_done: 500,

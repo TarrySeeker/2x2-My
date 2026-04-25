@@ -1,4 +1,4 @@
-import { readSectionContent } from '@/lib/cms/section-content'
+import { readPageSectionContent } from '@/lib/cms/page-section-content'
 import FeaturesSectionClient, {
   type FeaturesSectionData,
   type FeatureItem,
@@ -62,7 +62,8 @@ function isFeatureArray(v: unknown): v is FeatureItem[] {
 }
 
 export default async function FeaturesSection() {
-  const cms = await readSectionContent('features')
+  const result = await readPageSectionContent('/', 'features', 'home_features')
+  const cms = (result?.content ?? null) as Record<string, unknown> | null
   const rawItems = cms?.items
 
   const items: FeatureItem[] = isFeatureArray(rawItems)

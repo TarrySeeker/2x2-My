@@ -1,4 +1,4 @@
-import { readSectionContent } from '@/lib/cms/section-content'
+import { readPageSectionContent } from '@/lib/cms/page-section-content'
 import { listActivePromotions } from '@/lib/data/promotions'
 import PromotionsSectionClient, {
   type PromotionsSectionData,
@@ -13,7 +13,8 @@ const DEFAULT_DATA: PromotionsSectionData = {
 }
 
 export default async function PromotionsSection() {
-  const cms = await readSectionContent('promotions')
+  const result = await readPageSectionContent('/', 'promotions', 'home_promotions')
+  const cms = (result?.content ?? null) as Record<string, unknown> | null
 
   const section: PromotionsSectionData = {
     headline: typeof cms?.headline === 'string' ? cms.headline : DEFAULT_DATA.headline,

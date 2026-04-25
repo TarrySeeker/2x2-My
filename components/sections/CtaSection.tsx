@@ -1,4 +1,5 @@
-import { readSectionContent, getSettingValue } from '@/lib/cms/section-content'
+import { readPageSectionContent } from '@/lib/cms/page-section-content'
+import { getSettingValue } from '@/lib/data/settings'
 import CtaSectionClient, { type CtaSectionData } from './CtaSectionClient'
 
 const DEFAULT_DATA: Omit<CtaSectionData, 'phone_number' | 'phone_display'> = {
@@ -28,7 +29,8 @@ function digitsOnly(phone: string): string {
 }
 
 export default async function CtaSection({ title, subtitle }: Props = {}) {
-  const cms = await readSectionContent('cta')
+  const result = await readPageSectionContent('/', 'cta', 'home_cta')
+  const cms = (result?.content ?? null) as Record<string, unknown> | null
   const contacts = await getSettingValue<ContactsValue>('contacts', {
     phone_primary: '+7-932-424-77-40',
     phone_secondary: '+7-904-480-77-40',

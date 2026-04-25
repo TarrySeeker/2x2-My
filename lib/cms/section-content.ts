@@ -1,16 +1,20 @@
 import "server-only";
 
-import { getSection } from "@/lib/data/cms";
+import { readPageSectionContent } from "@/lib/cms/page-section-content";
 import { getSettingValue } from "@/lib/data/settings";
-import {
-  SECTION_SCHEMAS,
-  type SectionKey,
-} from "@/features/admin/schemas/cms";
+import { type SectionKey } from "@/features/admin/schemas/cms";
+import { type PageSectionContentType } from "@/features/admin/schemas/page-sections";
 
 /**
+ * @deprecated Используется как обратно-совместимая обёртка после
+ *   унификации CMS (миграция 017). Внутри читает из `page_sections`
+ *   по `(page_path = '/', section_key = key, content_type = 'home_<key>')`.
+ *
+ * Новое использование — `readPageSectionContent('/', key)`.
+ *
  * Безопасно читает контент секции главной из БД и валидирует его
  * через Zod-схему. При любой ошибке (нет записи, БД недоступна,
- * структура повреждена, секция не опубликована) — возвращает `null`.
+ * структура повреждена, секция отключена) — возвращает `null`.
  *
  * Server-component-обёртка должна сама смержить fallback:
  *  ```ts
@@ -24,31 +28,16 @@ import {
 export async function readSectionContent<K extends SectionKey>(
   key: K,
 ): Promise<Record<string, unknown> | null> {
-  try {
-    const row = await getSection(key);
-    if (!row) return null;
-    if (row.isPublished === false) return null;
-    const schema = SECTION_SCHEMAS[key];
-    const parsed = schema.safeParse(row.content);
-    if (!parsed.success) {
-      if (process.env.NODE_ENV !== "production") {
-        console.warn(
-          `[cms.readSectionContent ${key}] zod validation failed`,
-          parsed.error.issues,
-        );
-      }
-      return null;
-    }
-    return parsed.data as Record<string, unknown>;
-  } catch (err) {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn(`[cms.readSectionContent ${key}] failed:`, err);
-    }
-    return null;
-  }
+  const expectedType = (`home_${key}`) as PageSectionContentType;
+  const result = await readPageSectionContent("/", key, expectedType);
+  if (!result) return null;
+  // result.content уже валидирован Zod-схемой home_*-content_type.
+  return result.content as unknown as Record<string, unknown>;
 }
 
 /**
- * Re-export для удобства импорта в server-обёртках.
+ * Re-export для удобства импорта в server-обёртках. Используется
+ * вместе с readSectionContent в компонентах главной для чтения
+ * глобальных настроек (контакты, статистика и т.п.).
  */
 export { getSettingValue };

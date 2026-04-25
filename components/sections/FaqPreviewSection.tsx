@@ -1,4 +1,4 @@
-import { readSectionContent } from '@/lib/cms/section-content'
+import { readPageSectionContent } from '@/lib/cms/page-section-content'
 import { homeFaqItems } from '@/lib/homeFaq'
 import FaqPreviewSectionClient, {
   type FaqSectionData,
@@ -29,7 +29,8 @@ function isFaqArray(v: unknown): v is FaqItem[] {
 }
 
 export default async function FaqPreviewSection() {
-  const cms = await readSectionContent('faq')
+  const result = await readPageSectionContent('/', 'faq', 'home_faq')
+  const cms = (result?.content ?? null) as Record<string, unknown> | null
   const rawItems = cms?.items
 
   const items: FaqItem[] = isFaqArray(rawItems)

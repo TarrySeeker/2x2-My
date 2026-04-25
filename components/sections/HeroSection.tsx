@@ -1,4 +1,4 @@
-import { readSectionContent } from '@/lib/cms/section-content'
+import { readPageSectionContent } from '@/lib/cms/page-section-content'
 import HeroSectionClient, { type HeroSectionData } from './HeroSectionClient'
 
 const DEFAULT_HERO: HeroSectionData = {
@@ -32,11 +32,14 @@ function asStringArray(v: unknown, fallback: string[]): string[] {
 
 /**
  * Server-component-обёртка hero-секции.
- * Читает контент из homepage_sections.hero. При недоступности БД —
- * рендерит дефолт.
+ * Читает контент из page_sections (page_path='/', section_key='hero',
+ * content_type='home_hero'). При недоступности БД — рендерит дефолт.
+ *
+ * Унифицировано с другими страницами после миграции 017.
  */
 export default async function HeroSection() {
-  const cms = await readSectionContent('hero')
+  const result = await readPageSectionContent('/', 'hero', 'home_hero')
+  const cms = (result?.content ?? null) as Record<string, unknown> | null
   const data: HeroSectionData = {
     eyebrow:            asString(cms?.eyebrow,            DEFAULT_HERO.eyebrow),
     headline_line1:     asString(cms?.headline_line1,     DEFAULT_HERO.headline_line1),
