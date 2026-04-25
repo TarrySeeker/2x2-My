@@ -1,52 +1,102 @@
 import Image from 'next/image'
-import { Newspaper, Signpost, Lightbulb, ArrowRight, type LucideIcon } from 'lucide-react'
+import { Newspaper, Signpost, Lightbulb, ArrowRight } from 'lucide-react'
 import AnimatedSection from '@/components/ui/AnimatedSection'
 import Button from '@/components/ui/Button'
 import { asset } from '@/lib/asset'
+import { listEnabledServices } from '@/lib/data/services'
+import { resolveIcon } from '@/lib/cms/icon-map'
 
-type Service = {
+type ServiceCard = {
   id: string
-  icon: LucideIcon
+  iconName: string | null
   title: string
   description: string
   badge: string
   image: string
+  href: string | null
 }
 
-/** Те же услуги, что в блоке «Наши услуги» на главной (ServicesPreview) */
-const services: Service[] = [
+/**
+ * Fallback — те же 3 карточки, что были до миграции на БД (`servicesTeasers`).
+ * Используются, если `services` table пуста (на старте проекта или при
+ * недоступной БД во время build/SSR).
+ */
+const FALLBACK_CARDS: ServiceCard[] = [
   {
     id: 'polygraphy',
-    icon: Newspaper,
+    iconName: 'Newspaper',
     title: 'Офсетная печать',
     description: 'Визитки, журналы, каталоги, буклеты. Экономим ваш бюджет. Офсет — это дешевле!',
     badge: 'Визитки от 1.7 ₽/шт.',
     image: '/img/pint.png',
+    href: '/contacts',
   },
   {
     id: 'outdoor',
-    icon: Signpost,
+    iconName: 'Signpost',
     title: 'Наружная реклама',
     description: 'Стелы, фасады, фигуры и многое другое. Реализуем любые, даже самые невероятные идеи!',
     badge: 'Световые буквы от 150 р./см.',
     image: '/port/1.png',
+    href: '/contacts',
   },
   {
     id: 'svetovye-bukvy',
-    icon: Lightbulb,
+    iconName: 'Lightbulb',
     title: 'Световые буквы',
     description: 'Объёмные световые буквы: открытые, закрытые, контражур. LED-подсветка с гарантией 36 месяцев.',
     badge: 'От 150 ₽/см периметра',
     image: '/img/facades-maf.png',
+    href: '/contacts',
   },
 ]
 
-export default function ServicesCards() {
+const FALLBACK_ICONS: Record<string, typeof Newspaper> = {
+  Newspaper,
+  Signpost,
+  Lightbulb,
+}
+
+function lucideKebabToPascal(name: string | null | undefined): string | null {
+  if (!name) return null
+  return name
+    .split('-')
+    .map((p) => (p ? p[0]!.toUpperCase() + p.slice(1) : p))
+    .join('')
+}
+
+export default async function ServicesCards() {
+  const dbServices = await listEnabledServices()
+
+  // Если есть карточки в БД — рендерим все enabled услуги (а не первые 3,
+  // как в ServicesPreview на главной — здесь полная страница каталога).
+  const cards: ServiceCard[] =
+    dbServices.length > 0
+      ? dbServices.map((s) => ({
+          id: s.slug,
+          iconName: lucideKebabToPascal(s.icon),
+          title: s.title,
+          description:
+            s.short_description ??
+            s.long_description ??
+            'Подробности — у наших менеджеров.',
+          badge: s.price_label ?? (s.price_from ? `от ${s.price_from} ₽` : 'По запросу'),
+          image: s.cover_image ?? '/img/pint.png',
+          href: s.href ?? '/contacts',
+        }))
+      : FALLBACK_CARDS
+
   return (
     <section className="section-padding bg-white">
       <div className="container">
-        {services.map((service, i) => {
-          const Icon = service.icon
+        {cards.map((service, i) => {
+          // resolveIcon (CMS-маппинг) поддерживает любые имена lucide,
+          // FALLBACK_ICONS — только базовый набор для случая, если карточки
+          // нет в icon-map.
+          const Icon =
+            (service.iconName && resolveIcon(service.iconName)) ||
+            (service.iconName && FALLBACK_ICONS[service.iconName]) ||
+            Newspaper
           const isEven = i % 2 === 0
           return (
             <AnimatedSection key={service.id} className="mb-20 last:mb-0">
@@ -70,7 +120,7 @@ export default function ServicesCards() {
                       {service.badge}
                     </span>
                   </div>
-                  <Button href="/contacts">
+                  <Button href={service.href ?? '/contacts'}>
                     Заказать <ArrowRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -86,7 +136,7 @@ export default function ServicesCards() {
                   </div>
                 </div>
               </div>
-              {i < services.length - 1 && <hr className="mt-20 border-gray-100" />}
+              {i < cards.length - 1 && <hr className="mt-20 border-gray-100" />}
             </AnimatedSection>
           )
         })}
