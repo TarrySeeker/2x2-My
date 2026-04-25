@@ -2,10 +2,34 @@ import type { Row } from "@/lib/db/table-types";
 import type { ProductStatus, OrderStatus, OrderType, PostStatus, Json } from "@/types/database";
 
 // ── Dashboard ──
-// Типы DashboardStats / ChartDataPoint / TopProduct удалены вместе
-// с виджетами «Выручка» / «Средний чек» / «Топ товаров» / графиком
-// выручки (cleanup 2026-04-25). Актуальный снапшот дашборда —
-// `DashboardStats` из `@/types` (соответствует RPC get_dashboard_stats).
+// Типы DashboardStats / TopProduct удалены вместе с виджетами «Выручка»
+// / «Средний чек» / «Топ товаров» / графиком выручки (cleanup 2026-04-25).
+// Актуальный снапшот дашборда — `DashboardStats` из `@/types`
+// (соответствует RPC get_dashboard_stats).
+//
+// `ChartDataPoint` оставлен как @deprecated stub, чтобы build не падал на
+// серверах, где после tar-распаковки остались устаревшие файлы (RevenueChart,
+// LatestOrdersTable, TopProductsList, StatCard) — они нигде не импортируются
+// в HEAD, но если стоят на диске — tsc их подхватывает. После того как
+// stale-файлы будут вычищены вручную (см. USER-ACTIONS) — этот stub можно
+// убрать.
+/** @deprecated Удалён вместе с RevenueChart. Stub для совместимости с
+ *  stale-файлами на VPS — не использовать в новом коде. */
+export interface ChartDataPoint {
+  date: string;
+  revenue: number;
+  orders: number;
+}
+
+/** @deprecated Удалён вместе с TopProductsList. Stub для совместимости. */
+export interface TopProduct {
+  id: number;
+  name: string;
+  slug: string;
+  image_url: string | null;
+  total_sold: number;
+  total_revenue: number;
+}
 
 // ── Products ──
 
