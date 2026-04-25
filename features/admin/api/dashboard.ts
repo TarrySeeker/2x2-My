@@ -1,62 +1,122 @@
 import "server-only";
 
 import { sql } from "@/lib/db/client";
-import type {
-  DashboardStats,
-  ChartDataPoint,
-  TopProduct,
-} from "@/features/admin/types";
+import type { DashboardStats } from "@/types";
 import type { Row } from "@/lib/db/table-types";
 
 type ProductRow = Row<"products">;
 type ReviewRow = Row<"reviews">;
 
 /**
- * Дашборд после миграции 006.
+ * Дашборд после миграции 006 + cleanup 2026-04-25.
  *
- * Таблицы `orders` и `order_items` удалены (бизнес-модель «только
- * индивидуальный расчёт»). Дашборд теперь показывает счётчики заявок
- * (calculation_requests, leads, contact_requests). Старые поля
- * revenue/orders оставлены NULL/0 для совместимости со старым UI —
- * frontend-developer заменит UI в этапе 3.
+ * Бизнес-модель «только индивидуальный расчёт» — таблиц `orders` /
+ * `order_items` нет, выручки/среднего чека нет. Дашборд показывает
+ * счётчики заявок (calculation_requests, leads, contact_requests) +
+ * вспомогательные срезы для менеджера (источники лидов, заявки с
+ * промокодом-маркером).
+ *
+ * Legacy-функции `getDashboardStats()`, `getRevenueChart()`,
+ * `getLatestOrders()`, `getTopProducts()` удалены вместе с виджетами
+ * «Выручка», «Средний чек», «Последние заказы», «Топ товаров»
+ * (см. handoff admin-dashboard-cleanup-2026-04-25).
  */
 
-function emptyStats(): DashboardStats {
+/**
+ * Основной снапшот для дашборда — RPC `get_dashboard_stats()`.
+ * Возвращает типизированный объект; при ошибке БД отдаёт «нулевой»
+ * снапшот, чтобы UI не падал.
+ */
+export async function getDashboardStatsV2(): Promise<DashboardStats> {
+  try {
+    const rows = await sql<{ get_dashboard_stats: DashboardStats | null }[]>`
+      SELECT get_dashboard_stats()
+    `;
+    return rows[0]?.get_dashboard_stats ?? emptyStatsV2();
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getDashboardStatsV2] RPC failed:", err);
+    }
+    return emptyStatsV2();
+  }
+}
+
+function emptyStatsV2(): DashboardStats {
   return {
-    revenue: { today: 0, yesterday: 0 },
-    orders: { today: 0, yesterday: 0 },
-    avgCheck: { today: 0, yesterday: 0 },
-    newOrders: 0,
+    new_calc_requests: 0,
+    calc_requests_week: 0,
+    calc_requests_month: 0,
+    new_leads: 0,
+    leads_week: 0,
+    new_contacts: 0,
+    pending_reviews: 0,
+    products_active: 0,
+    products_draft: 0,
+    portfolio_count: 0,
+    recent_calc_requests: [],
+    recent_leads: [],
   };
 }
 
-export async function getDashboardStats(): Promise<DashboardStats> {
-  // orders больше нет — возвращаем нули для legacy UI.
-  // Реальные счётчики читаем через get_dashboard_stats() RPC по
-  // мере перехода на новый дашборд.
+export interface LeadSourceRow {
+  source: string;
+  count: number;
+}
+
+/**
+ * Топ-источников лидов за последние 30 дней.
+ * Источник — объединение `leads.source` + `leads.utm_source`
+ * (utm имеет приоритет, если он задан).
+ */
+export async function getLeadsBySource30d(
+  limit = 5,
+): Promise<LeadSourceRow[]> {
   try {
-    // Просто проверим, что БД жива.
-    await sql`SELECT 1`;
+    const rows = await sql<LeadSourceRow[]>`
+      SELECT
+        COALESCE(NULLIF(utm_source, ''), source, 'direct') AS source,
+        COUNT(*)::int AS count
+      FROM leads
+      WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
+      GROUP BY 1
+      ORDER BY count DESC
+      LIMIT ${limit}
+    `;
+    return rows;
   } catch (err) {
     if (process.env.NODE_ENV !== "production") {
-      console.warn("[getDashboardStats] DB ping failed:", err);
+      console.warn("[getLeadsBySource30d] DB request failed:", err);
     }
+    return [];
   }
-  return emptyStats();
 }
 
-export async function getRevenueChart(
-  _days: 7 | 30,
-): Promise<ChartDataPoint[]> {
-  return [];
-}
-
-export async function getLatestOrders(_limit = 5): Promise<never[]> {
-  return [];
-}
-
-export async function getTopProducts(_limit = 5): Promise<TopProduct[]> {
-  return [];
+/**
+ * Кол-во заявок за месяц с заполненным promo_code (любой из трёх
+ * таблиц-форм). Помогает менеджеру оценить эффективность акций.
+ */
+export async function getLeadsWithPromoMonth(): Promise<number> {
+  try {
+    const rows = await sql<{ count: number }[]>`
+      SELECT (
+        (SELECT COUNT(*) FROM calculation_requests
+          WHERE created_at >= date_trunc('month', CURRENT_DATE)
+            AND promo_code IS NOT NULL AND promo_code <> '') +
+        (SELECT COUNT(*) FROM leads
+          WHERE created_at >= date_trunc('month', CURRENT_DATE)
+            AND promo_code IS NOT NULL AND promo_code <> '') +
+        (SELECT COUNT(*) FROM contact_requests
+          WHERE created_at >= date_trunc('month', CURRENT_DATE)
+            AND promo_code IS NOT NULL AND promo_code <> '')
+      )::int AS count
+    `;
+    return rows[0]?.count ?? 0;
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[getLeadsWithPromoMonth] DB request failed:", err);
+    }
+    return 0;
+  }
 }
 
 export async function getLowStockProducts(): Promise<ProductRow[]> {
@@ -94,23 +154,5 @@ export async function getPendingReviews(limit = 5): Promise<ReviewRow[]> {
       console.warn("[getPendingReviews] DB request failed:", err);
     }
     return [];
-  }
-}
-
-/**
- * Новый dashboard (CMS-эра): читает get_dashboard_stats() RPC.
- * Возвращает JSONB как есть. Использовать в новом UI.
- */
-export async function getDashboardStatsV2(): Promise<unknown> {
-  try {
-    const rows = await sql<{ get_dashboard_stats: unknown }[]>`
-      SELECT get_dashboard_stats()
-    `;
-    return rows[0]?.get_dashboard_stats ?? null;
-  } catch (err) {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[getDashboardStatsV2] RPC failed:", err);
-    }
-    return null;
   }
 }

@@ -2,31 +2,10 @@ import type { Row } from "@/lib/db/table-types";
 import type { ProductStatus, OrderStatus, OrderType, PostStatus, Json } from "@/types/database";
 
 // ── Dashboard ──
-
-/**
- * @deprecated Поля revenue/orders/avgCheck/newOrders — наследие
- * корзинной версии. После миграции 006 всегда заполняются нулями.
- * Новый дашборд читает `getDashboardStatsV2()` (RPC `get_dashboard_stats`).
- */
-export interface DashboardStats {
-  revenue: { today: number; yesterday: number };
-  orders: { today: number; yesterday: number };
-  avgCheck: { today: number; yesterday: number };
-  newOrders: number;
-}
-
-export interface ChartDataPoint {
-  date: string;
-  revenue: number;
-}
-
-export interface TopProduct {
-  id: number;
-  name: string;
-  image_url: string | null;
-  sold: number;
-  revenue: number;
-}
+// Типы DashboardStats / ChartDataPoint / TopProduct удалены вместе
+// с виджетами «Выручка» / «Средний чек» / «Топ товаров» / графиком
+// выручки (cleanup 2026-04-25). Актуальный снапшот дашборда —
+// `DashboardStats` из `@/types` (соответствует RPC get_dashboard_stats).
 
 // ── Products ──
 
