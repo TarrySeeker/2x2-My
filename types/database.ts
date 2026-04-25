@@ -407,6 +407,8 @@ export interface Database {
           pd_consent_version: string | null;
           pd_consent_ip: string | null;
           idempotency_key: string | null;
+          // Миграция 016: промокод-маркер (без автоскидки).
+          promo_code: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -505,6 +507,8 @@ export interface Database {
           pd_consent_version: string | null;
           pd_consent_ip: string | null;
           idempotency_key: string | null;
+          // Миграция 016: промокод-маркер (без автоскидки).
+          promo_code: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -537,6 +541,8 @@ export interface Database {
           pd_consent_version: string | null;
           pd_consent_ip: string | null;
           idempotency_key: string | null;
+          // Миграция 016: промокод-маркер (без автоскидки).
+          promo_code: string | null;
           created_at: string;
           updated_at: string;
         };

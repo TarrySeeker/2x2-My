@@ -67,9 +67,12 @@ export async function POST(request: NextRequest) {
 
     let contactId: number | null = null;
     try {
+      const promoCode = (input.promoCode ?? null) as string | null;
+
       const rows = await sql<{ id: number }[]>`
         INSERT INTO contact_requests (
           name, email, phone, subject, message, status,
+          promo_code,
           pd_consent_at, pd_consent_version, pd_consent_ip,
           idempotency_key
         )
@@ -80,6 +83,7 @@ export async function POST(request: NextRequest) {
           ${subject},
           ${input.message},
           'new',
+          ${promoCode},
           NOW(), ${PD_CONSENT_VERSION}, ${consentIp},
           ${idempotencyKey}
         )

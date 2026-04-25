@@ -80,6 +80,7 @@ export async function POST(request: NextRequest) {
     const categoryId = (input.category_id ?? null) as number | null;
     const params = (input.params ?? {}) as Record<string, unknown>;
     const attachments = (input.attachments ?? []) as unknown[];
+    const promoCode = (input.promoCode ?? null) as string | null;
 
     const rows = await sql<{ id: number; request_number: string | null }[]>`
       INSERT INTO calculation_requests (
@@ -88,6 +89,7 @@ export async function POST(request: NextRequest) {
         company_name, params, attachments, comment,
         source_url, status, manager_comment,
         quoted_amount, quoted_at, assigned_to,
+        promo_code,
         pd_consent_at, pd_consent_version, pd_consent_ip,
         idempotency_key
       )
@@ -105,6 +107,7 @@ export async function POST(request: NextRequest) {
         'new',
         NULL,
         NULL, NULL, NULL,
+        ${promoCode},
         NOW(), ${PD_CONSENT_VERSION}, ${consentIp},
         ${idempotencyKey}
       )

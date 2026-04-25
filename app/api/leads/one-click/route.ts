@@ -91,12 +91,15 @@ export async function POST(request: NextRequest) {
       comment: input.comment ?? null,
     };
 
+    const promoCode = (input.promoCode ?? null) as string | null;
+
     const rows = await sql<{ id: number }[]>`
       INSERT INTO leads (
         source, customer_name, customer_phone, customer_email,
         product_id, context,
         page_url, utm_source, utm_medium, utm_campaign, utm_content, utm_term,
         referer, user_agent, status, manager_comment, assigned_to,
+        promo_code,
         pd_consent_at, pd_consent_version, pd_consent_ip,
         idempotency_key
       )
@@ -118,6 +121,7 @@ export async function POST(request: NextRequest) {
         'new',
         NULL,
         NULL,
+        ${promoCode},
         NOW(), ${PD_CONSENT_VERSION}, ${consentIp},
         ${idempotencyKey}
       )
