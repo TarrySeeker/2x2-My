@@ -27,6 +27,7 @@ import { updatePageMetadataAction } from "@/features/admin/actions/page-metadata
 import AdminPageHeader from "./AdminPageHeader";
 import TagsInput from "./TagsInput";
 import SerpPreview from "./SerpPreview";
+import SeoHelpBanner from "./SeoHelpBanner";
 
 export interface PageMetadataRow {
   path: string;
@@ -95,6 +96,8 @@ export default function PageMetadataClient({
 
   return (
     <div className="space-y-6">
+      <SeoHelpBanner />
+
       <AdminPageHeader
         title="SEO: мета-теги страниц"
         description="Заголовки, описания и robots для публичных страниц сайта"

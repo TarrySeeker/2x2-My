@@ -37,6 +37,7 @@ import {
 import AdminTable from "./AdminTable";
 import AdminPageHeader from "./AdminPageHeader";
 import ConfirmDialog from "./ConfirmDialog";
+import SeoHelpBanner from "./SeoHelpBanner";
 
 type Redirect = Row<"redirects">;
 
@@ -297,7 +298,12 @@ export default function SeoPageClient({
 
   return (
     <div className="space-y-6">
-      <AdminPageHeader title="SEO" />
+      <SeoHelpBanner />
+
+      <AdminPageHeader
+        title="SEO: шаблоны и редиректы"
+        description="Шаблоны мета-тегов для авто-генерации + редиректы со старых URL. Для редактирования отдельных страниц используйте «Мета-теги страниц»."
+      />
 
       {/* Main Tabs */}
       <div className="flex flex-wrap gap-1 rounded-xl bg-neutral-100 p-1 dark:bg-white/5">

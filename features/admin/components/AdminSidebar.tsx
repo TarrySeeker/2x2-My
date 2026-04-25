@@ -7,8 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
   Inbox,
-  Package,
-  FolderTree,
   Ticket,
   FileText,
   Paintbrush,
@@ -30,19 +28,26 @@ import {
   ScrollText,
   ShieldCheck,
   ShoppingBag,
-  LibraryBig,
+  Wrench,
+  Search,
+  ExternalLink,
+  FileCode2,
+  MapIcon,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import clsx from "clsx";
 import type { UserRole } from "@/types/database";
 import { logoutAction } from "@/features/auth/actions";
+import { siteUrl } from "@/lib/siteConfig";
 
 interface NavLeaf {
   label: string;
   href: string;
   icon: typeof LayoutDashboard;
   roles: UserRole[];
+  /** Если true — открыть в новой вкладке (для внешних ссылок типа sitemap.xml). */
+  external?: boolean;
 }
 
 interface NavGroup {
@@ -69,7 +74,14 @@ function isGroup(entry: NavEntry): entry is NavGroup {
 //   /admin/content/banners    (нет компонента-читателя на витрине)
 //   /admin/content/pages      (дублирует legal-pages, таблица не читается)
 //   /admin/content/menu       (Header/Footer hardcoded)
-//   /admin/seo                (дублирует /admin/content/metadata)
+//   /admin/products           (заменён единым «Услуги», см. ниже)
+//   /admin/categories         (заменён единым «Услуги», см. ниже)
+//
+// /admin/seo вернули обратно (2026-04-25 second pass): группа «SEO»
+// содержит «Мета-теги страниц» (= /admin/content/metadata, основная
+// точка входа), «Шаблоны и редиректы» (= /admin/seo), а также внешние
+// ссылки на sitemap.xml и robots.txt — клиент должен видеть все
+// SEO-инструменты в одном месте.
 const NAV_ITEMS: NavEntry[] = [
   {
     label: "Дашборд",
@@ -100,26 +112,17 @@ const NAV_ITEMS: NavEntry[] = [
       },
     ],
   },
+  // «Услуги» — единый редактор карточек услуг (`services` table). Заменил
+  // группу «Каталог» (Товары + Категории). Старые роуты /admin/products
+  // и /admin/categories остались как orphan — доступны по прямому URL,
+  // но не отображаются в навигации (cleanup 2026-04-25, см. комментарий
+  // выше). Сами таблицы products/categories/product_images НЕ удалены —
+  // их использует legacy /catalog и фасеты.
   {
-    type: "group",
-    label: "Каталог",
-    icon: LibraryBig,
-    basePath: "/admin/products",
+    label: "Услуги",
+    href: "/admin/content/services",
+    icon: Wrench,
     roles: ["owner", "manager"],
-    items: [
-      {
-        label: "Товары",
-        href: "/admin/products",
-        icon: Package,
-        roles: ["owner", "manager"],
-      },
-      {
-        label: "Категории",
-        href: "/admin/categories",
-        icon: FolderTree,
-        roles: ["owner", "manager"],
-      },
-    ],
   },
   {
     type: "group",
@@ -138,12 +141,6 @@ const NAV_ITEMS: NavEntry[] = [
         label: "Внутренние страницы (секции)",
         href: "/admin/content/sections",
         icon: Layers,
-        roles: ["owner", "manager", "content"],
-      },
-      {
-        label: "Мета-теги (SEO)",
-        href: "/admin/content/metadata",
-        icon: ShieldCheck,
         roles: ["owner", "manager", "content"],
       },
       {
@@ -181,6 +178,41 @@ const NAV_ITEMS: NavEntry[] = [
         href: "/admin/blog",
         icon: FileText,
         roles: ["owner", "manager", "content"],
+      },
+    ],
+  },
+  {
+    type: "group",
+    label: "SEO",
+    icon: Search,
+    basePath: "/admin/seo",
+    roles: ["owner", "manager", "content"],
+    items: [
+      {
+        label: "Мета-теги страниц",
+        href: "/admin/content/metadata",
+        icon: ShieldCheck,
+        roles: ["owner", "manager", "content"],
+      },
+      {
+        label: "Шаблоны и редиректы",
+        href: "/admin/seo",
+        icon: FileCode2,
+        roles: ["owner", "manager"],
+      },
+      {
+        label: "Sitemap.xml",
+        href: `${siteUrl}/sitemap.xml`,
+        icon: MapIcon,
+        roles: ["owner", "manager", "content"],
+        external: true,
+      },
+      {
+        label: "Robots.txt",
+        href: `${siteUrl}/robots.txt`,
+        icon: ExternalLink,
+        roles: ["owner", "manager", "content"],
+        external: true,
       },
     ],
   },
@@ -270,32 +302,45 @@ function GroupItem({
           >
             {group.items.map((sub) => {
               const isActive =
-                pathname === sub.href || pathname.startsWith(sub.href + "/");
+                !sub.external &&
+                (pathname === sub.href || pathname.startsWith(sub.href + "/"));
               const SubIcon = sub.icon;
               const badge = badges?.[sub.href] ?? 0;
 
+              const linkClass = clsx(
+                "relative ml-4 flex items-center gap-2.5 rounded-md py-2 pl-3 pr-2 text-[13px] transition-colors",
+                isActive
+                  ? "bg-white/10 font-medium text-white"
+                  : "text-neutral-400 hover:bg-white/5 hover:text-neutral-200",
+              );
+
               return (
                 <li key={sub.href} className="mt-0.5">
-                  <Link
-                    href={sub.href}
-                    className={clsx(
-                      "relative ml-4 flex items-center gap-2.5 rounded-md py-2 pl-3 pr-2 text-[13px] transition-colors",
-                      isActive
-                        ? "bg-white/10 font-medium text-white"
-                        : "text-neutral-400 hover:bg-white/5 hover:text-neutral-200",
-                    )}
-                  >
-                    <SubIcon className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{sub.label}</span>
-                    {isActive && (
-                      <div className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-brand-orange" />
-                    )}
-                    {badge > 0 && (
-                      <span className="ml-auto flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-brand-orange px-1.5 text-[10px] font-bold text-white">
-                        {badge > 99 ? "99+" : badge}
-                      </span>
-                    )}
-                  </Link>
+                  {sub.external ? (
+                    <a
+                      href={sub.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={linkClass}
+                    >
+                      <SubIcon className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{sub.label}</span>
+                      <ExternalLink className="ml-auto h-3 w-3 shrink-0 text-neutral-500" />
+                    </a>
+                  ) : (
+                    <Link href={sub.href} className={linkClass}>
+                      <SubIcon className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{sub.label}</span>
+                      {isActive && (
+                        <div className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-brand-orange" />
+                      )}
+                      {badge > 0 && (
+                        <span className="ml-auto flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-brand-orange px-1.5 text-[10px] font-bold text-white">
+                          {badge > 99 ? "99+" : badge}
+                        </span>
+                      )}
+                    </Link>
+                  )}
                 </li>
               );
             })}
