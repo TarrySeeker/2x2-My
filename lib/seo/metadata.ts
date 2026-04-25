@@ -28,12 +28,22 @@ export type SeoInput = {
   publishedTime?: string;
   modifiedTime?: string;
   authorName?: string;
+  /**
+   * CMS-override названия бренда для openGraph.siteName.
+   * Если undefined — используется SITE.name. Передаётся из
+   * makeGenerateMetadata после чтения site_settings.organization.
+   */
+  siteName?: string;
+  /** CMS-override локали (`ru_RU` по умолчанию). */
+  locale?: string;
 };
 
 export function buildMetadata(input: SeoInput): Metadata {
   const url = absoluteUrl(input.path);
   const image = absoluteUrl(input.image ?? SITE.ogImage);
   const type = input.type ?? "website";
+  const siteName = input.siteName || SITE.name;
+  const locale = input.locale || SITE.locale;
 
   return {
     title: input.title,
@@ -47,9 +57,9 @@ export function buildMetadata(input: SeoInput): Metadata {
     },
     openGraph: {
       type: type === "article" ? "article" : "website",
-      locale: SITE.locale,
+      locale,
       url,
-      siteName: SITE.name,
+      siteName,
       title: input.title,
       description: input.description,
       images: [{ url: image, width: 1200, height: 630, alt: input.title }],
@@ -57,7 +67,7 @@ export function buildMetadata(input: SeoInput): Metadata {
         ? {
             publishedTime: input.publishedTime,
             modifiedTime: input.modifiedTime ?? input.publishedTime,
-            authors: input.authorName ? [input.authorName] : [SITE.name],
+            authors: input.authorName ? [input.authorName] : [siteName],
           }
         : {}),
     },

@@ -14,6 +14,7 @@ import {
   buildWebSite,
 } from "@/lib/seo/json-ld";
 import { SITE, absoluteUrl } from "@/lib/seo/site";
+import { getOrganization } from "@/lib/cms/organization";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { SupabaseProvider } from "@/providers/supabase-provider";
 import { ToastProvider } from "@/providers/toast-provider";
@@ -36,66 +37,91 @@ const rubik = Rubik({
 const googleVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION;
 const yandexVerification = process.env.NEXT_PUBLIC_YANDEX_VERIFICATION;
 
-export const metadata: Metadata = {
-  metadataBase: new URL(SITE.url),
-  title: {
-    default:
-      "Рекламная компания 2х2 — полиграфия, вывески, наружная реклама в Ханты-Мансийске",
-    template: "%s | 2х2 Ханты-Мансийск",
-  },
-  description: SITE.description,
-  keywords: [...SITE.keywords],
-  applicationName: SITE.name,
-  authors: [{ name: SITE.name }],
-  creator: SITE.shortName,
-  publisher: SITE.name,
-  category: "business",
-  openGraph: {
-    type: "website",
-    locale: SITE.locale,
-    url: SITE.url,
-    siteName: SITE.name,
-    title:
-      "Рекламная компания 2х2 — полиграфия, вывески, наружная реклама в Ханты-Мансийске",
-    description: SITE.description,
-    images: [
-      {
-        url: absoluteUrl(SITE.ogImage),
-        width: 1200,
-        height: 630,
-        alt: `${SITE.name} — ${SITE.slogan}`,
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Рекламная компания 2х2 — Ханты-Мансийск",
-    description: SITE.shortDescription,
-    images: [absoluteUrl(SITE.ogImage)],
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
+/**
+ * Root metadata: читает site_settings.organization из БД (slogan,
+ * description, short_description, name, short_name, og_image, locale)
+ * и подставляет в OpenGraph / Twitter / SEO. При недоступной БД
+ * fallback на константы из `lib/seo/site.ts` (см. `getOrganization`).
+ *
+ * Из-за async-чтения экспортируется как `generateMetadata`, а не
+ * `metadata`. Title.default остаётся hardcoded — это title главной
+ * (страничный CMS-override происходит в app/page.tsx через
+ * makeGenerateMetadata({ path: '/' })).
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const org = await getOrganization();
+  const ogImageUrl = absoluteUrl(org.og_image || SITE.ogImage);
+
+  return {
+    metadataBase: new URL(SITE.url),
+    title: {
+      default:
+        "Рекламная компания 2х2 — полиграфия, вывески, наружная реклама в Ханты-Мансийске",
+      template: `%s | ${org.short_name} Ханты-Мансийск`,
+    },
+    description: org.description,
+    keywords: org.keywords_global,
+    applicationName: org.name,
+    authors: [{ name: org.name }],
+    creator: org.short_name,
+    publisher: org.name,
+    category: "business",
+    openGraph: {
+      type: "website",
+      locale: org.locale,
+      url: SITE.url,
+      siteName: org.name,
+      title:
+        "Рекламная компания 2х2 — полиграфия, вывески, наружная реклама в Ханты-Мансийске",
+      description: org.description,
+      images: [
+        {
+          url: ogImageUrl,
+          width: 1200,
+          height: 630,
+          alt: `${org.name} — ${org.slogan}`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${org.name} — Ханты-Мансийск`,
+      description: org.short_description,
+      images: [ogImageUrl],
+    },
+    robots: {
       index: true,
       follow: true,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-      "max-video-preview": -1,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+        "max-video-preview": -1,
+      },
     },
-  },
-  alternates: {
-    canonical: SITE.url,
-    languages: { "ru-RU": SITE.url, "x-default": SITE.url },
-  },
-  verification: {
-    ...(googleVerification ? { google: googleVerification } : {}),
-    ...(yandexVerification ? { yandex: yandexVerification } : {}),
-  },
-  formatDetection: { telephone: true, email: true, address: true },
-  // icons подхватываются автоматически из app/icon.svg, app/apple-icon.png, app/favicon.ico
-};
+    alternates: {
+      canonical: SITE.url,
+      languages: { "ru-RU": SITE.url, "x-default": SITE.url },
+    },
+    verification: {
+      ...(googleVerification ? { google: googleVerification } : {}),
+      ...(yandexVerification ? { yandex: yandexVerification } : {}),
+    },
+    formatDetection: { telephone: true, email: true, address: true },
+    // icons подхватываются автоматически из app/icon.svg, app/apple-icon.png, app/favicon.ico
+  };
+}
 
+/**
+ * Viewport: themeColor для prefers-color-scheme: light/dark.
+ * Брендовый organization.theme_color (#FF6600) используется в JSON-LD
+ * и админке, но не для themeColor мета-тега — там нужны фоновые цвета,
+ * соответствующие реальному фону сайта (FAFAFA / 09090B).
+ *
+ * Если в будущем понадобится ставить org.theme_color в light-варианте —
+ * заменить на `generateViewport()` async и читать `getOrganization()`.
+ */
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -131,9 +157,12 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // CMS-driven Organization data: подставляется в JSON-LD Organization /
+  // LocalBusiness / WebSite. При недоступной БД — fallback на SITE/BUSINESS.
+  const org = await getOrganization();
   return (
     <html
-      lang="ru"
+      lang={org.language || "ru"}
       className={`${manrope.variable} ${rubik.variable} antialiased`}
       suppressHydrationWarning
     >
@@ -146,9 +175,9 @@ export default async function RootLayout({
                 <PromoPopupBanner />
                 <JsonLdScript
                   data={[
-                    buildOrganization(),
-                    buildLocalBusiness(),
-                    buildWebSite(),
+                    buildOrganization(org),
+                    buildLocalBusiness(org),
+                    buildWebSite(org),
                   ]}
                 />
               </ShopShell>

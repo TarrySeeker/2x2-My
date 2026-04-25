@@ -22,6 +22,7 @@ import type { Metadata } from "next";
 
 import { buildMetadata, type SeoInput } from "@/lib/seo/metadata";
 import { getPageMetadata } from "@/lib/data/page-metadata";
+import { getOrganization } from "@/lib/cms/organization";
 
 export interface MakeGenerateMetadataInput {
   /** Путь в `page_metadata` (совпадает с URL). */
@@ -48,22 +49,32 @@ export function makeGenerateMetadata(
   opts: MakeGenerateMetadataInput,
 ): () => Promise<Metadata> {
   return async function generateMetadata(): Promise<Metadata> {
-    const cms = await getPageMetadata(opts.path);
+    // Параллельное чтение: per-path SEO override + глобальные настройки
+    // организации. Оба независимы, поэтому Promise.all безопасен.
+    const [cms, org] = await Promise.all([
+      getPageMetadata(opts.path),
+      getOrganization(),
+    ]);
 
+    // Приоритет: page_metadata > организация > fallback
     const title =
       (cms?.title && cms.title.trim().length > 0 && cms.title) ||
       opts.fallback.title;
     const description =
       (cms?.description && cms.description.trim().length > 0 && cms.description) ||
+      org.description ||
       opts.fallback.description;
     const keywords =
       cms?.keywords && cms.keywords.length > 0
         ? cms.keywords
-        : opts.fallback.keywords;
+        : org.keywords_global.length > 0
+          ? org.keywords_global
+          : opts.fallback.keywords;
     const noindex =
       typeof cms?.noindex === "boolean" ? cms.noindex : opts.fallback.noindex;
     const image =
       (cms?.ogImage && cms.ogImage.trim().length > 0 && cms.ogImage) ||
+      org.og_image ||
       opts.fallback.image;
 
     const base = buildMetadata({
@@ -74,6 +85,8 @@ export function makeGenerateMetadata(
       keywords,
       noindex,
       ...(image ? { image } : {}),
+      siteName: org.name,
+      locale: org.locale,
     });
 
     // canonical из CMS перекрывает canonical, собранный из path.

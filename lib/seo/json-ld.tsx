@@ -11,8 +11,29 @@
  */
 
 import { ADDRESS, BUSINESS, CONTACTS, HOURS, SITE, absoluteUrl } from "@/lib/seo/site";
+import type { OrganizationSettings } from "@/lib/cms/organization";
 
 type JsonLdData = Record<string, unknown>;
+
+/**
+ * Опциональные CMS-overrides из site_settings.organization.
+ * Если поля нет — фолбэк на константы SITE/BUSINESS.
+ */
+export type OrgOverrides = Partial<
+  Pick<
+    OrganizationSettings,
+    | "name"
+    | "short_name"
+    | "legal_name"
+    | "slogan"
+    | "description"
+    | "og_image"
+    | "language"
+    | "founding_year"
+    | "price_range"
+    | "area_served"
+  >
+>;
 
 type Props = { data: JsonLdData | JsonLdData[] };
 
@@ -40,16 +61,23 @@ export function JsonLdScript({ data }: Props) {
 // Базовые блоки
 // ============================================================
 
-export function buildOrganization(): JsonLdData {
+export function buildOrganization(org?: OrgOverrides): JsonLdData {
+  const name = org?.name || SITE.name;
+  const legalName = org?.legal_name || SITE.legalName;
+  const altName = org?.short_name || SITE.shortName;
+  const description = org?.description || SITE.description;
+  const slogan = org?.slogan || SITE.slogan;
+  const ogImage = org?.og_image || SITE.ogImage;
+
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
     "@id": `${SITE.url}/#organization`,
-    name: SITE.name,
-    legalName: SITE.legalName,
-    alternateName: SITE.shortName,
-    description: SITE.description,
-    slogan: SITE.slogan,
+    name,
+    legalName,
+    alternateName: altName,
+    description,
+    slogan,
     url: SITE.url,
     logo: {
       "@type": "ImageObject",
@@ -57,10 +85,10 @@ export function buildOrganization(): JsonLdData {
       width: 512,
       height: 512,
     },
-    image: absoluteUrl(SITE.ogImage),
+    image: absoluteUrl(ogImage),
     email: CONTACTS.email,
     telephone: CONTACTS.phonePrimaryTel,
-    foundingDate: String(BUSINESS.foundingYear),
+    foundingDate: String(org?.founding_year ?? BUSINESS.foundingYear),
     address: {
       "@type": "PostalAddress",
       streetAddress: ADDRESS.streetAddress,
@@ -89,19 +117,28 @@ export function buildOrganization(): JsonLdData {
   };
 }
 
-export function buildLocalBusiness(): JsonLdData {
+export function buildLocalBusiness(org?: OrgOverrides): JsonLdData {
+  const name = org?.name || SITE.name;
+  const description = org?.description || SITE.description;
+  const ogImage = org?.og_image || SITE.ogImage;
+  const priceRange = org?.price_range || BUSINESS.priceRange;
+  const areaServed =
+    org?.area_served && org.area_served.length > 0
+      ? org.area_served
+      : BUSINESS.areaServed;
+
   return {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
     "@id": `${SITE.url}/#localbusiness`,
-    name: SITE.name,
-    image: absoluteUrl(SITE.ogImage),
+    name,
+    image: absoluteUrl(ogImage),
     logo: absoluteUrl("/logo-2x2.svg"),
-    description: SITE.description,
+    description,
     url: SITE.url,
     telephone: CONTACTS.phonePrimaryTel,
     email: CONTACTS.email,
-    priceRange: BUSINESS.priceRange,
+    priceRange,
     currenciesAccepted: "RUB",
     paymentAccepted: "Cash, Credit Card, СБП",
     address: {
@@ -125,23 +162,28 @@ export function buildLocalBusiness(): JsonLdData {
         closes: HOURS.weekdays.closes,
       },
     ],
-    areaServed: BUSINESS.areaServed.map((name) => ({
+    areaServed: areaServed.map((cityName) => ({
       "@type": "City",
-      name,
+      name: cityName,
     })),
   };
 }
 
-export function buildWebSite(): JsonLdData {
+export function buildWebSite(org?: OrgOverrides): JsonLdData {
+  const name = org?.name || SITE.name;
+  const altName = org?.short_name || SITE.shortName;
+  const description = org?.description || SITE.description;
+  const language = org?.language || SITE.language;
+
   return {
     "@context": "https://schema.org",
     "@type": "WebSite",
     "@id": `${SITE.url}/#website`,
-    name: SITE.name,
-    alternateName: SITE.shortName,
+    name,
+    alternateName: altName,
     url: SITE.url,
-    description: SITE.description,
-    inLanguage: SITE.language,
+    description,
+    inLanguage: language,
     publisher: { "@id": `${SITE.url}/#organization` },
     potentialAction: {
       "@type": "SearchAction",

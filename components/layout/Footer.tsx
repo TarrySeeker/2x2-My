@@ -2,6 +2,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { asset } from '@/lib/asset'
 import { getSettingValue } from '@/lib/data/settings'
+import { getOrganization } from '@/lib/cms/organization'
 import FooterPhoneLink from './FooterPhoneLink'
 
 interface ContactsValue {
@@ -40,12 +41,6 @@ interface NavigationFooterValue {
     title?: string
     items?: Array<{ href?: string; label?: string }>
   }>
-}
-
-interface OrganizationValue {
-  slogan?: string
-  short_description?: string
-  description?: string
 }
 
 const DEFAULT_FOOTER_COLUMNS: FooterColumn[] = [
@@ -111,7 +106,10 @@ export default async function Footer() {
     'navigation_footer',
     { columns: [] },
   )
-  const organization = await getSettingValue<OrganizationValue>('organization', {})
+  // Унифицированный helper: всегда возвращает заполненные поля с
+  // SITE-fallback. В отличие от прямого чтения site_settings.organization,
+  // не требует проверки .trim() — getOrganization уже триммит всё.
+  const organization = await getOrganization()
 
   const cmsColumns = Array.isArray(navFooter.columns) ? navFooter.columns : []
   const footerColumns: FooterColumn[] =
@@ -139,9 +137,14 @@ export default async function Footer() {
           }))
       : DEFAULT_FOOTER_COLUMNS
 
+  // Tagline в футере: приоритет short_description (заточенный текст для
+  // small-print), потом slogan (если short_description пустой), потом
+  // description, потом дефолт. Slogan ставим выше description т.к.
+  // он короче и подходит под маркетинговый блок под лого.
   const tagline =
-    organization.short_description?.trim() ||
-    organization.description?.trim() ||
+    organization.short_description ||
+    organization.slogan ||
+    organization.description ||
     DEFAULT_TAGLINE
 
   const legalName = legal.legal_name?.trim() ?? ''
@@ -251,7 +254,7 @@ export default async function Footer() {
       <div className="border-t border-white/10">
         <div className="container flex flex-col items-center justify-between gap-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom,0px))] sm:flex-row">
           <p className="text-gray-500 text-sm">
-            © {year} 2×2 Рекламное агентство. Все права защищены.
+            © {year} {organization.name}. Все права защищены.
           </p>
           <p className="text-gray-600 text-xs">{legalLine}</p>
         </div>
