@@ -4,6 +4,7 @@ import { getCategories } from "@/lib/data/categories";
 import { getProducts } from "@/lib/data/products";
 import { getPortfolio } from "@/lib/data/portfolio";
 import { getPublishedBlogPostsForSitemap } from "@/lib/data/blog";
+import { listEnabledServices } from "@/lib/data/services";
 import { blogStarters } from "@/content/blog-starters";
 
 export const revalidate = 3600; // пересборка sitemap раз в час
@@ -96,6 +97,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   } catch (err) {
     if (process.env.NODE_ENV !== "production") {
       console.warn("[sitemap] getProducts failed:", err);
+    }
+  }
+
+  // ── Услуги (детальные карточки) ──
+  // Источник: services (enabled=TRUE). Каждой enabled-услуге
+  // соответствует роут app/services/[slug]/page.tsx. При ошибке БД —
+  // тихий пропуск (sitemap.xml остаётся валидным).
+  try {
+    const services = await listEnabledServices();
+    for (const s of services) {
+      entries.push({
+        url: abs(`/services/${s.slug}`),
+        lastModified: toDate(s.updated_at, now),
+        changeFrequency: "monthly",
+        priority: 0.7,
+      });
+    }
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[sitemap] listEnabledServices failed:", err);
     }
   }
 
