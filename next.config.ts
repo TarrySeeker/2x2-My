@@ -27,21 +27,31 @@ const nextConfig: NextConfig = {
               protocol: "https",
               hostname: "images.unsplash.com",
             },
+            // Production: MinIO через Caddy reverse-proxy на основном домене.
+            // Файлы лежат под путём /2x2-media/uploads/... .
+            {
+              protocol: "https",
+              hostname: "erfgv.website",
+            },
+            // Резерв под staging/альтернативные поддомены того же стека.
+            {
+              protocol: "https",
+              hostname: "staging.erfgv.website",
+            },
+            {
+              protocol: "https",
+              hostname: "*.erfgv.website",
+            },
             // Self-hosted MinIO в dev (compose.dev.yml).
             {
               protocol: "http",
               hostname: "localhost",
               port: "9000",
             },
-            // Production: Timeweb Cloud Object Storage.
+            // Backup: Timeweb Cloud Object Storage (если включим в будущем).
             {
               protocol: "https",
               hostname: "*.s3.timeweb.cloud",
-            },
-            // Production: MinIO под собственным доменом media.<DOMAIN>.
-            {
-              protocol: "https",
-              hostname: "media.*",
             },
           ],
         },
