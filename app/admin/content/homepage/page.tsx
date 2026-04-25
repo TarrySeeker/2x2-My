@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { listSections } from "@/lib/data/cms";
+import { getPageSections } from "@/lib/data/page-sections";
 import { SECTION_KEYS } from "@/features/admin/schemas/cms";
 import AdminPageHeader from "@/features/admin/components/AdminPageHeader";
 import {
@@ -71,9 +71,17 @@ function countFields(content: unknown): number {
   return count;
 }
 
+/**
+ * Список секций главной страницы (админка).
+ *
+ * После унификации CMS (миграция 017) данные читаются из таблицы
+ * `page_sections` (page_path='/'), а не из устаревшей `homepage_sections`.
+ * Состав секций (SECTION_KEYS из cms.ts) не изменился — тот же набор
+ * ключей: hero/about/services/promotions/portfolio/features/faq/cta.
+ */
 export default async function HomepageSectionsPage() {
-  const stored = await listSections();
-  const storedMap = new Map(stored.map((s) => [s.key, s]));
+  const stored = await getPageSections("/", { enabledOnly: false });
+  const storedMap = new Map(stored.map((s) => [s.sectionKey, s]));
 
   return (
     <div className="space-y-6">

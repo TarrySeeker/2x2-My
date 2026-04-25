@@ -12,16 +12,29 @@ import {
 } from "@/features/admin/schemas/page-sections";
 import { upsertPageSectionAction } from "@/features/admin/actions/page-sections";
 import type { SectionRow } from "./PageSectionsClient";
+import ImageUploadField from "./ImageUploadField";
 
 const CONTENT_TYPE_LABELS: Record<PageSectionContentType, string> = {
-  hero:         "Hero",
-  text_block:   "Текстовый блок",
-  values:       "Ценности",
-  cards_grid:   "Сетка карточек",
-  faq:          "FAQ",
-  cta:          "CTA",
-  contact_info: "Контактная информация",
-  stats_grid:   "Статистика",
+  hero:            "Hero",
+  text_block:      "Текстовый блок",
+  values:          "Ценности",
+  cards_grid:      "Сетка карточек",
+  faq:             "FAQ",
+  cta:             "CTA",
+  contact_info:    "Контактная информация",
+  stats_grid:      "Статистика",
+  // Главная: home_* — расширенные секции старой homepage_sections.
+  // Редактируются через специализированный UI /admin/content/homepage/[key],
+  // а не через PageSectionEditor. Лейблы здесь нужны только для типизации
+  // и потенциального fallback-рендера в /admin/content/sections.
+  home_hero:       "Hero (главная)",
+  home_about:      "О компании (главная)",
+  home_services:   "Услуги (главная)",
+  home_promotions: "Акции (главная)",
+  home_portfolio:  "Портфолио (главная)",
+  home_features:   "Преимущества (главная)",
+  home_faq:        "FAQ (главная)",
+  home_cta:        "CTA (главная)",
 };
 
 export default function PageSectionEditor({
@@ -501,14 +514,12 @@ function TextBlockForm({
       </Field>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Изображение (URL)">
-          <input
-            value={get(content, "image", "") as string}
-            onChange={(e) => onChange(set(content, "image", e.target.value))}
-            className={inputCn}
-            placeholder="/images/about.jpg"
-          />
-        </Field>
+        <ImageUploadField
+          label="Изображение"
+          value={get(content, "image", "") as string}
+          onChange={(url) => onChange(set(content, "image", url ?? ""))}
+          pathPrefix="sections"
+        />
         <Field label="Alt-текст">
           <input
             value={get(content, "image_alt", "") as string}

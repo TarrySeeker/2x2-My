@@ -30,8 +30,9 @@ import {
   getSectionSchema,
   type SectionKey,
 } from "@/features/admin/schemas/cms";
-import { updateSectionAction } from "@/features/admin/actions/cms";
+import { upsertPageSectionAction } from "@/features/admin/actions/page-sections";
 import AdminPageHeader from "./AdminPageHeader";
+import ImageUploadField from "./ImageUploadField";
 
 interface Props {
   sectionKey: SectionKey;
@@ -81,7 +82,10 @@ export default function HomepageSectionEditor({
   });
 
   async function onSubmit(data: Record<string, unknown>) {
-    const res = await updateSectionAction(sectionKey, data);
+    // После унификации CMS сохраняем в page_sections (page_path='/').
+    // upsertPageSectionAction ожидает либо плоский content, либо
+    // { content, display_order?, enabled? } — мы передаём плоский.
+    const res = await upsertPageSectionAction("/", sectionKey, data);
     if (!res.ok) {
       toast.error(res.error ?? "Не удалось сохранить");
       return;
@@ -667,12 +671,21 @@ function ServicesFields({
               <Field label="Бейдж" hint="например 'от 1,7 ₽/шт'">
                 <TextInput register={register(`items.${idx}.badge` as const)} />
               </Field>
-              <Field label="URL картинки">
-                <TextInput
-                  type="url"
-                  register={register(`items.${idx}.image` as const)}
+              <div className="sm:col-span-2">
+                <Controller
+                  control={form.control}
+                  name={`items.${idx}.image` as const}
+                  render={({ field }) => (
+                    <ImageUploadField
+                      label="Картинка"
+                      value={field.value}
+                      onChange={(url) => field.onChange(url ?? "")}
+                      pathPrefix="sections"
+                      hint="Изображение карточки услуги"
+                    />
+                  )}
                 />
-              </Field>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Ширина (опц.)">
                   <TextInput register={register(`items.${idx}.width` as const)} />

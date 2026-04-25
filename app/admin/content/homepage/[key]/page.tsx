@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { getSection } from "@/lib/data/cms";
+import { getPageSection } from "@/lib/data/page-sections";
 import {
   isValidSectionKey,
   getSectionSchema,
@@ -14,12 +14,21 @@ interface PageProps {
 
 export const metadata = { title: "Редактирование секции" };
 
+/**
+ * Редактор отдельной секции главной.
+ *
+ * После унификации CMS (миграция 017) данные читаются из page_sections
+ * (page_path='/'), а сохраняются через `upsertPageSectionAction('/', key, data)`.
+ *
+ * Schema, по которой парсится initialContent, остаётся та же (cms.ts) —
+ * она же используется content_type='home_<key>' в page_sections schemas.
+ */
 export default async function HomepageSectionEditPage({ params }: PageProps) {
   const { key } = await params;
   if (!isValidSectionKey(key)) notFound();
   const sectionKey: SectionKey = key;
 
-  const stored = await getSection(sectionKey);
+  const stored = await getPageSection("/", sectionKey);
   const schema = getSectionSchema(sectionKey);
   // Парсим текущее содержимое через схему — получаем уже нормализованные
   // дефолты для пустых полей. Если в БД ничего нет — используем парс

@@ -123,6 +123,13 @@ export async function upsertPageSectionAction(
     updateTag(pageSectionsCacheTag(rawPath));
     revalidatePath(rawPath);
     revalidatePath("/admin/content/sections");
+    // Главная редактируется также из устаревшего admin-маршрута
+    // /admin/content/homepage — инвалидируем и его, чтобы список и
+    // редактор сразу подхватили свежие данные.
+    if (rawPath === "/") {
+      revalidatePath("/admin/content/homepage");
+      revalidatePath(`/admin/content/homepage/${rawSectionKey}`);
+    }
 
     try {
       await sql`
@@ -193,6 +200,9 @@ export async function reorderPageSectionsAction(
     updateTag(pageSectionsCacheTag(rawPath));
     revalidatePath(rawPath);
     revalidatePath("/admin/content/sections");
+    if (rawPath === "/") {
+      revalidatePath("/admin/content/homepage");
+    }
 
     try {
       await sql`
@@ -252,6 +262,9 @@ export async function togglePageSectionAction(
     updateTag(pageSectionsCacheTag(rawPath));
     revalidatePath(rawPath);
     revalidatePath("/admin/content/sections");
+    if (rawPath === "/") {
+      revalidatePath("/admin/content/homepage");
+    }
 
     return { ok: true };
   } catch (err) {

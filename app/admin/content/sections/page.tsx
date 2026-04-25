@@ -20,6 +20,7 @@ export const metadata = { title: "Секции страниц" };
  */
 
 const PAGE_LABELS: Record<string, string> = {
+  "/":           "Главная",
   "/about":      "О компании",
   "/contacts":   "Контакты",
   "/calculator": "Калькулятор",

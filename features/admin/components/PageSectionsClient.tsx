@@ -43,25 +43,44 @@ export interface PagePayload {
 }
 
 const CONTENT_TYPE_LABELS: Record<PageSectionContentType, string> = {
-  hero:         "Hero",
-  text_block:   "Текстовый блок",
-  values:       "Ценности",
-  cards_grid:   "Сетка карточек",
-  faq:          "FAQ",
-  cta:          "CTA",
-  contact_info: "Контактная информация",
-  stats_grid:   "Статистика",
+  hero:            "Hero",
+  text_block:      "Текстовый блок",
+  values:          "Ценности",
+  cards_grid:      "Сетка карточек",
+  faq:             "FAQ",
+  cta:             "CTA",
+  contact_info:    "Контактная информация",
+  stats_grid:      "Статистика",
+  // home_*: расширенные секции главной (миграция 017). На странице
+  // /admin/content/sections видны как информационные карточки —
+  // редактирование делается через /admin/content/homepage/[key].
+  home_hero:       "Hero (главная)",
+  home_about:      "О компании (главная)",
+  home_services:   "Услуги (главная)",
+  home_promotions: "Акции (главная)",
+  home_portfolio:  "Портфолио (главная)",
+  home_features:   "Преимущества (главная)",
+  home_faq:        "FAQ (главная)",
+  home_cta:        "CTA (главная)",
 };
 
 const CONTENT_TYPE_COLORS: Record<PageSectionContentType, string> = {
-  hero:         "bg-brand-orange/10 text-brand-orange",
-  text_block:   "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  values:       "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  cards_grid:   "bg-purple-500/10 text-purple-600 dark:text-purple-400",
-  faq:          "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  cta:          "bg-pink-500/10 text-pink-600 dark:text-pink-400",
-  contact_info: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
-  stats_grid:   "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
+  hero:            "bg-brand-orange/10 text-brand-orange",
+  text_block:      "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  values:          "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  cards_grid:      "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+  faq:             "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  cta:             "bg-pink-500/10 text-pink-600 dark:text-pink-400",
+  contact_info:    "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
+  stats_grid:      "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
+  home_hero:       "bg-brand-orange/10 text-brand-orange",
+  home_about:      "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+  home_services:   "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  home_promotions: "bg-pink-500/10 text-pink-600 dark:text-pink-400",
+  home_portfolio:  "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+  home_features:   "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
+  home_faq:        "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  home_cta:        "bg-pink-500/10 text-pink-600 dark:text-pink-400",
 };
 
 function fmtDate(iso: string | null): string {
