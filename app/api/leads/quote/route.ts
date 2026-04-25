@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
 
   let requestId: number | null = null;
   let requestNumber: string | null = null;
+  let insertFailed = false;
 
   try {
     const customerEmail = (input.customer_email ?? null) as string | null;
@@ -79,7 +80,13 @@ export async function POST(request: NextRequest) {
     const productId = (input.product_id ?? null) as number | null;
     const categoryId = (input.category_id ?? null) as number | null;
     const params = (input.params ?? {}) as Record<string, unknown>;
-    const attachments = (input.attachments ?? []) as unknown[];
+    // attachments — это TEXT[] в БД (см. db/migrations/002_schema.sql:222),
+    // массив URL-строк (Zod гарантирует z.array(z.string().url())).
+    // Передаём через sql.array(value, 1009) — postgres OID для `text[]`.
+    // НЕЛЬЗЯ использовать sql.json() — это сериализует в JSONB и ломает
+    // INSERT (column "attachments" is of type text[] but expression is of
+    // type jsonb), из-за чего раньше все заявки молча терялись.
+    const attachments = (input.attachments ?? []) as string[];
     const promoCode = (input.promoCode ?? null) as string | null;
 
     const rows = await sql<{ id: number; request_number: string | null }[]>`
@@ -101,7 +108,7 @@ export async function POST(request: NextRequest) {
         ${customerEmail},
         ${companyName},
         ${sql.json(params as unknown as Parameters<typeof sql.json>[0])},
-        ${sql.json(attachments as unknown as Parameters<typeof sql.json>[0])},
+        ${sql.array(attachments, 1009)},
         ${comment},
         ${sourceUrl},
         'new',
@@ -144,7 +151,18 @@ export async function POST(request: NextRequest) {
         });
       }
     }
-    console.warn("[api/leads/quote] DB insert failed:", err);
+    insertFailed = true;
+    console.error("[api/leads/quote] DB insert failed:", err);
+  }
+
+  // Если INSERT не прошёл и id не получен — возвращаем 500, а не ложный
+  // success. Иначе клиент думает что заявка принята, а её нет в БД, и
+  // менеджер никогда о ней не узнает (это и был исходный P0-баг).
+  if (insertFailed || requestId === null) {
+    return NextResponse.json(
+      { error: "Не удалось сохранить заявку. Попробуйте позже." },
+      { status: 500 },
+    );
   }
 
   try {

@@ -28,6 +28,7 @@ type SqlMock = ReturnType<typeof vi.fn> & {
   begin: ReturnType<typeof vi.fn>;
   end: ReturnType<typeof vi.fn>;
   json: ReturnType<typeof vi.fn>;
+  array: ReturnType<typeof vi.fn>;
 };
 
 function createSqlMock(): SqlMock {
@@ -39,6 +40,11 @@ function createSqlMock(): SqlMock {
   // колонку. В тестах достаточно вернуть исходное значение — реальная
   // сериализация не нужна (мы не пишем в реальную БД).
   m.json = vi.fn((value: unknown) => value);
+  // postgres-js: sql.array(value, oid) → ArrayParameter для INSERT в
+  // text[]/bigint[]/etc. В тестах возвращаем исходный массив — это
+  // позволяет тестам через JSON.stringify(mockSql.mock.calls) проверить
+  // что нужные значения переданы.
+  m.array = vi.fn((value: unknown) => value);
   return m;
 }
 
@@ -54,6 +60,8 @@ export function resetSqlMock(): void {
   mockSql.end.mockReset();
   mockSql.json.mockReset();
   mockSql.json.mockImplementation((value: unknown) => value);
+  mockSql.array.mockReset();
+  mockSql.array.mockImplementation((value: unknown) => value);
 }
 
 vi.mock("@/lib/db/client", () => ({
