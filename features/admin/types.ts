@@ -21,14 +21,16 @@ export interface ChartDataPoint {
   orders: number;
 }
 
-/** @deprecated Удалён вместе с TopProductsList. Stub для совместимости. */
+/** @deprecated Удалён вместе с TopProductsList. Stub для совместимости.
+ *  Поля `sold`/`revenue` — оригинальный контракт компонента
+ *  (см. features/admin/components/TopProductsList.tsx на VPS). */
 export interface TopProduct {
   id: number;
   name: string;
-  slug: string;
+  slug?: string;
   image_url: string | null;
-  total_sold: number;
-  total_revenue: number;
+  sold: number;
+  revenue: number;
 }
 
 // ── Products ──
