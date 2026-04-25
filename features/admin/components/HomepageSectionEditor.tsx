@@ -454,9 +454,11 @@ function HeroFields({
           <Field label="Текст основной кнопки">
             <TextInput register={register("cta_primary_text")} />
           </Field>
-          <Field label="URL основной кнопки">
+          <Field
+            label="URL основной кнопки"
+            hint="Внутренняя ссылка: /calculator, /portfolio. Внешняя: https://example.com"
+          >
             <TextInput
-              type="url"
               register={register("cta_primary_url")}
               placeholder="/calculator"
             />
@@ -464,9 +466,11 @@ function HeroFields({
           <Field label="Текст второй кнопки">
             <TextInput register={register("cta_secondary_text")} />
           </Field>
-          <Field label="URL второй кнопки">
+          <Field
+            label="URL второй кнопки"
+            hint="Внутренняя ссылка: /calculator, /portfolio. Внешняя: https://example.com"
+          >
             <TextInput
-              type="url"
               register={register("cta_secondary_url")}
               placeholder="/portfolio"
             />
@@ -604,8 +608,11 @@ function AboutFields({
           <Field label="Текст кнопки">
             <TextInput register={register("cta_text")} />
           </Field>
-          <Field label="URL кнопки">
-            <TextInput type="url" register={register("cta_url")} />
+          <Field
+            label="URL кнопки"
+            hint="Внутренняя ссылка: /calculator, /portfolio. Внешняя: https://example.com"
+          >
+            <TextInput register={register("cta_url")} placeholder="/about" />
           </Field>
         </div>
       </Card>
@@ -845,8 +852,11 @@ function PromotionsHeaderFields({
         <Field label="Текст кнопки">
           <TextInput register={register("cta_text")} />
         </Field>
-        <Field label="URL кнопки">
-          <TextInput type="url" register={register("cta_url")} />
+        <Field
+          label="URL кнопки"
+          hint="Внутренняя ссылка: /promotions, /catalog. Внешняя: https://example.com"
+        >
+          <TextInput register={register("cta_url")} placeholder="/promotions" />
         </Field>
       </div>
     </Card>
@@ -878,8 +888,14 @@ function PortfolioHeaderFields({
         <Field label='Текст кнопки "Все работы"'>
           <TextInput register={register("more_button_text")} />
         </Field>
-        <Field label="URL кнопки">
-          <TextInput type="url" register={register("more_button_url")} />
+        <Field
+          label="URL кнопки"
+          hint="Внутренняя ссылка: /portfolio. Внешняя: https://example.com"
+        >
+          <TextInput
+            register={register("more_button_url")}
+            placeholder="/portfolio"
+          />
         </Field>
       </div>
     </Card>
@@ -1028,8 +1044,14 @@ function CtaFields({
         <Field label="Текст кнопки">
           <TextInput register={register("button_text")} />
         </Field>
-        <Field label="URL кнопки">
-          <TextInput type="url" register={register("button_url")} />
+        <Field
+          label="URL кнопки"
+          hint="Внутренняя ссылка: /contacts, /calculator. Внешняя: https://example.com"
+        >
+          <TextInput
+            register={register("button_url")}
+            placeholder="/contacts"
+          />
         </Field>
       </div>
       <Field label='Текст "позвоните нам"'>

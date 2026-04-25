@@ -275,11 +275,14 @@ export default function PromotionFormClient({ initial }: Props) {
                   URL ссылки
                 </label>
                 <input
-                  type="url"
+                  type="text"
                   {...register("link_url")}
                   className="h-11 w-full rounded-lg border border-neutral-200 bg-transparent px-3 text-sm focus:border-brand-orange focus:outline-none focus:ring-2 focus:ring-brand-orange/20 dark:border-white/10 dark:text-white"
-                  placeholder="/contact"
+                  placeholder="/contacts"
                 />
+                <p className="mt-1 text-xs text-neutral-500">
+                  Внутренняя ссылка: /contacts, /calculator. Внешняя: https://example.com
+                </p>
               </div>
             </div>
           </div>
