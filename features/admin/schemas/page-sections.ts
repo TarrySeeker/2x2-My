@@ -1,5 +1,15 @@
 import { z } from "zod";
 import { safeUrl } from "./_shared";
+import {
+  heroSectionSchema    as homeHeroSectionSchema,
+  aboutSectionSchema   as homeAboutSectionSchema,
+  servicesSectionSchema as homeServicesSectionSchema,
+  promotionsSectionSchema as homePromotionsSectionSchema,
+  portfolioSectionSchema  as homePortfolioSectionSchema,
+  featuresSectionSchema   as homeFeaturesSectionSchema,
+  faqSectionSchema        as homeFaqSectionSchema,
+  ctaSectionSchema        as homeCtaSectionSchema,
+} from "./cms";
 
 /**
  * Zod-схемы для таблицы `page_sections` (миграция 010).
@@ -146,6 +156,12 @@ export const statsGridSectionSchema = z.object({
     .default([]),
 });
 
+// ── Главная страница ('/') ──
+// Контент-типы `home_*` сохраняют 1:1 структуру старой таблицы
+// `homepage_sections`. После миграции 017 источник истины для главной —
+// page_sections с этими content_type. Schemas re-экспортируются из cms.ts,
+// чтобы существующие админ-формы (HomepageSectionEditor) продолжали работать.
+
 // ── Registry ──
 export const PAGE_SECTION_SCHEMAS = {
   hero:         heroPageSectionSchema,
@@ -156,6 +172,15 @@ export const PAGE_SECTION_SCHEMAS = {
   cta:          ctaSectionContentSchema,
   contact_info: contactInfoSectionSchema,
   stats_grid:   statsGridSectionSchema,
+  // Главная — переиспользуем homepage-схемы под уникальными ключами
+  home_hero:       homeHeroSectionSchema,
+  home_about:      homeAboutSectionSchema,
+  home_services:   homeServicesSectionSchema,
+  home_promotions: homePromotionsSectionSchema,
+  home_portfolio:  homePortfolioSectionSchema,
+  home_features:   homeFeaturesSectionSchema,
+  home_faq:        homeFaqSectionSchema,
+  home_cta:        homeCtaSectionSchema,
 } as const satisfies Record<string, z.ZodTypeAny>;
 
 export type PageSectionContentType = keyof typeof PAGE_SECTION_SCHEMAS;
@@ -186,6 +211,16 @@ export const PAGE_SECTIONS_ALLOWED: readonly {
   section_key: string;
   content_type: PageSectionContentType;
 }[] = [
+  // / (главная) — после миграции 017 единственный источник истины.
+  // Порядок display_order контролируется в миграции/админке, не здесь.
+  { page_path: "/",           section_key: "hero",          content_type: "home_hero"       },
+  { page_path: "/",           section_key: "about",         content_type: "home_about"      },
+  { page_path: "/",           section_key: "services",      content_type: "home_services"   },
+  { page_path: "/",           section_key: "promotions",    content_type: "home_promotions" },
+  { page_path: "/",           section_key: "portfolio",     content_type: "home_portfolio"  },
+  { page_path: "/",           section_key: "features",      content_type: "home_features"   },
+  { page_path: "/",           section_key: "faq",           content_type: "home_faq"        },
+  { page_path: "/",           section_key: "cta",           content_type: "home_cta"        },
   // /about
   { page_path: "/about",      section_key: "hero",          content_type: "hero"         },
   { page_path: "/about",      section_key: "story",         content_type: "text_block"   },
