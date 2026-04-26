@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import {
   getBlogPosts,
   getBlogCategories,
@@ -19,6 +19,21 @@ import {
   blogCategorySchema,
 } from "@/features/admin/schemas/blog";
 import { sanitizeHtml } from "@/lib/sanitize/html";
+import { BLOG_POSTS_CACHE_TAG } from "@/lib/data/blog";
+
+/**
+ * После любой мутации блога — инвалидируем публичный кеш `BLOG_POSTS_CACHE_TAG`
+ * и пути `/blog`, `/blog/[slug]`. Иначе пост, опубликованный/обновлённый
+ * через админку, появится на витрине только через TTL `unstable_cache` (60 с)
+ * + RSC fetch cache (~120 с).
+ */
+function revalidatePublicBlog(slug?: string | null) {
+  updateTag(BLOG_POSTS_CACHE_TAG);
+  revalidatePath("/blog");
+  if (slug) {
+    revalidatePath(`/blog/${slug}`);
+  }
+}
 
 const idSchema = z.number().int().positive();
 
@@ -54,6 +69,7 @@ export async function createBlogPostAction(data: unknown) {
   validated.content = sanitizeHtml(validated.content);
   const result = await createBlogPost(validated, profile.id);
   revalidatePath("/admin/blog");
+  revalidatePublicBlog(validated.slug);
   return result;
 }
 
@@ -65,6 +81,7 @@ export async function updateBlogPostAction(id: number, data: unknown) {
   await updateBlogPost(validatedId, validated);
   revalidatePath("/admin/blog");
   revalidatePath(`/admin/blog/${validatedId}`);
+  revalidatePublicBlog(validated.slug);
 }
 
 export async function deleteBlogPostAction(id: number) {
@@ -72,6 +89,7 @@ export async function deleteBlogPostAction(id: number) {
   const validated = idSchema.parse(id);
   await deleteBlogPost(validated);
   revalidatePath("/admin/blog");
+  revalidatePublicBlog(null);
 }
 
 // ── Blog Categories ──

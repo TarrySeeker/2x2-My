@@ -6,10 +6,14 @@ import { makeGenerateMetadata } from '@/lib/seo/metadata-cms'
 import { readPageSectionContent } from '@/lib/cms/page-section-content'
 import { JsonLdScript, buildBreadcrumbList } from '@/lib/seo/json-ld'
 import { blogStarters } from '@/content/blog-starters'
+import { getPublishedBlogPosts } from '@/lib/data/blog'
+import type { BlogPost } from '@/types'
 import { SITE, absoluteUrl } from '@/lib/seo/site'
 
-// CMS-driven hero. См. app/page.tsx про build network.
-// blogStarters — статический content/, поэтому page быстро рендерится.
+// CMS-driven hero. Список постов теперь читаем из `blog_posts` через
+// `getPublishedBlogPosts()` (см. lib/data/blog.ts). Если БД пустая или
+// недоступна — fallback на `content/blog-starters.ts`, чтобы страница
+// никогда не была пустой даже при сбое БД.
 export const dynamic = 'force-dynamic'
 
 export const generateMetadata = makeGenerateMetadata({
@@ -29,7 +33,46 @@ export const generateMetadata = makeGenerateMetadata({
   },
 })
 
-function buildBlogListJsonLd() {
+/**
+ * Унифицированный shape карточки превью блога — собран либо из БД-row
+ * `blog_posts`, либо из стартера `BlogStarter`. Локальный, чтобы
+ * не размазывать типы по нескольким файлам.
+ */
+type BlogCard = {
+  slug: string
+  title: string
+  excerpt: string
+  coverUrl: string
+  readTimeMin: number
+  publishedAt: string | null
+}
+
+const FALLBACK_COVER = 'https://images.unsplash.com/photo-1521337581100-8ca9a73a5f79?w=1600'
+
+function fromBlogPost(p: BlogPost): BlogCard {
+  return {
+    slug: p.slug,
+    title: p.title,
+    excerpt: p.excerpt ?? '',
+    coverUrl: p.cover_image_url || FALLBACK_COVER,
+    // reading_time лежит в БД как nullable int; если нет — оценим в 5 мин.
+    readTimeMin: p.reading_time ?? 5,
+    publishedAt: p.published_at ?? p.updated_at ?? null,
+  }
+}
+
+function fromStarter(s: (typeof blogStarters)[number]): BlogCard {
+  return {
+    slug: s.slug,
+    title: s.title,
+    excerpt: s.excerpt,
+    coverUrl: s.coverUrl,
+    readTimeMin: s.readTimeMin,
+    publishedAt: null,
+  }
+}
+
+function buildBlogListJsonLd(cards: BlogCard[]) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Blog',
@@ -40,13 +83,13 @@ function buildBlogListJsonLd() {
     url: absoluteUrl('/blog'),
     inLanguage: SITE.language,
     publisher: { '@id': `${SITE.url}/#organization` },
-    blogPost: blogStarters.map((post) => ({
+    blogPost: cards.map((post) => ({
       '@type': 'BlogPosting',
       headline: post.title,
       description: post.excerpt,
       url: absoluteUrl(`/blog/${post.slug}`),
       image: post.coverUrl,
-      datePublished: '2026-02-01',
+      datePublished: post.publishedAt ?? '2026-02-01',
       author: { '@type': 'Organization', name: SITE.name },
     })),
   }
@@ -54,6 +97,15 @@ function buildBlogListJsonLd() {
 
 export default async function BlogPage() {
   const heroCms = await readPageSectionContent('/blog', 'hero', 'hero')
+
+  // Источник истины: БД. Если пусто — fallback на статические стартеры,
+  // чтобы страница не уходила в ноль (защита от пустой БД и от сбоя).
+  const dbPosts = await getPublishedBlogPosts()
+  const cards: BlogCard[] =
+    dbPosts.length > 0
+      ? dbPosts.map(fromBlogPost)
+      : blogStarters.map(fromStarter)
+
   return (
     <main>
       <JsonLdScript
@@ -62,7 +114,7 @@ export default async function BlogPage() {
             { name: 'Главная', url: '/' },
             { name: 'Блог', url: '/blog' },
           ]),
-          buildBlogListJsonLd(),
+          buildBlogListJsonLd(cards),
         ]}
       />
       <ServicesHero
@@ -78,7 +130,7 @@ export default async function BlogPage() {
         <div className="container">
           <AnimatedSection>
             <div className="mx-auto grid max-w-5xl gap-8 md:grid-cols-2">
-              {blogStarters.map((post) => (
+              {cards.map((post) => (
                 <article
                   key={post.slug}
                   className="group overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm transition hover:shadow-lg"

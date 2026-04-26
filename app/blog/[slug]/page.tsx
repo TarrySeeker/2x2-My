@@ -12,28 +12,106 @@ import {
   buildBreadcrumbList,
 } from '@/lib/seo/json-ld'
 import { blogStarters, type BlogStarter } from '@/content/blog-starters'
+import { getBlogPostBySlug, getPublishedBlogPosts } from '@/lib/data/blog'
+import type { BlogPost } from '@/types'
 
-export const revalidate = 3600
+// Источник истины — `blog_posts` в БД. Фоллбек на `content/blog-starters.ts`
+// сохраняем для случаев, когда БД пустая или сбой (страница не должна 404'иться
+// для статей, которые исторически жили в статике до подключения БД).
+//
+// `dynamic = force-dynamic` + `revalidate = 0`: выбор поста идёт по slug
+// через `unstable_cache` (60 с) внутри `getBlogPostBySlug` — Next-кеш RSC
+// нам тут не нужен, иначе после публикации новой статьи через админку
+// пришлось бы ждать TTL вместо `revalidateTag`.
+export const dynamic = 'force-dynamic'
 
 type Params = { slug: string }
 
+/**
+ * generateStaticParams оставляем синхронным с известными starter'ами —
+ * это безопасный bootstrap для билда. Динамические slug'и из БД
+ * прекрасно резолвятся через dynamic-route + `dynamicParams=true` (по
+ * умолчанию). Полностью убирать generateStaticParams нельзя, иначе
+ * Next жалуется на отсутствие prerender для статически известных URL.
+ */
 export function generateStaticParams(): Params[] {
   return blogStarters.map((post) => ({ slug: post.slug }))
 }
 
-function findPost(slug: string): BlogStarter | undefined {
-  return blogStarters.find((p) => p.slug === slug)
-}
-
-// Разнесённые даты публикации стартовых статей (Feb–Apr 2026).
-// Совпадают с `seed.sql` blog_posts.published_at — источник истины
-// до появления dynamic БД-роута.
-const PUBLISHED_AT: Record<string, string> = {
+// Карта дат публикации для starter'ов (когда статья отдаётся как
+// fallback из статики, но в БД её ещё нет). Если статья пришла из БД,
+// дата берётся из `published_at` / `updated_at`.
+const STARTER_PUBLISHED_AT: Record<string, string> = {
   'skolko-stoit-vyveska-v-khanty-mansijske-2026': '2026-02-12',
   'kak-vybrat-vyvesku-dlya-magazina-7-voprosov': '2026-02-26',
   'trebovaniya-k-reklamnym-konstrukciyam-v-khanty-mansijske': '2026-03-14',
   'svetovye-bukvy-ili-korob-chto-luchshe': '2026-03-28',
   'brending-transporta-primery-iz-yugry': '2026-04-08',
+}
+
+const FALLBACK_COVER = 'https://images.unsplash.com/photo-1521337581100-8ca9a73a5f79?w=1600'
+
+/**
+ * Унифицированный shape статьи для рендера: либо из БД, либо из starter'а.
+ */
+type Article = {
+  slug: string
+  title: string
+  excerpt: string
+  content: string
+  coverUrl: string
+  readTimeMin: number
+  seoTitle: string
+  seoDescription: string
+  seoKeywords: string[]
+  publishedAt: string
+}
+
+function fromBlogPost(p: BlogPost): Article {
+  const publishedAt =
+    p.published_at ?? p.updated_at ?? p.created_at ?? new Date().toISOString()
+  const keywords = (p.seo_keywords ?? '')
+    .split(',')
+    .map((k) => k.trim())
+    .filter(Boolean)
+  return {
+    slug: p.slug,
+    title: p.title,
+    excerpt: p.excerpt ?? '',
+    content: p.content ?? '',
+    coverUrl: p.cover_image_url || FALLBACK_COVER,
+    readTimeMin: p.reading_time ?? 5,
+    seoTitle: p.seo_title ?? p.title,
+    seoDescription: p.seo_description ?? p.excerpt ?? '',
+    seoKeywords: keywords,
+    publishedAt,
+  }
+}
+
+function fromStarter(s: BlogStarter): Article {
+  return {
+    slug: s.slug,
+    title: s.title,
+    excerpt: s.excerpt,
+    content: s.content,
+    coverUrl: s.coverUrl,
+    readTimeMin: s.readTimeMin,
+    seoTitle: s.seoTitle,
+    seoDescription: s.seoDescription,
+    seoKeywords: s.seoKeywords.split(',').map((k) => k.trim()).filter(Boolean),
+    publishedAt: STARTER_PUBLISHED_AT[s.slug] ?? '2026-02-01',
+  }
+}
+
+/**
+ * Главный резолвер: сначала пробуем БД, затем — статические starter'ы.
+ * Возвращает `null`, если статьи нет ни там, ни там.
+ */
+async function resolveArticle(slug: string): Promise<Article | null> {
+  const dbPost = await getBlogPostBySlug(slug)
+  if (dbPost) return fromBlogPost(dbPost)
+  const starter = blogStarters.find((p) => p.slug === slug)
+  return starter ? fromStarter(starter) : null
 }
 
 export async function generateMetadata({
@@ -42,8 +120,8 @@ export async function generateMetadata({
   params: Promise<Params>
 }): Promise<Metadata> {
   const { slug } = await params
-  const post = findPost(slug)
-  if (!post) {
+  const article = await resolveArticle(slug)
+  if (!article) {
     return buildMetadata({
       title: 'Статья не найдена',
       description: 'Запрошенная статья блога не найдена.',
@@ -52,17 +130,15 @@ export async function generateMetadata({
     })
   }
 
-  const publishedAt = PUBLISHED_AT[post.slug] ?? '2026-02-01'
-
   return buildMetadata({
-    title: post.seoTitle,
-    description: post.seoDescription,
-    path: `/blog/${post.slug}`,
-    image: post.coverUrl,
+    title: article.seoTitle,
+    description: article.seoDescription,
+    path: `/blog/${article.slug}`,
+    image: article.coverUrl,
     type: 'article',
-    keywords: post.seoKeywords.split(',').map((k) => k.trim()),
-    publishedTime: publishedAt,
-    modifiedTime: publishedAt,
+    keywords: article.seoKeywords,
+    publishedTime: article.publishedAt,
+    modifiedTime: article.publishedAt,
     authorName: 'Рекламная компания «2х2»',
   })
 }
@@ -73,17 +149,42 @@ export default async function BlogPostPage({
   params: Promise<Params>
 }) {
   const { slug } = await params
-  const post = findPost(slug)
-  if (!post) notFound()
+  const article = await resolveArticle(slug)
+  if (!article) notFound()
 
-  const publishedAt = PUBLISHED_AT[post.slug] ?? '2026-02-01'
-  const publishedHuman = new Date(publishedAt).toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
+  const publishedHuman = new Date(article.publishedAt).toLocaleDateString(
+    'ru-RU',
+    {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    },
+  )
 
-  const related = blogStarters.filter((p) => p.slug !== post.slug).slice(0, 3)
+  // «Читайте также»: берём свежие посты из БД, исключая текущий.
+  // Если БД пустая — fallback на starter'ы (ровно как было).
+  const dbPosts = await getPublishedBlogPosts()
+  const relatedSource: Array<{
+    slug: string
+    title: string
+    coverUrl: string
+    readTimeMin: number
+  }> =
+    dbPosts.length > 0
+      ? dbPosts.map((p) => ({
+          slug: p.slug,
+          title: p.title,
+          coverUrl: p.cover_image_url || FALLBACK_COVER,
+          readTimeMin: p.reading_time ?? 5,
+        }))
+      : blogStarters.map((s) => ({
+          slug: s.slug,
+          title: s.title,
+          coverUrl: s.coverUrl,
+          readTimeMin: s.readTimeMin,
+        }))
+
+  const related = relatedSource.filter((p) => p.slug !== article.slug).slice(0, 3)
 
   return (
     <main>
@@ -92,17 +193,17 @@ export default async function BlogPostPage({
           buildBreadcrumbList([
             { name: 'Главная', url: '/' },
             { name: 'Блог', url: '/blog' },
-            { name: post.title, url: `/blog/${post.slug}` },
+            { name: article.title, url: `/blog/${article.slug}` },
           ]),
           buildArticle({
-            title: post.title,
-            slug: post.slug,
-            description: post.excerpt,
-            image: post.coverUrl,
-            datePublished: publishedAt,
-            dateModified: publishedAt,
+            title: article.title,
+            slug: article.slug,
+            description: article.excerpt,
+            image: article.coverUrl,
+            datePublished: article.publishedAt,
+            dateModified: article.publishedAt,
             authorName: 'Рекламная компания «2х2»',
-            readTimeMin: post.readTimeMin,
+            readTimeMin: article.readTimeMin,
           }),
         ]}
       />
@@ -124,15 +225,15 @@ export default async function BlogPostPage({
                   Блог
                 </Link>
                 <span className="mx-2">/</span>
-                <span className="text-white">{post.title}</span>
+                <span className="text-white">{article.title}</span>
               </nav>
               <h1 className="mb-6 max-w-4xl text-3xl font-black leading-tight text-white md:text-5xl">
-                {post.title}
+                {article.title}
               </h1>
               <div className="flex flex-wrap items-center gap-4 text-sm text-gray-300">
-                <time dateTime={publishedAt}>{publishedHuman}</time>
+                <time dateTime={article.publishedAt}>{publishedHuman}</time>
                 <span aria-hidden="true">·</span>
-                <span>{post.readTimeMin} мин чтения</span>
+                <span>{article.readTimeMin} мин чтения</span>
                 <span aria-hidden="true">·</span>
                 <span>Рекламная компания «2х2»</span>
               </div>
@@ -146,8 +247,8 @@ export default async function BlogPostPage({
               <AnimatedSection>
                 <div className="relative mb-10 aspect-[16/9] overflow-hidden rounded-2xl bg-neutral-100">
                   <Image
-                    src={post.coverUrl}
-                    alt={post.title}
+                    src={article.coverUrl}
+                    alt={article.title}
                     fill
                     sizes="(max-width: 768px) 100vw, 768px"
                     className="object-cover"
@@ -155,10 +256,12 @@ export default async function BlogPostPage({
                     unoptimized
                   />
                 </div>
-                <p className="mb-8 text-lg leading-relaxed text-neutral-600">
-                  {post.excerpt}
-                </p>
-                <SimpleMarkdown source={post.content} />
+                {article.excerpt ? (
+                  <p className="mb-8 text-lg leading-relaxed text-neutral-600">
+                    {article.excerpt}
+                  </p>
+                ) : null}
+                <SimpleMarkdown source={article.content} />
               </AnimatedSection>
             </div>
           </div>
