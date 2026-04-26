@@ -147,6 +147,11 @@ export default async function Footer() {
     organization.description ||
     DEFAULT_TAGLINE
 
+  // Юр. реквизиты — только из БД (`site_settings.legal_entity`).
+  // Если клиент ещё не заполнил, ИЛИ заполнил частично — показываем
+  // только то, что есть. Никаких хардкод-fallback'ов: иначе клиент
+  // не сможет «затереть» неверный ИНН/ОГРН через админку.
+  // Реальные данные сидируются миграцией 022_legal_entity_seed.sql.
   const legalName = legal.legal_name?.trim() ?? ''
   const legalInn = legal.inn?.trim() ?? ''
   const legalOgrn = legal.ogrn?.trim() ?? ''
@@ -155,11 +160,7 @@ export default async function Footer() {
   if (legalName) legalLineParts.push(legalName)
   if (legalInn) legalLineParts.push(`ИНН: ${legalInn}`)
   if (legalOgrn) legalLineParts.push(`ОГРН: ${legalOgrn}`)
-  // Fallback: старые хардкод-данные, если клиент ещё не заполнил админку.
-  const legalLine =
-    legalLineParts.length > 0
-      ? legalLineParts.join(' · ')
-      : 'ИНН: 861006205140 · ОГРН: 323861700071382'
+  const legalLine = legalLineParts.length > 0 ? legalLineParts.join(' · ') : ''
 
   const phoneDisplay = contacts.phone_primary || DEFAULT_CONTACTS.phone_primary!
   const phoneTel = digitsOnly(phoneDisplay)
@@ -256,7 +257,9 @@ export default async function Footer() {
           <p className="text-gray-500 text-sm">
             © {year} {organization.name}. Все права защищены.
           </p>
-          <p className="text-gray-600 text-xs">{legalLine}</p>
+          {legalLine ? (
+            <p className="text-gray-600 text-xs">{legalLine}</p>
+          ) : null}
         </div>
       </div>
     </footer>
