@@ -1,30 +1,23 @@
-import { sql } from "@/lib/db/client";
+import { getAllPortfolioForAdmin } from "@/features/admin/api/portfolio";
 import {
   PORTFOLIO_STUB,
   toPortfolioItemShape,
 } from "@/data/portfolio-stub";
 import type { PortfolioItem } from "@/types";
-import PortfolioFeaturedPageClient from "@/features/admin/components/PortfolioFeaturedPageClient";
+import PortfolioPageClient from "@/features/admin/components/PortfolioPageClient";
 
-export const metadata = { title: "Портфолио — Главная" };
+export const metadata = { title: "Портфолио" };
+export const dynamic = "force-dynamic";
 
 async function loadAllPortfolio(): Promise<PortfolioItem[]> {
-  try {
-    const rows = await sql<PortfolioItem[]>`
-      SELECT *
-      FROM portfolio_items
-      ORDER BY is_published DESC, sort_order ASC, id DESC
-    `;
-    if (rows.length > 0) return rows;
-  } catch (err) {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[admin/portfolio] DB request failed, using stub:", err);
-    }
-  }
+  const rows = await getAllPortfolioForAdmin();
+  if (rows.length > 0) return rows;
+  // Fallback на stub только если в БД пусто И сама БД отвечает.
+  // (getAllPortfolioForAdmin сама ловит ошибку и возвращает []).
   return PORTFOLIO_STUB.map(toPortfolioItemShape);
 }
 
-export default async function PortfolioFeaturedPage() {
+export default async function PortfolioAdminPage() {
   const items = await loadAllPortfolio();
-  return <PortfolioFeaturedPageClient items={items} />;
+  return <PortfolioPageClient items={items} />;
 }
