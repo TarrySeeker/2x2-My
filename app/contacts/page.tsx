@@ -2,6 +2,7 @@ import AnimatedSection from '@/components/ui/AnimatedSection'
 import ServicesHero from '@/components/sections/services/ServicesHero'
 import ContactForm from '@/components/sections/contacts/ContactForm'
 import ContactInfo from '@/components/sections/contacts/ContactInfo'
+import ContactMap from '@/components/sections/contacts/ContactMap'
 import { makeGenerateMetadata } from '@/lib/seo/metadata-cms'
 import { JsonLdScript, buildBreadcrumbList } from '@/lib/seo/json-ld'
 import { readPageSectionContent } from '@/lib/cms/page-section-content'
@@ -18,9 +19,6 @@ export const generateMetadata = makeGenerateMetadata({
     keywords: ['контакты 2х2', 'рекламное агентство ханты-мансийск телефон', 'адрес типографии хмао'],
   },
 })
-
-const MAP_EMBED_FALLBACK =
-  'https://www.google.com/maps?q=%D1%83%D0%BB.+%D0%9F%D0%B0%D1%80%D0%BA%D0%BE%D0%B2%D0%B0%D1%8F,+92%D0%B1,+%D0%A5%D0%B0%D0%BD%D1%82%D1%8B-%D0%9C%D0%B0%D0%BD%D1%81%D0%B8%D0%B9%D1%81%D0%BA&hl=ru&z=15&output=embed'
 
 export default async function ContactsPage() {
   // CMS: /contacts/hero
@@ -41,7 +39,10 @@ export default async function ContactsPage() {
   )
   const formTitle = infoCms?.content.form_title || 'Оставьте заявку'
   const infoTitle = infoCms?.content.info_title || 'Как с нами связаться'
-  const mapEmbed = infoCms?.content.map_embed_url || MAP_EMBED_FALLBACK
+  // Карта переведена со встроенного iframe на статическую карточку
+  // (ContactMap.tsx) — клиентское «Этот контент заблокирован» уходит
+  // вместе с iframe. CMS-поля map_embed_url / map_iframe_title больше
+  // не используются (оставлены в БД как no-op для обратной совместимости).
   const mapTitle = infoCms?.content.map_iframe_title || 'Карта офиса 2×2'
 
   return (
@@ -68,17 +69,8 @@ export default async function ContactsPage() {
             <AnimatedSection direction="right" delay={0.2}>
               <h2 className="text-2xl font-bold text-brand-dark mb-8">{infoTitle}</h2>
               <ContactInfo />
-              <div className="mt-8 rounded-2xl overflow-hidden h-64">
-                <iframe
-                  src={mapEmbed}
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0 }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  title={mapTitle}
-                />
+              <div className="mt-8">
+                <ContactMap title={mapTitle} />
               </div>
             </AnimatedSection>
           </div>

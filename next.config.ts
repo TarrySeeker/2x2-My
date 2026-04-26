@@ -53,6 +53,14 @@ const nextConfig: NextConfig = {
               protocol: "https",
               hostname: "*.s3.timeweb.cloud",
             },
+            // Yandex Static Maps API — статическая карта-картинка офиса
+            // на странице /contacts (см. ContactMap.tsx). Используется
+            // вместо iframe-виджета, который блокировался cookie-consent
+            // и показывал «Этот контент заблокирован» (правка 2026-04-25).
+            {
+              protocol: "https",
+              hostname: "static-maps.yandex.ru",
+            },
           ],
         },
       }),
