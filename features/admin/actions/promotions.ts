@@ -47,6 +47,12 @@ async function audit(
   payload: unknown,
 ): Promise<void> {
   try {
+    // sql.json не любит `undefined`/функции; нормализуем в null или
+    // безопасный JSON-объект через round-trip JSON.parse(JSON.stringify(...)).
+    const safePayload =
+      payload == null
+        ? null
+        : (JSON.parse(JSON.stringify(payload)) as Parameters<typeof sql.json>[0]);
     await sql`
       SELECT log_admin_action(
         ${userId},
@@ -54,7 +60,7 @@ async function audit(
         'promotions',
         ${recordId},
         NULL,
-        ${sql.json(payload as unknown as Parameters<typeof sql.json>[0])},
+        ${safePayload === null ? null : sql.json(safePayload)},
         NULL,
         NULL
       )
@@ -73,7 +79,7 @@ function invalidate() {
 export async function createPromotionAction(
   data: unknown,
 ): Promise<ActionResult & { id?: number }> {
-  const profile = await requireAdmin();
+  const profile = await requireAdmin(["owner", "manager", "content"]);
 
   const parsed = promotionSchema.safeParse(data);
   if (!parsed.success) {
@@ -99,7 +105,7 @@ export async function updatePromotionAction(
   rawId: number,
   data: unknown,
 ): Promise<ActionResult> {
-  const profile = await requireAdmin();
+  const profile = await requireAdmin(["owner", "manager", "content"]);
 
   const idResult = idSchema.safeParse(rawId);
   if (!idResult.success) return { ok: false, error: "Некорректный ID" };
@@ -132,7 +138,7 @@ export async function updatePromotionAction(
 export async function deletePromotionAction(
   rawId: number,
 ): Promise<ActionResult> {
-  const profile = await requireAdmin();
+  const profile = await requireAdmin(["owner", "manager", "content"]);
 
   const idResult = idSchema.safeParse(rawId);
   if (!idResult.success) return { ok: false, error: "Некорректный ID" };
@@ -156,7 +162,7 @@ export async function togglePromotionPopupAction(
   rawId: number,
   data: unknown,
 ): Promise<ActionResult> {
-  const profile = await requireAdmin();
+  const profile = await requireAdmin(["owner", "manager", "content"]);
 
   const idResult = idSchema.safeParse(rawId);
   if (!idResult.success) return { ok: false, error: "Некорректный ID" };
