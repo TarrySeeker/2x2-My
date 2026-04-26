@@ -2,11 +2,12 @@
 
 > Цель — мгновенно узнавать, если `https://erfgv.website` упал (контейнер свалился, истёк сертификат, провайдер сдох, забыли продлить домен и т.п.).
 
-Есть три уровня:
+Есть четыре уровня:
 
-1. **UptimeRobot** (бесплатно, основной) — внешний пинг каждые 5 минут, email + Telegram-алерты, public status page.
-2. **Self-hosted скрипт** `scripts/health-check.sh` (запасной) — cron на стороннем хосте, шлёт прямо в Telegram. Защита от ситуации «UptimeRobot не уведомил».
-3. **Internal `/api/health`** (уже есть) — endpoint, который и UptimeRobot, и наш скрипт дёргают.
+1. **UptimeRobot** (бесплатно, основной) — внешний пинг каждые 5 минут, email + Telegram-алерты, public status page. Требует регистрации с email — настраивается пользователем (см. §2).
+2. **Self-hosted на самом VPS (уже работает)** — `scripts/health-check.sh` стоит на cron каждые 5 минут на проде, пишет лог в `/home/deploy/logs/2x2-uptime.log` и шлёт алерт в Telegram, если задан токен. Не покрывает падение всего VPS, но ловит сбой Next.js / Postgres / health-endpoint. См. §3.
+3. **Self-hosted на стороннем хосте (запасной)** — тот же скрипт, но запущенный с другой машины. Нужен, чтобы при падении самого VPS всё равно пришло уведомление. См. §4.
+4. **Internal `/api/health`** (уже есть) — endpoint, который и UptimeRobot, и наш скрипт дёргают.
 
 ---
 
@@ -123,11 +124,74 @@ UptimeRobot бесплатно проверяет срок сертификат�
 
 ---
 
-## 3. Запасной канал — `scripts/health-check.sh`
+## 3. Self-hosted health-check на самом VPS (УЖЕ НАСТРОЕНО)
 
-UptimeRobot — внешний сервис. Если он сам упадёт или с ним что-то случится, мы об этом не узнаем. Поэтому держим вторую независимую проверку.
+Стоит cron-задача каждые 5 минут, проверяет `/api/health` локально через публичный URL. Лог пишется в `/home/deploy/logs/2x2-uptime.log`. Если в `.env` есть `TELEGRAM_BOT_TOKEN` и `TELEGRAM_NOTIFICATIONS_CHAT_ID` (или `TELEGRAM_CHAT_ID`) — алерт также уйдёт в Telegram.
 
-### 3.1. Где запускать
+### 3.1. Что установлено на проде
+
+```cron
+*/5 * * * * /home/deploy/2x2-shop/scripts/health-check.sh >> /home/deploy/logs/2x2-uptime.log 2>&1
+```
+
+- **Скрипт:** `/home/deploy/2x2-shop/scripts/health-check.sh`
+- **Лог:** `/home/deploy/logs/2x2-uptime.log` (директория `/var/log` недоступна на запись для пользователя `deploy`)
+- **STATE_FILE по умолчанию:** `/tmp/2x2-health-state` (для дедупликации алертов DOWN ↔ RECOVERED)
+- **Telegram:** включается автоматически, если в `.env` есть `TELEGRAM_BOT_TOKEN` + `TELEGRAM_NOTIFICATIONS_CHAT_ID`. Скрипт сам подгружает `.env` из стандартных мест.
+- **Email-fallback:** на VPS не установлен MTA (`mail`/`mailx`/`sendmail`). Если хочется второй канал нотификаций, поставить `apt install mailutils` + настроить `ALERT_EMAIL` (см. §3.3).
+
+### 3.2. Что в логе
+
+Каждый запуск пишет одну строку:
+
+```
+[2026-04-26 19:55:00] URL=https://erfgv.website/api/health HTTP=200 status=healthy → up (telegram=1 mail=0)
+```
+
+При падении добавляется отдельная строка `ALERT [2x2 DOWN] ...`, при восстановлении — `ALERT [2x2 RECOVERED] ...`. Дублирующих DOWN-сообщений нет (дедупликация через `STATE_FILE`).
+
+Ротация лога — добавить файл `/etc/logrotate.d/2x2-uptime`:
+
+```
+/home/deploy/logs/2x2-uptime.log {
+  weekly
+  rotate 8
+  compress
+  missingok
+  notifempty
+  copytruncate
+}
+```
+
+### 3.3. Email-fallback (опционально)
+
+Если хочется ещё и e-mail уведомления:
+
+```bash
+sudo apt-get install -y mailutils      # ставит mail + конфиг exim4
+echo 'ALERT_EMAIL=ops@example.com' | sudo tee -a /etc/default/2x2-health
+sudo chmod 600 /etc/default/2x2-health
+```
+
+Скрипт автоматически подхватит `ALERT_EMAIL` и отправит письмо при наличии бинарника `mail`.
+
+### 3.4. Тест дедупликации (без вмешательства в продакшен URL)
+
+Скрипт умеет «симулировать» падение, не трогая реальный STATE_FILE:
+
+```bash
+ssh deploy@130.49.129.65 'bash /home/deploy/2x2-shop/scripts/health-check.sh --test-down'
+```
+
+В лог попадёт строка `ALERT [2x2 DOWN] ...` и (если задан Telegram) реальное уведомление в чат.
+
+---
+
+## 4. Запасной канал на стороннем хосте
+
+UptimeRobot — внешний сервис. Если он сам упадёт или с ним что-то случится, мы об этом не узнаем. Self-hosted на самом VPS не поможет, если упал весь VPS целиком (нет ни процесса, ни сети — некому послать алерт). Поэтому идеально иметь и третью независимую копию.
+
+### 4.1. Где запускать
 
 **НЕ на том же VPS**, что и сайт. Подойдёт:
 
@@ -135,7 +199,7 @@ UptimeRobot — внешний сервис. Если он сам упадёт �
 - домашний Raspberry Pi с интернетом 24/7;
 - бесплатный always-free тир Oracle Cloud / GitHub Actions schedule (см. ниже).
 
-### 3.2. Установка на сторонний хост
+### 4.2. Установка на сторонний хост
 
 ```bash
 # 1. Скопировать скрипт
@@ -169,7 +233,7 @@ crontab -e
 */5 * * * * set -a; . /etc/default/2x2-health; set +a; /opt/scripts/health-check.sh >> /var/log/2x2-health.log 2>&1
 ```
 
-### 3.3. Как создать Telegram-бота (если ещё нет)
+### 4.3. Как создать Telegram-бота (если ещё нет)
 
 1. В Telegram → [@BotFather](https://t.me/BotFather) → `/newbot`.
 2. Указать имя (например, `2x2 Monitor`) и username (например, `twox2_monitor_bot`).
@@ -179,14 +243,14 @@ crontab -e
    - Для личного чата: открыть `https://api.telegram.org/bot<TOKEN>/getUpdates` после `/start`, найти `"chat":{"id":12345...}`.
    - Для группы: добавить бота в группу, написать любое сообщение, тот же `getUpdates`. ID групп начинается с `-100`.
 
-### 3.4. Как работает дедупликация
+### 4.4. Как работает дедупликация
 
 - Скрипт хранит последний known статус в `/tmp/2x2-health-state` (`up` / `down`).
 - Алерт `DOWN` шлётся **один раз** при переходе `up → down`.
 - Алерт `RECOVERED` шлётся **один раз** при переходе `down → up`.
 - Если перезагрузить сторонний хост — `/tmp` очистится и при следующем запуске статус будет `unknown` → если всё ок, ничего не пришлёт; если down — пришлёт алерт.
 
-### 3.5. Ручной тест
+### 4.5. Ручной тест
 
 ```bash
 # Проверка happy path (если сайт жив, ничего в Telegram не придёт):
@@ -216,9 +280,9 @@ rm -f /tmp/test-state
 
 ---
 
-## 4. Альтернативы
+## 5. Альтернативы
 
-### 4.1. Hetrix Tools (расширенный free-tier)
+### 5.1. Hetrix Tools (расширенный free-tier)
 
 - 15 уптайм-мониторов бесплатно, 1-минутный интервал.
 - Поддержка blacklist-мониторинга, SSL, домена.
@@ -228,7 +292,7 @@ rm -f /tmp/test-state
 
 Подходит как замена UptimeRobot, если нужен более частый интервал бесплатно.
 
-### 4.2. Self-hosted Uptime Kuma
+### 5.2. Self-hosted Uptime Kuma
 
 - Open-source, ставится в один docker run.
 - Подходит, если есть свободный VPS под мониторинг и не хочется зависеть от внешних сервисов.
@@ -244,7 +308,7 @@ docker run -d --restart=always \
 
 > Размещать **на другом сервере**, не на самом VPS с сайтом.
 
-### 4.3. GitHub Actions (cron)
+### 5.3. GitHub Actions (cron)
 
 Бесплатный вариант без второго VPS — schedule-workflow в GitHub:
 
@@ -270,13 +334,13 @@ jobs:
 
 ⚠ Минус: между runner-инвокациями `/tmp` очищается → дедупликация не сработает (будет алерт каждые 10 минут, пока down). Можно решить кэшем actions/cache, но для критичных алертов это и хорошо — не пропустишь.
 
-### 4.4. Better Stack (бывший Better Uptime)
+### 5.4. Better Stack (бывший Better Uptime)
 
 - Free: 10 мониторов, 3-минутный интервал.
 - Очень красивые status-page, on-call расписание, инциденты.
 - Платный от $24/мес.
 
-### 4.5. Сравнение
+### 5.5. Сравнение
 
 | Решение | Цена | Интервал | Channels | Status page | Сложность |
 |---------|------|----------|----------|-------------|-----------|
@@ -291,8 +355,11 @@ jobs:
 
 ---
 
-## 5. Чек-лист после настройки
+## 6. Чек-лист после настройки
 
+- [x] `scripts/health-check.sh` стоит на cron на проде каждые 5 минут (см. §3).
+- [x] Лог пишется в `/home/deploy/logs/2x2-uptime.log`.
+- [x] Telegram-алерты включены (заданы `TELEGRAM_BOT_TOKEN` + `TELEGRAM_NOTIFICATIONS_CHAT_ID`).
 - [ ] UptimeRobot аккаунт создан, email подтверждён.
 - [ ] Добавлены мониторы: Home, API Health, Admin, Sitemap.
 - [ ] Email + Telegram alert contacts привязаны ко всем мониторам.
@@ -301,3 +368,4 @@ jobs:
 - [ ] (опционально) `scripts/health-check.sh` поставлен на сторонний хост, cron каждые 5 минут.
 - [ ] Тестовое падение — намеренно остановить контейнер `2x2-app` на 6 минут → пришёл алерт → запустить обратно → пришёл RECOVERED.
 - [ ] SSL Expiration уведомления включены в UptimeRobot.
+- [ ] (опционально) `apt install mailutils` + `ALERT_EMAIL` для второго канала нотификаций.
