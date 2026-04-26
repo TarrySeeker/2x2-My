@@ -229,7 +229,12 @@ services:
   #     иначе Caddy будет циклически пытаться выпустить серт.
   #   * Для локального dev — DOMAIN=localhost, Caddy выдаст self-signed.
   caddy:
-    image: caddy:2.10-alpine
+    # Кастомный образ caddy + модуль mholt/caddy-ratelimit (xcaddy build).
+    # Сборка из ./infra/caddy/Dockerfile, см. infra/caddy/README.md.
+    build:
+      context: ./infra/caddy
+      dockerfile: Dockerfile
+    image: 2x2-caddy:2.10-ratelimit
     container_name: 2x2-caddy
     restart: unless-stopped
     security_opt:
@@ -256,7 +261,8 @@ services:
       # ACME_EMAIL для Let's Encrypt уведомлений об истечении сертов.
       ACME_EMAIL: ${ACME_EMAIL:-admin@${DOMAIN}}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Caddyfile с rate_limit-директивами (требует кастомный образ выше).
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data       # сертификаты, ACME-аккаунт
       - caddy_config:/config   # автосгенерированный JSON-конфиг
       - caddy_logs:/var/log/caddy
