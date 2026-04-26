@@ -20,6 +20,7 @@ import {
 } from "@/features/admin/schemas/blog";
 import { sanitizeHtml } from "@/lib/sanitize/html";
 import { BLOG_POSTS_CACHE_TAG } from "@/lib/data/blog";
+import { logAdminAction } from "@/lib/audit";
 
 /**
  * После любой мутации блога — инвалидируем публичный кеш `BLOG_POSTS_CACHE_TAG`
@@ -70,11 +71,18 @@ export async function createBlogPostAction(data: unknown) {
   const result = await createBlogPost(validated, profile.id);
   revalidatePath("/admin/blog");
   revalidatePublicBlog(validated.slug);
+  await logAdminAction(
+    profile.id,
+    "blog.post.create",
+    "blog_posts",
+    (result as { id?: number | string } | null)?.id ?? null,
+    { slug: validated.slug, title: validated.title, status: validated.status },
+  );
   return result;
 }
 
 export async function updateBlogPostAction(id: number, data: unknown) {
-  await requireContentAccess();
+  const profile = await requireContentAccess();
   const validatedId = idSchema.parse(id);
   const validated = blogPostSchema.parse(data);
   validated.content = sanitizeHtml(validated.content);
@@ -82,37 +90,72 @@ export async function updateBlogPostAction(id: number, data: unknown) {
   revalidatePath("/admin/blog");
   revalidatePath(`/admin/blog/${validatedId}`);
   revalidatePublicBlog(validated.slug);
+  await logAdminAction(
+    profile.id,
+    "blog.post.update",
+    "blog_posts",
+    validatedId,
+    { slug: validated.slug, title: validated.title, status: validated.status },
+  );
 }
 
 export async function deleteBlogPostAction(id: number) {
-  await requireContentAccess();
+  const profile = await requireContentAccess();
   const validated = idSchema.parse(id);
   await deleteBlogPost(validated);
   revalidatePath("/admin/blog");
   revalidatePublicBlog(null);
+  await logAdminAction(
+    profile.id,
+    "blog.post.delete",
+    "blog_posts",
+    validated,
+    null,
+  );
 }
 
 // ── Blog Categories ──
 
 export async function createBlogCategoryAction(data: unknown) {
-  await requireContentAccess();
+  const profile = await requireContentAccess();
   const validated = blogCategorySchema.parse(data);
   const result = await createBlogCategory(validated);
   revalidatePath("/admin/blog");
+  await logAdminAction(
+    profile.id,
+    "blog.category.create",
+    "blog_categories",
+    (result as { id?: number | string } | null)?.id ?? null,
+    validated,
+  );
   return result;
 }
 
 export async function updateBlogCategoryAction(id: number, data: unknown) {
-  await requireContentAccess();
+  const profile = await requireContentAccess();
   const validatedId = idSchema.parse(id);
   const validated = blogCategorySchema.parse(data);
   await updateBlogCategory(validatedId, validated);
   revalidatePath("/admin/blog");
+  await logAdminAction(
+    profile.id,
+    "blog.category.update",
+    "blog_categories",
+    validatedId,
+    validated,
+  );
 }
 
 export async function deleteBlogCategoryAction(id: number) {
-  await requireContentAccess();
+  const profile = await requireContentAccess();
   const validated = idSchema.parse(id);
   await deleteBlogCategory(validated);
   revalidatePath("/admin/blog");
+  await logAdminAction(
+    profile.id,
+    "blog.category.delete",
+    "blog_categories",
+    validated,
+    null,
+  );
 }

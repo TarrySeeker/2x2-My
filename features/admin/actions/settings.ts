@@ -5,9 +5,10 @@ import { updateSettings } from "@/features/admin/api/settings";
 import { requireAdmin } from "@/features/auth/api";
 import { settingsUpdateSchema } from "@/features/admin/schemas/settings";
 import type { Json } from "@/types/database";
+import { logAdminAction } from "@/lib/audit";
 
 export async function updateSettingsAction(data: unknown) {
-  await requireAdmin();
+  const profile = await requireAdmin();
   const validated = settingsUpdateSchema.parse(data);
   const updates = validated.map((item) => ({
     key: item.key,
@@ -15,4 +16,11 @@ export async function updateSettingsAction(data: unknown) {
   }));
   await updateSettings(updates);
   revalidatePath("/admin/settings");
+  await logAdminAction(
+    profile.id,
+    "settings.update",
+    "settings",
+    null,
+    { keys: validated.map((item) => item.key) },
+  );
 }

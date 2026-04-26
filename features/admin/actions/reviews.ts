@@ -19,6 +19,7 @@ import {
   bulkApproveSchema,
   reviewIdSchema,
 } from "@/features/admin/schemas/review";
+import { logAdminAction } from "@/lib/audit";
 
 export async function fetchAdminReviewsAction(filters: unknown) {
   await requireAdmin();
@@ -27,11 +28,18 @@ export async function fetchAdminReviewsAction(filters: unknown) {
 }
 
 export async function approveReviewAction(id: number) {
-  await requireAdmin();
+  const profile = await requireAdmin();
   try {
     const validated = reviewIdSchema.parse({ id });
     await approveReview(validated.id);
     revalidatePath("/admin/reviews");
+    await logAdminAction(
+      profile.id,
+      "reviews.approve",
+      "reviews",
+      validated.id,
+      null,
+    );
     return { success: true };
   } catch (err) {
     return {
@@ -42,11 +50,18 @@ export async function approveReviewAction(id: number) {
 }
 
 export async function rejectReviewAction(id: number) {
-  await requireAdmin();
+  const profile = await requireAdmin();
   try {
     const validated = reviewIdSchema.parse({ id });
     await rejectReview(validated.id);
     revalidatePath("/admin/reviews");
+    await logAdminAction(
+      profile.id,
+      "reviews.reject",
+      "reviews",
+      validated.id,
+      null,
+    );
     return { success: true };
   } catch (err) {
     return {
@@ -57,11 +72,18 @@ export async function rejectReviewAction(id: number) {
 }
 
 export async function bulkApproveAction(data: unknown) {
-  await requireAdmin();
+  const profile = await requireAdmin();
   try {
     const validated = bulkApproveSchema.parse(data);
     await bulkApprove(validated.ids);
     revalidatePath("/admin/reviews");
+    await logAdminAction(
+      profile.id,
+      "reviews.bulk_approve",
+      "reviews",
+      null,
+      { count: validated.ids.length, ids: validated.ids },
+    );
     return { success: true };
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -75,11 +97,18 @@ export async function bulkApproveAction(data: unknown) {
 }
 
 export async function replyToReviewAction(data: unknown) {
-  await requireAdmin();
+  const profile = await requireAdmin();
   try {
     const validated = reviewReplySchema.parse(data);
     await replyToReview(validated.id, validated.reply);
     revalidatePath("/admin/reviews");
+    await logAdminAction(
+      profile.id,
+      "reviews.reply",
+      "reviews",
+      validated.id,
+      { reply_length: validated.reply.length },
+    );
     return { success: true };
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -93,11 +122,18 @@ export async function replyToReviewAction(data: unknown) {
 }
 
 export async function deleteReviewAction(id: number) {
-  await requireAdmin();
+  const profile = await requireAdmin();
   try {
     const validated = reviewIdSchema.parse({ id });
     await deleteReview(validated.id);
     revalidatePath("/admin/reviews");
+    await logAdminAction(
+      profile.id,
+      "reviews.delete",
+      "reviews",
+      validated.id,
+      null,
+    );
     return { success: true };
   } catch (err) {
     return {

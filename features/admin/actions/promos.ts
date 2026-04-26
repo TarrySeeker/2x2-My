@@ -15,6 +15,7 @@ import {
   promoFilterSchema,
   promoCodeCheckSchema,
 } from "@/features/admin/schemas/promo";
+import { logAdminAction } from "@/lib/audit";
 
 const idSchema = z.number().int().positive();
 
@@ -25,11 +26,18 @@ export async function fetchPromoCodesAction(filters: unknown) {
 }
 
 export async function createPromoCodeAction(data: unknown) {
-  await requireAdmin();
+  const profile = await requireAdmin();
   try {
     const validated = promoSchema.parse(data);
     const promo = await createPromoCode(validated);
     revalidatePath("/admin/promos");
+    await logAdminAction(
+      profile.id,
+      "promos.create",
+      "promo_codes",
+      (promo as { id?: number | string } | null)?.id ?? null,
+      { code: validated.code, type: validated.type },
+    );
     return { success: true, data: promo };
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -43,12 +51,19 @@ export async function createPromoCodeAction(data: unknown) {
 }
 
 export async function updatePromoCodeAction(id: number, data: unknown) {
-  await requireAdmin();
+  const profile = await requireAdmin();
   try {
     const validatedId = idSchema.parse(id);
     const validated = promoSchema.parse(data);
     const promo = await updatePromoCode(validatedId, validated);
     revalidatePath("/admin/promos");
+    await logAdminAction(
+      profile.id,
+      "promos.update",
+      "promo_codes",
+      validatedId,
+      { code: validated.code, type: validated.type },
+    );
     return { success: true, data: promo };
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -62,11 +77,18 @@ export async function updatePromoCodeAction(id: number, data: unknown) {
 }
 
 export async function deletePromoCodeAction(id: number) {
-  await requireAdmin();
+  const profile = await requireAdmin();
   try {
     const validatedId = idSchema.parse(id);
     await deletePromoCode(validatedId);
     revalidatePath("/admin/promos");
+    await logAdminAction(
+      profile.id,
+      "promos.delete",
+      "promo_codes",
+      validatedId,
+      null,
+    );
     return { success: true };
   } catch (err) {
     return {
