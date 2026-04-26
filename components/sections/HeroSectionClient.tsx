@@ -203,7 +203,11 @@ export default function HeroSectionClient({ data }: { data: HeroSectionData }) {
 
       <motion.div
         style={{ y: contentY, opacity: contentOpacity }}
-        className="container relative z-10 mx-auto max-w-7xl pb-24 pt-[max(7rem,calc(4.5rem+env(safe-area-inset-top,0px)))] sm:pb-28 sm:pt-28 md:pb-32 md:pt-32 lg:pt-36"
+        // Header — fixed top-0, h-16 на mobile (4rem) и h-20 на desktop (5rem).
+        // Раньше mobile pt = max(7rem, …) → ~112px = почти 50px пустоты после
+        // 64px-хедера (правка 2026-04-26: вдвое уменьшили mobile-пэддинг,
+        // desktop оставили — там визуально нормально).
+        className="container relative z-10 mx-auto max-w-7xl pb-20 pt-[calc(4.5rem+env(safe-area-inset-top,0px))] sm:pb-28 sm:pt-28 md:pb-32 md:pt-32 lg:pt-36"
       >
         <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-10 lg:gap-y-0">
           {/* Текстовая колонка */}
