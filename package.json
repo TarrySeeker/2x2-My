@@ -82,7 +82,9 @@
   "pnpm": {
     "overrides": {
       "cookie": ">=0.7.2",
-      "@types/trusted-types": "2.0.7"
+      "@types/trusted-types": "2.0.7",
+      "fast-xml-parser": "^5.7.0",
+      "postcss": "^8.5.10"
     }
   }
 }
