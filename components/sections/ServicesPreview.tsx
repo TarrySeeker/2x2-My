@@ -78,13 +78,6 @@ const DEFAULT_DATA: ServicesSectionData = {
   also_we_do_items: DEFAULT_ALSO,
 }
 
-function isServiceArray(v: unknown): v is ServiceItem[] {
-  return (
-    Array.isArray(v) &&
-    v.every((s) => s && typeof s === 'object' && typeof (s as { title?: unknown }).title === 'string')
-  )
-}
-
 function isAlsoArray(v: unknown): v is AlsoWeDoItem[] {
   return (
     Array.isArray(v) &&
@@ -119,14 +112,17 @@ export default async function ServicesPreview() {
   ])
 
   const cms = (result?.content ?? null) as Record<string, unknown> | null
-  const rawItems = cms?.items
   const rawAlso = cms?.also_we_do_items
 
-  // Приоритет источников данных для карточек блока «Наши услуги»:
-  //   1. Если в новой таблице `services` есть включённые карточки —
-  //      используем их (берём первые 3 — этот блок рендерит grid 3-в-ряд).
-  //   2. Иначе — items из page_sections (`/`, `services`) — старая CMS.
-  //   3. Иначе — хардкоженный DEFAULT_ITEMS.
+  // Источники данных для карточек блока «Наши услуги»:
+  //   1. Таблица `services` (источник истины с миграции 018) — берём
+  //      первые 3 включённые позиции (grid рендерится 3-в-ряд).
+  //   2. Если БД пуста / недоступна — хардкоженный DEFAULT_ITEMS.
+  //
+  // Поле items в page_sections('/', 'services') БОЛЬШЕ НЕ ИСПОЛЬЗУЕТСЯ
+  // (legacy с до-018 эпохи; очищено миграцией 021). Не возвращаем
+  // fallback на cms.items, чтобы остаточный мусор в БД не мог утечь
+  // на витрину.
   //
   // Маппинг services-row → ServiceItem:
   //   icon (kebab)    → PascalCase (resolveIcon ждёт PascalCase)
@@ -150,8 +146,6 @@ export default async function ServicesPreview() {
         cta_text: 'Заказать',
       }
     })
-  } else if (isServiceArray(rawItems)) {
-    items = rawItems
   } else {
     items = DEFAULT_ITEMS
   }
