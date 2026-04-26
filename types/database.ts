@@ -625,26 +625,8 @@ export interface Database {
       // ────────────────────────────────────────────────────
       // CMS (006_cms_and_security.sql)
       // ────────────────────────────────────────────────────
-      homepage_sections: {
-        Row: {
-          key: string;
-          content: Json;
-          is_published: boolean;
-          updated_at: string;
-          updated_by: string | null;
-        };
-        Insert: {
-          key: string;
-          content?: Json;
-          is_published?: boolean;
-          updated_at?: string;
-          updated_by?: string | null;
-        };
-        Update: Partial<
-          Database["public"]["Tables"]["homepage_sections"]["Insert"]
-        >;
-        Relationships: [];
-      };
+      // homepage_sections удалена миграцией 024_drop_legacy_tables.sql
+      // (заменена на page_sections, см. миграцию 017).
 
       site_settings: {
         Row: {

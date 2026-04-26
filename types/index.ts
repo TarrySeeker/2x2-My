@@ -39,8 +39,7 @@ export type MenuItem = Tables["menu_items"]["Row"];
 export type Setting = Tables["settings"]["Row"];
 export type SeoMeta = Tables["seo_meta"]["Row"];
 
-// CMS (миграция 006)
-export type HomepageSection = Tables["homepage_sections"]["Row"];
+// CMS (миграция 006). HomepageSection удалён вместе с таблицей в миграции 024.
 export type SiteSetting = Tables["site_settings"]["Row"];
 export type TeamMember = Tables["team_members"]["Row"];
 export type Promotion = Tables["promotions"]["Row"];

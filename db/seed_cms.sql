@@ -101,14 +101,17 @@ ON CONFLICT (key) DO NOTHING;
 
 
 -- ============================================================
--- 2. homepage_sections — контент секций главной
+-- 2. homepage_sections — УДАЛЕНО (миграция 024_drop_legacy_tables.sql)
+-- ============================================================
+-- Контент секций главной теперь хранится в `page_sections`
+-- (page_path='/'+section_key). Сидится миграциями 010, 017, 020, 021.
+-- Здесь раньше был INSERT INTO homepage_sections (...) для секций
+-- hero, about, services, promotions, portfolio, features, faq, cta —
+-- весь блок убран, потому что таблицы больше нет в схеме.
+-- См. handoff drop-legacy-tables-2026-04-26.
 -- ============================================================
 
--- ------------------------------------------------------------
--- HERO
--- Цель: сразу захватить внимание B2B-аудитории.
--- Два CTA: «Получить расчёт» (QuoteModal) + «Наши работы» (портфолио).
--- ------------------------------------------------------------
+/* historical seed for homepage_sections (kept commented for archival reference)
 INSERT INTO homepage_sections (key, content) VALUES
   ('hero', $$
     {
@@ -400,6 +403,7 @@ INSERT INTO homepage_sections (key, content) VALUES
     }
   $$::jsonb)
 ON CONFLICT (key) DO NOTHING;
+*/  -- end of archived homepage_sections seed (table dropped in 024)
 
 
 -- ============================================================
