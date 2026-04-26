@@ -1,5 +1,4 @@
 import Accordion from '@/components/ui/Accordion'
-import AnimatedSection from '@/components/ui/AnimatedSection'
 import ServicesHero from '@/components/sections/services/ServicesHero'
 import CtaSection from '@/components/sections/CtaSection'
 import JsonLd from '@/components/JsonLd'
@@ -67,9 +66,13 @@ export default async function FaqPage() {
       />
       <section className="section-padding bg-white">
         <div className="container max-w-3xl">
-          <AnimatedSection>
-            <Accordion items={items} />
-          </AnimatedSection>
+          {/*
+            AnimatedSection (slide-up + fade-in появление) убран по
+            правке клиента 2026-04-25 — «убрать анимированное появление»
+            вопросов. Анимация открытия/закрытия аккордеона
+            (AnimatePresence в Accordion.tsx) сохранена.
+          */}
+          <Accordion items={items} />
         </div>
       </section>
       <CtaSection
