@@ -1,16 +1,21 @@
 /**
- * Раздел «Заявки» — счётчики + последние записи из трёх таблиц
+ * Раздел «Заявки» — счётчики + список последних записей из трёх таблиц
  * (calculation_requests, leads, contact_requests).
  *
- * Полноценный list с фильтрами/сменой статуса появится позже —
- * пока менеджеру важно видеть факт поступления и (с 2026-04-25)
- * введённый клиентом промокод-маркер: он подсказывает, по какой
- * акции пришла заявка, и помогает в подготовке КП.
+ * 2026-04-26: расширен набор колонок (имя/телефон/email/услуга/комментарий/
+ * промокод/источник/статус/время + фильтр по типу). Каждая строка
+ * кликабельна и ведёт на детальную страницу `/admin/leads/<type>/<id|ref>`.
  */
 import Link from "next/link";
+
 import { sql } from "@/lib/db/client";
+import { requireAdmin } from "@/features/auth/api";
+import LeadsListClient, {
+  type LeadsListItem,
+} from "@/features/admin/components/LeadsListClient";
 
 export const metadata = { title: "Заявки" };
+export const dynamic = "force-dynamic";
 
 interface CountRow {
   count: number;
@@ -35,51 +40,73 @@ async function getCounts() {
 
 interface RecentLeadRow {
   id: number;
-  type: "calc" | "one_click" | "contact";
-  customer_name: string | null;
-  customer_phone: string | null;
+  type: "quote" | "one-click" | "contact";
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  service: string | null;
+  message: string | null;
   status: string;
+  source: string | null;
   promo_code: string | null;
   created_at: string;
-  ref: string | null;
+  /** request_number / lead_number. Не используем имя `ref` — зарезервировано в React 19 (eslint react-hooks/refs). */
+  ref_number: string | null;
 }
 
 /**
  * Возвращает 30 последних заявок из трёх таблиц объединённо.
- * UNION + DISTINCT по полям не нужен — таблицы не пересекаются.
- * Даты сортируем убыванием. SELECT защищён try/catch — на пустой/
- * неинициализированной БД возвращаем пустой список (не падаем).
+ * UNION ALL — таблицы не пересекаются, дедуп не нужен.
+ *
+ * service = первая попавшаяся колонка-кандидат (название продукта,
+ * subject и т.д.). message = пользовательский комментарий (truncate
+ * на стороне клиента). Имена type'ов в SELECT'е — те же, что в
+ * URL'ах (`quote`/`one-click`/`contact`), чтобы клиент мог сразу
+ * сформировать href без перевода.
+ *
+ * Падение SELECT'а возвращает [], не падаем — на пустой/неинициализиро-
+ * ванной БД UI показывает «Заявок пока нет».
  */
 async function getRecentLeads(): Promise<RecentLeadRow[]> {
   try {
     return await sql<RecentLeadRow[]>`
       (
         SELECT
-          id,
-          'calc'::text AS type,
-          customer_name,
-          customer_phone,
-          status::text,
-          promo_code,
-          created_at,
-          request_number AS ref
-        FROM calculation_requests
-        ORDER BY created_at DESC
+          c.id,
+          'quote'::text AS type,
+          c.customer_name AS name,
+          c.customer_phone AS phone,
+          c.customer_email AS email,
+          p.name AS service,
+          c.comment AS message,
+          c.status::text AS status,
+          NULL::text AS source,
+          c.promo_code,
+          c.created_at,
+          c.request_number AS ref_number
+        FROM calculation_requests c
+        LEFT JOIN products p ON p.id = c.product_id
+        ORDER BY c.created_at DESC
         LIMIT 15
       )
       UNION ALL
       (
         SELECT
-          id,
-          'one_click'::text AS type,
-          customer_name,
-          customer_phone,
-          status::text,
-          promo_code,
-          created_at,
-          lead_number AS ref
-        FROM leads
-        ORDER BY created_at DESC
+          l.id,
+          'one-click'::text AS type,
+          l.customer_name AS name,
+          l.customer_phone AS phone,
+          l.customer_email AS email,
+          COALESCE(p.name, l.context->>'product_name') AS service,
+          l.context->>'comment' AS message,
+          l.status::text AS status,
+          l.source,
+          l.promo_code,
+          l.created_at,
+          l.lead_number AS ref_number
+        FROM leads l
+        LEFT JOIN products p ON p.id = l.product_id
+        ORDER BY l.created_at DESC
         LIMIT 15
       )
       UNION ALL
@@ -87,12 +114,16 @@ async function getRecentLeads(): Promise<RecentLeadRow[]> {
         SELECT
           id,
           'contact'::text AS type,
-          name AS customer_name,
-          phone AS customer_phone,
-          status::text,
+          name,
+          phone,
+          email,
+          subject AS service,
+          message,
+          status::text AS status,
+          NULL::text AS source,
           promo_code,
           created_at,
-          NULL::text AS ref
+          NULL::text AS ref_number
         FROM contact_requests
         ORDER BY created_at DESC
         LIMIT 15
@@ -100,33 +131,34 @@ async function getRecentLeads(): Promise<RecentLeadRow[]> {
       ORDER BY created_at DESC
       LIMIT 30
     `;
-  } catch {
+  } catch (err) {
+    console.warn("[admin/leads] recent leads SELECT failed:", err);
     return [];
   }
 }
 
-const TYPE_LABEL: Record<RecentLeadRow["type"], string> = {
-  calc: "Расчёт",
-  one_click: "В 1 клик",
-  contact: "Контакты",
-};
-
-function formatDate(value: string): string {
-  try {
-    return new Date(value).toLocaleString("ru-RU", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return value;
-  }
-}
-
 export default async function LeadsPage() {
+  // Просмотр доступен всем 3 ролям (включая content), удаление — отдельно
+  // в server-action.
+  await requireAdmin(["owner", "manager", "content"]);
+
   const [counts, recent] = await Promise.all([getCounts(), getRecentLeads()]);
+
+  // Конвертируем в форму, которую ждёт клиентский компонент.
+  const items: LeadsListItem[] = recent.map((r) => ({
+    type: r.type,
+    id: r.id,
+    refNumber: r.ref_number,
+    name: r.name,
+    phone: r.phone,
+    email: r.email,
+    service: r.service,
+    message: r.message,
+    promo_code: r.promo_code,
+    source: r.source,
+    status: r.status,
+    created_at: r.created_at,
+  }));
 
   return (
     <div className="space-y-6">
@@ -135,8 +167,9 @@ export default async function LeadsPage() {
       </h1>
 
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
-        Полноценный список и фильтры будут готовы в ближайшем релизе.
-        Пока — счётчики новых заявок и последние 30 записей из всех трёх форм.
+        Счётчики новых заявок и последние 30 записей из всех трёх форм.
+        Кликните по строке, чтобы посмотреть подробности и (при необходимости)
+        удалить заявку.
       </p>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -166,78 +199,16 @@ export default async function LeadsPage() {
         </div>
       </div>
 
-      <section className="rounded-xl border border-neutral-200 bg-white dark:border-white/10 dark:bg-neutral-900">
-        <header className="flex items-center justify-between border-b border-neutral-200 px-5 py-3 dark:border-white/10">
-          <h2 className="text-base font-semibold text-brand-dark dark:text-white">
-            Последние заявки
-          </h2>
-          <Link
-            href="/admin/promos"
-            className="text-xs text-brand-orange hover:underline underline-offset-2"
-          >
-            Управлять промокодами →
-          </Link>
-        </header>
+      <div className="flex justify-end">
+        <Link
+          href="/admin/promos"
+          className="text-xs text-brand-orange hover:underline underline-offset-2"
+        >
+          Управлять промокодами →
+        </Link>
+      </div>
 
-        {recent.length === 0 ? (
-          <p className="px-5 py-8 text-center text-sm text-neutral-500">
-            Заявок пока нет.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-neutral-50 text-xs uppercase tracking-wider text-neutral-500 dark:bg-neutral-800/50">
-                <tr>
-                  <th className="px-4 py-2 text-left font-medium">Тип</th>
-                  <th className="px-4 py-2 text-left font-medium">Имя</th>
-                  <th className="px-4 py-2 text-left font-medium">Телефон</th>
-                  <th className="px-4 py-2 text-left font-medium">Статус</th>
-                  <th className="px-4 py-2 text-left font-medium">Промокод</th>
-                  <th className="px-4 py-2 text-left font-medium">Когда</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100 dark:divide-white/5">
-                {recent.map((row) => (
-                  <tr
-                    key={`${row.type}-${row.id}`}
-                    className="text-brand-dark dark:text-white"
-                  >
-                    <td className="px-4 py-2 text-xs text-neutral-600 dark:text-neutral-400">
-                      {TYPE_LABEL[row.type]}
-                      {row.ref && (
-                        <span className="ml-1 text-neutral-400">{row.ref}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2">{row.customer_name ?? "—"}</td>
-                    <td className="px-4 py-2 font-mono text-xs">
-                      {row.customer_phone ?? "—"}
-                    </td>
-                    <td className="px-4 py-2">
-                      <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
-                        {row.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2">
-                      {row.promo_code ? (
-                        // Заметный badge с brand-цветом — менеджер сразу
-                        // видит, что заявка пришла «по акции».
-                        <span className="inline-flex items-center rounded-md bg-brand-orange/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-brand-orange ring-1 ring-inset ring-brand-orange/30">
-                          {row.promo_code}
-                        </span>
-                      ) : (
-                        <span className="text-neutral-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-xs text-neutral-500">
-                      {formatDate(row.created_at)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      <LeadsListClient items={items} />
     </div>
   );
 }
