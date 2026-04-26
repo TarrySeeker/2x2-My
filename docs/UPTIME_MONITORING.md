@@ -359,7 +359,7 @@ jobs:
 
 - [x] `scripts/health-check.sh` стоит на cron на проде каждые 5 минут (см. §3).
 - [x] Лог пишется в `/home/deploy/logs/2x2-uptime.log`.
-- [x] Telegram-алерты включены (заданы `TELEGRAM_BOT_TOKEN` + `TELEGRAM_NOTIFICATIONS_CHAT_ID`).
+- [ ] Telegram-алерты — задать `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` (или `TELEGRAM_NOTIFICATIONS_CHAT_ID`) в `/home/deploy/2x2-shop/.env` и перезапустить контейнер. Без них скрипт работает в log-only fallback.
 - [ ] UptimeRobot аккаунт создан, email подтверждён.
 - [ ] Добавлены мониторы: Home, API Health, Admin, Sitemap.
 - [ ] Email + Telegram alert contacts привязаны ко всем мониторам.

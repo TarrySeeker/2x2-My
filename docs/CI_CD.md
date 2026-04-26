@@ -22,7 +22,8 @@
 
 1. Триггер: `push` в `main` или ручной запуск (`workflow_dispatch`).
 2. Заходит по SSH на VPS (`appleboy/ssh-action`).
-3. На VPS, в `/opt/2x2`:
+3. На VPS, в `/home/deploy/2x2-shop` (переопределяется переменной `DEPLOY_DIR`):
+   - Если каталога нет `.git/` — выполняет одноразовый `git init` + `git remote add origin` + `git fetch` + `git reset --hard origin/main` (bootstrap «in place», `.env`/`state/`/`logs/` не трогает — они в `.gitignore`).
    - `git fetch origin main && git reset --hard origin/main`
    - Если контейнер `app` уже запущен — применяет новые миграции идемпотентно через `scripts/apply-migrations.sh` (skip-on-error `|| true`).
    - `docker compose up -d --build app caddy` (пересобирает только app+caddy; postgres/minio не трогает).
@@ -58,51 +59,52 @@
 
 ---
 
-## Генерация deploy SSH-ключа
+## Deploy SSH-ключ
 
-### 1. Сгенерировать пару ключей (локально)
+> **Готово 2026-04-26:** ключ уже сгенерирован и публичная часть установлена в `authorized_keys` для пользователя `deploy@130.49.129.65`. Инструкция ниже — для справки/ротации.
 
-```bash
-# Отдельный ключ ТОЛЬКО для CI/CD — не используй свой основной!
-ssh-keygen -t ed25519 -f ~/.ssh/2x2_deploy -C "github-actions-2x2-deploy" -N ""
-```
+Файлы в репозитории (не коммитятся, см. `.gitignore`):
+- `.secrets/github-actions-deploy`     — **приватный** ключ (для GitHub Secret `DEPLOY_SSH_KEY`)
+- `.secrets/github-actions-deploy.pub` — публичный (уже залит на VPS)
+- `.secrets/github-secrets-snippet.txt` — готовый копи-паст блок для GitHub UI
 
-Появятся два файла:
-- `~/.ssh/2x2_deploy`      — приватный (пойдёт в GitHub Secret)
-- `~/.ssh/2x2_deploy.pub`  — публичный (пойдёт на VPS)
+### Что осталось сделать пользователю
 
-### 2. Добавить публичную часть на VPS
+1. Открыть GitHub: `https://github.com/TarrySeeker/2x2-My/settings/secrets/actions`
+2. Добавить **3 Secret'а** и **1 Variable** (см. `.secrets/github-secrets-snippet.txt`).
+3. Запустить деплой: `Actions` → `Deploy Docker stack to VPS` → `Run workflow` → `main`.
 
-```bash
-# На VPS, от пользователя deploy:
-ssh deploy@130.49.129.65
-mkdir -p ~/.ssh && chmod 700 ~/.ssh
-echo "ssh-ed25519 AAAA...github-actions-2x2-deploy" >> ~/.ssh/authorized_keys
-chmod 600 ~/.ssh/authorized_keys
-```
+### Полная инструкция: где что вписывать
 
-Или одной командой с локальной машины:
+**GitHub → Settings → Secrets and variables → Actions → вкладка `Secrets` → `New repository secret`:**
 
-```bash
-ssh-copy-id -i ~/.ssh/2x2_deploy.pub deploy@130.49.129.65
-```
+| Name | Value |
+|------|-------|
+| `DEPLOY_HOST` | `130.49.129.65` |
+| `DEPLOY_USER` | `deploy` |
+| `DEPLOY_SSH_KEY` | содержимое файла `.secrets/github-actions-deploy` целиком (со строками `-----BEGIN OPENSSH PRIVATE KEY-----` и `-----END OPENSSH PRIVATE KEY-----`) |
+| `DEPLOY_PORT` *(опц.)* | `22` |
+| `TELEGRAM_BOT_TOKEN` *(опц.)* | токен бота из `@BotFather` |
+| `TELEGRAM_CHAT_ID` *(опц.)* | `-100…` для группы или числовой ID |
 
-### 3. Проверить, что ключ работает
+**Та же страница → вкладка `Variables` → `New repository variable`:**
 
-```bash
-ssh -i ~/.ssh/2x2_deploy deploy@130.49.129.65 "whoami && pwd"
-# → deploy
-# → /home/deploy
-```
+| Name | Value |
+|------|-------|
+| `PROD_URL` | `https://erfgv.website` |
+| `NOTIFY_TELEGRAM` | `false` (или `true`, если задал TELEGRAM_*) |
 
-### 4. Загрузить приватный ключ в GitHub Secret
+### Если нужно перегенерировать ключ (ротация)
 
 ```bash
-# Содержимое целиком, включая BEGIN/END строки:
-cat ~/.ssh/2x2_deploy
+cd c:/Users/pup/Desktop/2x2/2x2-shop
+ssh-keygen -t ed25519 -C "github-actions-deploy@2x2-shop" -f .secrets/github-actions-deploy -N ""
+# Залить новую публичку на VPS:
+PUBKEY=$(cat .secrets/github-actions-deploy.pub)
+ssh deploy@130.49.129.65 "grep -qF '$PUBKEY' ~/.ssh/authorized_keys || echo '$PUBKEY' >> ~/.ssh/authorized_keys"
+# Удалить старую публичку из ~/.ssh/authorized_keys руками (vim).
+# Обновить GitHub Secret DEPLOY_SSH_KEY.
 ```
-
-Скопировать всё вместе со строками `-----BEGIN OPENSSH PRIVATE KEY-----` / `-----END OPENSSH PRIVATE KEY-----` → вставить в секрет `DEPLOY_SSH_KEY`.
 
 **Важно:** НЕ коммить приватный ключ в репо. Держи локальную копию в менеджере паролей (Bitwarden / 1Password).
 
@@ -193,11 +195,11 @@ usermod -aG docker deploy
 
 ### `git fetch: Permission denied`
 
-Репо приватное, а `/opt/2x2/.git/config` ссылается на HTTPS без токена. Решение: переключить на SSH и добавить deploy-ключ также в GitHub Deploy Keys:
+Репо приватное, а `/home/deploy/2x2-shop/.git/config` ссылается на HTTPS без токена. Решение: переключить на SSH и добавить deploy-ключ также в GitHub Deploy Keys:
 
 ```bash
 # На VPS:
-cd /opt/2x2
+cd /home/deploy/2x2-shop
 git remote set-url origin git@github.com:TarrySeeker/2x2-My.git
 ssh-keygen -t ed25519 -f ~/.ssh/github_deploy -N ""
 cat ~/.ssh/github_deploy.pub
@@ -230,7 +232,7 @@ docker compose ps
 
 - **НЕ коммить** `.env` и приватные ключи.
 - **Использовать отдельный ключ** для CI/CD (не личный).
-- **Не давать ключу sudo** без пароля — пользователь `deploy` должен иметь только доступ к `/opt/2x2` и `docker`.
+- **Не давать ключу sudo** без пароля — пользователь `deploy` должен иметь только доступ к `/home/deploy/2x2-shop` и `docker`.
 - **Force-push в main** автоматически затрёт историю — защитить branch protection в GitHub Settings → Branches.
 - **Миграции только идемпотентные** (CREATE TABLE IF NOT EXISTS / DO...EXCEPTION для ENUM). При откате нужен явный down-миграционный SQL.
 

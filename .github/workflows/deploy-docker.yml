@@ -39,7 +39,20 @@ jobs:
           command_timeout: 30m
           script: |
             set -euo pipefail
-            cd /opt/2x2
+            DEPLOY_DIR="${DEPLOY_DIR:-/home/deploy/2x2-shop}"
+            REPO_URL="${REPO_URL:-https://github.com/TarrySeeker/2x2-My.git}"
+            cd "$DEPLOY_DIR"
+
+            echo "==> Ensuring git repository is initialised"
+            if [ ! -d .git ]; then
+              echo "  No .git found — bootstrapping in place from $REPO_URL"
+              git init -q
+              git remote add origin "$REPO_URL" 2>/dev/null || git remote set-url origin "$REPO_URL"
+              git fetch --depth=1 origin main
+              # Перезаписываем рабочее дерево содержимым main, не теряя .env / state / logs
+              # благодаря .gitignore (они не отслеживаются).
+              git reset --hard origin/main
+            fi
 
             echo "==> Pulling latest code"
             git fetch origin main
@@ -72,7 +85,7 @@ jobs:
             echo "==> Final public health check (через Caddy + HTTPS)"
             # PUBLIC_HEALTH_URL должен быть задан в .env на VPS
             # (или подставится дефолт https://${DOMAIN}/api/health).
-            PUBLIC_URL="${PUBLIC_HEALTH_URL:-https://$(grep ^DOMAIN= /opt/2x2/.env | cut -d= -f2)/api/health}"
+            PUBLIC_URL="${PUBLIC_HEALTH_URL:-https://$(grep ^DOMAIN= "$DEPLOY_DIR/.env" | cut -d= -f2)/api/health}"
             curl -fsSL --max-time 15 "$PUBLIC_URL" \
               | grep -q '"status":"healthy"' \
               || (echo "Public health check FAILED at $PUBLIC_URL"; exit 1)

@@ -188,7 +188,9 @@ if [ -f "$STATE_FILE" ]; then
 fi
 
 if [ "$CURRENT" = "down" ] && [ "$PREVIOUS" != "down" ]; then
-  SNIPPET="$(echo "$BODY" | head -c 400 | tr '\n' ' ')"
+  # bash-only усечение, без head/tr → не словим SIGPIPE при pipefail.
+  SNIPPET="${BODY:0:400}"
+  SNIPPET="${SNIPPET//$'\n'/ }"
   notify "2x2 DOWN" "${HEALTH_URL}
 ${REASON}
 
