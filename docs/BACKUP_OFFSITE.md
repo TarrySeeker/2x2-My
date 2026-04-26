@@ -4,6 +4,46 @@
 
 ---
 
+## Текущая конфигурация (fallback)
+
+Пока у нас **нет credentials Yandex Object Storage / Selectel S3**, используется упрощённая схема через `scripts/backup-db-rotate.sh`:
+
+1. cron в **03:00** ежедневно запускает `backup-db-rotate.sh` от пользователя `deploy` на проде (`130.49.129.65`).
+2. Скрипт вызывает `backup-db.sh` → свежий `pg_dump` → `/home/deploy/backups/db/db-YYYYMMDD-HHMMSS.dump`.
+3. Удаляет дампы старше **14 дней** (env `RETENTION_DAYS`).
+4. Если задана переменная `OFFSITE_RSYNC_HOST` — `rsync` свежего дампа на второй VPS в `/var/backups/2x2/db/` (опционально).
+5. Логи: `/var/log/2x2-backup.log`.
+
+### Что включено сейчас на проде
+
+| Компонент | Значение |
+|-----------|----------|
+| Cron | `0 3 * * * /home/deploy/2x2-shop/scripts/backup-db-rotate.sh >> /var/log/2x2-backup.log 2>&1` |
+| Локальный путь | `/home/deploy/backups/db/db-YYYYMMDD-HHMMSS.dump` |
+| Retention локально | 14 дней (`RETENTION_DAYS=14`) |
+| Offsite rsync host | `root@5.42.101.115` (второй VPS) |
+| Offsite путь | `/var/backups/2x2/db/` (через `rrsync`) |
+| Offsite SSH key | `/home/deploy/.ssh/id_ed25519_offsite` (только rsync на эту директорию через `command="/usr/bin/rrsync ..."`) |
+| Retention offsite | 14 дней — отдельный cron на самом backup-VPS: `15 5 * * * find /var/backups/2x2/db -maxdepth 1 -name "db-*.dump" -type f -mtime +14 -delete` |
+| Алерт об ошибке | Telegram (если в `.env` есть `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID`) |
+
+> Pubkey прода `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFC7DE9ldvN8nP1q7qpe9nyRxiFNZCGVldnInesdvORj deploy@2x2-prod-offsite` записан в `/root/.ssh/authorized_keys` на `5.42.101.115` с `restrict,command="/usr/bin/rrsync /var/backups/2x2/db/"`. Это значит, что ключ может ТОЛЬКО заливать файлы rsync'ом в эту папку — никакого shell-доступа.
+
+**Что это даёт.** Защиту от случайного удаления одного дампа и от частичной порчи (хранится 14 предыдущих суток). При rsync на второй VPS — дополнительно защиту от потери диска прода.
+
+**Чего НЕ даёт.** Защиты от уничтожения аккаунта Timeweb. Для полноценного offsite нужен S3-бакет — см. ниже разделы 1–6 (актуально, как только появятся credentials).
+
+### Когда появятся credentials Y.Cloud / Selectel
+
+1. Заполнить блок `S3_OFFSITE_*` в `/home/deploy/2x2-shop/.env` (см. раздел 2.3).
+2. Добавить cron-задачу:
+   ```cron
+   0 5 * * * /home/deploy/2x2-shop/scripts/backup-db-offsite.sh >> /var/log/backup-offsite.log 2>&1
+   ```
+3. `backup-db-rotate.sh` оставить как есть — он останется ответственным за локальный rotation.
+
+---
+
 ## TL;DR
 
 1. Создать bucket в Yandex Object Storage.
@@ -185,7 +225,35 @@ crontab -l                 # видим обе задачи (backup-db и backup
 
 ---
 
-## 5. Восстановление из offsite-бэкапа
+## 5. Восстановление из бэкапа
+
+### 5.0. Восстановление из локального дампа (fallback-режим)
+
+Самый частый сценарий — восстановиться из дампа в `/home/deploy/backups/db/` на том же VPS:
+
+```bash
+ssh deploy@130.49.129.65
+
+# 1) Найти нужный дамп:
+ls -lh /home/deploy/backups/db/ | tail -10
+
+# 2) (опционально) остановить app, чтобы избежать write-конфликтов:
+cd /home/deploy/2x2-shop
+docker compose stop app
+
+# 3) Восстановить (--clean --if-exists снесёт старые таблицы):
+#    Имена POSTGRES_USER / POSTGRES_DB берутся из .env.
+set -a; source .env; set +a
+docker exec -i 2x2-postgres pg_restore \
+  -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  --clean --if-exists --no-owner \
+  < /home/deploy/backups/db/db-20260426-040000.dump
+
+# 4) Поднять app:
+docker compose start app
+```
+
+> Если дамп лежит на другом хосте (rsync-offsite, например `root@5.42.101.115:/var/backups/2x2/db/`) — сначала скопируй его на прод через `scp`, а дальше команды те же.
 
 ### 5.1. Скачать дамп
 
