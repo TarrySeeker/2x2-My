@@ -100,7 +100,10 @@ export default function CookieBannerClient({
                 <button
                   type="button"
                   onClick={() => persist('accepted')}
-                  className="inline-flex items-center justify-center rounded-lg bg-brand-orange px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-orange-600 md:rounded-md md:px-2.5 md:py-1 md:text-[11px]"
+                  // text-brand-dark на bg-brand-orange (#FF6B00) даёт контраст
+                  // ≥ 7:1 — проходит WCAG AAA. Раньше был text-white — 2.85:1
+                  // (fail axe-core / WCAG AA).
+                  className="inline-flex items-center justify-center rounded-lg bg-brand-orange px-4 py-2 text-sm font-semibold text-brand-dark shadow-sm transition-colors hover:bg-orange-600 hover:text-white md:rounded-md md:px-2.5 md:py-1 md:text-[11px]"
                 >
                   {strings.acceptLabel}
                 </button>

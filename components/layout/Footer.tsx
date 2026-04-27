@@ -258,7 +258,9 @@ export default async function Footer() {
             © {year} {organization.name}. Все права защищены.
           </p>
           {legalLine ? (
-            <p className="text-gray-600 text-xs">{legalLine}</p>
+            // text-gray-400 даёт ≥ 4.6:1 на тёмном фоне (WCAG AA для small text).
+            // Раньше было text-gray-600 — контраст 2.3:1, fail axe-core.
+            <p className="text-gray-400 text-xs">{legalLine}</p>
           ) : null}
         </div>
       </div>
