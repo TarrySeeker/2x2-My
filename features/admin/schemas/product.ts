@@ -37,7 +37,7 @@ export const productSchema = z
   .object({
     name: z.string().min(1, "Название обязательно").max(300),
     slug: z.string().min(1, "Slug обязателен").max(300),
-    category_id: z.number().int().positive().optional().nullable(),
+    category_id: z.coerce.number().int().positive().optional().nullable(),
     status: z.enum(["active", "draft", "archived"]),
     pricing_mode: z.enum(["fixed", "calculator", "quote"]),
     short_description: z.string().max(500).optional().nullable(),

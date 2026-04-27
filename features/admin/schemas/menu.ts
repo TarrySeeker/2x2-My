@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const menuItemSchema = z.object({
-  parent_id: z.number().int().positive().nullable().default(null),
+  parent_id: z.coerce.number().int().positive().nullable().default(null),
   position: z.enum(["header", "footer"]),
   title: z.string().min(1, "Название обязательно").max(200),
   url: z.string().min(1, "URL обязателен").max(500),

@@ -7,7 +7,6 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 /**
  * S3-совместимое хранилище. Поддерживается:
@@ -167,24 +166,3 @@ export async function deleteFile(key: string): Promise<void> {
   );
 }
 
-/**
- * Presigned URL для PUT — на случай, если фронт хочет заливать
- * сразу в S3 минуя наш сервер (большие файлы). Пока не используется,
- * но готов к подключению.
- */
-export async function createPresignedUploadUrl(
-  key: string,
-  contentType: string,
-  expiresIn = 60,
-): Promise<string> {
-  const { client, config } = getClient();
-  return getSignedUrl(
-    client,
-    new PutObjectCommand({
-      Bucket: config.bucket,
-      Key: key,
-      ContentType: contentType,
-    }),
-    { expiresIn },
-  );
-}

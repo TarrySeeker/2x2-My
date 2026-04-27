@@ -12,7 +12,8 @@ import { requireAdmin } from "@/features/auth/api";
 import { bannerSchema } from "@/features/admin/schemas/banner";
 import { logAdminAction } from "@/lib/audit";
 
-const idSchema = z.number().int().positive();
+// BIGSERIAL id → строка в RSC payload. coerce принимает оба варианта.
+const idSchema = z.coerce.number().int().positive();
 const idsSchema = z.array(idSchema).min(1);
 
 export async function createBannerAction(data: unknown) {

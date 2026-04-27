@@ -10,13 +10,11 @@ import { vi } from "vitest";
 export const mockUploadFile = vi.fn();
 export const mockDeleteFile = vi.fn();
 export const mockIsS3Configured = vi.fn(() => true);
-export const mockCreatePresignedUploadUrl = vi.fn();
 
 vi.mock("@/lib/storage/s3", () => ({
   uploadFile: mockUploadFile,
   deleteFile: mockDeleteFile,
   isS3Configured: mockIsS3Configured,
-  createPresignedUploadUrl: mockCreatePresignedUploadUrl,
 }));
 
 /** Стандартный успешный ответ uploadFile. */
@@ -39,5 +37,4 @@ export function resetS3Mocks(): void {
   mockDeleteFile.mockReset();
   mockIsS3Configured.mockReset();
   mockIsS3Configured.mockReturnValue(true);
-  mockCreatePresignedUploadUrl.mockReset();
 }

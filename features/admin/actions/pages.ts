@@ -12,7 +12,8 @@ import { pageSchema } from "@/features/admin/schemas/page";
 import { sanitizeHtml } from "@/lib/sanitize/html";
 import { logAdminAction } from "@/lib/audit";
 
-const idSchema = z.number().int().positive();
+// BIGSERIAL id → строка в RSC payload. coerce принимает оба варианта.
+const idSchema = z.coerce.number().int().positive();
 
 /** Pages are available to content role too */
 async function requireContentAccess() {

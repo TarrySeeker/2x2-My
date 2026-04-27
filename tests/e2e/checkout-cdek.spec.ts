@@ -8,7 +8,7 @@ test.describe("Checkout — СДЭК delivery flow", () => {
   //   3. Mock CDEKWidget constructor to simulate onChoose callback
   //   4. Set NEXT_PUBLIC_YANDEX_MAPS_API_KEY in .env.test
 
-  test.skip("selects СДЭК delivery → opens widget → chooses PVZ → tariffCode in form", async ({ page }) => {
+  test.skip("selects СДЭК delivery → opens widget → chooses PVZ → tariffCode in form", async () => {
     // 1. Navigate to /checkout (cart must have items — seed via localStorage or API)
     // 2. Select "СДЭК" radio in DeliverySection
     // 3. Assert CdekWidget container is visible
@@ -20,14 +20,14 @@ test.describe("Checkout — СДЭК delivery flow", () => {
     // 8. Assert analytics events: cdek_widget_open, cdek_select_pvz
   });
 
-  test.skip("shows fallback when YANDEX_MAPS_API_KEY is missing", async ({ page }) => {
+  test.skip("shows fallback when YANDEX_MAPS_API_KEY is missing", async () => {
     // 1. Navigate to /checkout without NEXT_PUBLIC_YANDEX_MAPS_API_KEY
     // 2. Select "СДЭК" radio
     // 3. Assert fallback message visible: "Выбор ПВЗ на карте временно недоступен"
     // 4. Assert widget container is NOT rendered
   });
 
-  test.skip("OrderSummary updates total with delivery cost", async ({ page }) => {
+  test.skip("OrderSummary updates total with delivery cost", async () => {
     // 1. Add items to cart (subtotal = 5000 ₽)
     // 2. Navigate to /checkout
     // 3. Select СДЭК → simulate widget → deliverySum = 350

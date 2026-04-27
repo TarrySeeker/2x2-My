@@ -64,7 +64,8 @@ describe("POST /api/leads/quote — pdConsent", () => {
   };
 
   it("400 если в body нет pdConsent", async () => {
-    const { pdConsent: _, ...withoutConsent } = baseValid;
+    const { pdConsent, ...withoutConsent } = baseValid;
+    void pdConsent;
     const res = await quotePOST(makeReq("/api/leads/quote", withoutConsent));
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -156,7 +157,8 @@ describe("POST /api/contact — pdConsent", () => {
   };
 
   it("400 без pdConsent", async () => {
-    const { pdConsent: _, ...rest } = baseValid;
+    const { pdConsent, ...rest } = baseValid;
+    void pdConsent;
     const res = await contactPOST(makeReq("/api/contact", rest));
     expect(res.status).toBe(400);
   });
@@ -183,7 +185,8 @@ describe("POST /api/leads/one-click — pdConsent", () => {
   };
 
   it("400 без pdConsent", async () => {
-    const { pdConsent: _, ...rest } = baseValid;
+    const { pdConsent, ...rest } = baseValid;
+    void pdConsent;
     const res = await oneClickPOST(makeReq("/api/leads/one-click", rest));
     expect(res.status).toBe(400);
   });

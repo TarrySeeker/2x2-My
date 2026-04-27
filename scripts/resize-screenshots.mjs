@@ -4,7 +4,7 @@
  * чтобы влезать в лимит 2000px Claude API для анализа.
  */
 import sharp from 'sharp';
-import { readdirSync, statSync, mkdirSync, existsSync } from 'node:fs';
+import { readdirSync, statSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..');

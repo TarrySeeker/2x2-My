@@ -36,7 +36,9 @@ function revalidatePublicBlog(slug?: string | null) {
   }
 }
 
-const idSchema = z.number().int().positive();
+// BIGSERIAL id из Postgres сериализуется в RSC payload как строка — coerce
+// пропускает и число, и строку. См. fix-комментарий в portfolio.ts.
+const idSchema = z.coerce.number().int().positive();
 
 /** Blog actions are available to content role too */
 async function requireContentAccess() {

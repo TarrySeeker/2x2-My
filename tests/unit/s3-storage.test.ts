@@ -37,10 +37,6 @@ vi.mock("@aws-sdk/client-s3", () => {
   };
 });
 
-vi.mock("@aws-sdk/s3-request-presigner", () => ({
-  getSignedUrl: vi.fn().mockResolvedValue("https://signed.example.com"),
-}));
-
 const TEST_ENV = {
   S3_ENDPOINT: "http://minio.test:9000",
   S3_REGION: "ru-1",

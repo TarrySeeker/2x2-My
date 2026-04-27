@@ -47,25 +47,17 @@ const nextConfig: NextConfig = {
               protocol: "https",
               hostname: "erfgv.website",
             },
-            // Резерв под staging/альтернативные поддомены того же стека.
+            // Резерв под staging того же стека (явный хост, без wildcard —
+            // защита от подмены через произвольные поддомены).
             {
               protocol: "https",
               hostname: "staging.erfgv.website",
-            },
-            {
-              protocol: "https",
-              hostname: "*.erfgv.website",
             },
             // Self-hosted MinIO в dev (compose.dev.yml).
             {
               protocol: "http",
               hostname: "localhost",
               port: "9000",
-            },
-            // Backup: Timeweb Cloud Object Storage (если включим в будущем).
-            {
-              protocol: "https",
-              hostname: "*.s3.timeweb.cloud",
             },
             // Yandex Static Maps API — статическая карта-картинка офиса
             // на странице /contacts (см. ContactMap.tsx). Используется

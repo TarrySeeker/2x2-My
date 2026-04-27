@@ -40,7 +40,11 @@ import {
 
 const PORTFOLIO_TAG = "portfolio";
 
-const idSchema = z.number().int().positive();
+// BIGSERIAL id из Postgres сериализуется в RSC payload как строка, поэтому
+// принимаем и число, и числовую строку (`z.coerce` пропустит и то, и другое).
+// Bug-фикс волны 1 (2026-04-27): без coerce удаление/обновление через UI
+// валилось с «Некорректный id» на проде.
+const idSchema = z.coerce.number().int().positive();
 
 interface ActionResult<T = unknown> {
   ok: boolean;
@@ -92,7 +96,7 @@ function invalidatePortfolioCache(): void {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const setFeaturedSchema = z.object({
-  ids: z.array(z.number().int().positive()).max(3),
+  ids: z.array(z.coerce.number().int().positive()).max(3),
 });
 
 export async function setFeaturedPortfolioAction(

@@ -10,7 +10,8 @@ import { requireAdmin } from "@/features/auth/api";
 import { productSchema } from "@/features/admin/schemas/product";
 import { logAdminAction } from "@/lib/audit";
 
-const idSchema = z.number().int().positive();
+// BIGSERIAL id → строка в RSC payload. coerce принимает оба варианта.
+const idSchema = z.coerce.number().int().positive();
 
 export async function getProductByIdAction(id: number) {
   await requireAdmin();

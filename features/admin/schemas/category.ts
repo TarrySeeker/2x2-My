@@ -3,7 +3,7 @@ import { z } from "zod";
 export const categorySchema = z.object({
   name: z.string().min(1, "Название обязательно").max(200),
   slug: z.string().min(1, "Slug обязателен").max(200),
-  parent_id: z.number().int().positive().optional().nullable(),
+  parent_id: z.coerce.number().int().positive().optional().nullable(),
   description: z.string().max(2000).optional().nullable(),
   icon: z.string().max(100).optional().nullable(),
   image_url: z.string().optional().nullable(),

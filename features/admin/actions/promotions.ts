@@ -18,7 +18,8 @@ import {
 import { deleteFile, isS3Configured } from "@/lib/storage/s3";
 import { sql } from "@/lib/db/client";
 
-const idSchema = z.number().int().positive();
+// BIGSERIAL id → строка в RSC payload. coerce принимает оба варианта.
+const idSchema = z.coerce.number().int().positive();
 
 interface ActionResult {
   ok: boolean;

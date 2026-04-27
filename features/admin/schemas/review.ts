@@ -3,7 +3,8 @@ import { z } from "zod";
 const REVIEW_STATUSES = ["pending", "approved", "rejected"] as const;
 
 export const reviewReplySchema = z.object({
-  id: z.number().int().positive(),
+  // BIGSERIAL id → строка в RSC payload. coerce принимает оба варианта.
+  id: z.coerce.number().int().positive(),
   reply: z.string().min(1, "Ответ не может быть пустым").max(2000),
 });
 
@@ -14,11 +15,11 @@ export const reviewFilterSchema = z.object({
 });
 
 export const bulkApproveSchema = z.object({
-  ids: z.array(z.number().int().positive()).min(1, "Выберите хотя бы один отзыв"),
+  ids: z.array(z.coerce.number().int().positive()).min(1, "Выберите хотя бы один отзыв"),
 });
 
 export const reviewIdSchema = z.object({
-  id: z.number().int().positive(),
+  id: z.coerce.number().int().positive(),
 });
 
 export type ReviewReplyData = z.infer<typeof reviewReplySchema>;

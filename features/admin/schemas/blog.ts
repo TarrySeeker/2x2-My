@@ -6,7 +6,7 @@ export const blogPostSchema = z.object({
   excerpt: z.string().max(500).nullable().default(null),
   content: z.string().min(1, "Контент обязателен"),
   cover_image_url: z.string().nullable().default(null),
-  category_id: z.number().int().positive().nullable().default(null),
+  category_id: z.coerce.number().int().positive().nullable().default(null),
   status: z.enum(["draft", "published", "archived"]),
   published_at: z.string().nullable().default(null),
   seo_title: z.string().max(60).nullable().default(null),

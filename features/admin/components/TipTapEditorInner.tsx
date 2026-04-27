@@ -59,6 +59,8 @@ function ToolbarButton({
 export default function TipTapEditorInner({
   value,
   onChange,
+  // TODO: пробросить placeholder в редактор через TipTap Placeholder ext.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   placeholder,
 }: TipTapEditorInnerProps) {
   const editor = useEditor({

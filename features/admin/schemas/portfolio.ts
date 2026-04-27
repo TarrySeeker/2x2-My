@@ -101,8 +101,8 @@ export type PortfolioFormData = z.infer<typeof portfolioItemSchema>;
 export const portfolioReorderSchema = z
   .array(
     z.object({
-      id: z.number().int().positive(),
-      sort_order: z.number().int().min(0).max(10_000),
+      id: z.coerce.number().int().positive(),
+      sort_order: z.coerce.number().int().min(0).max(10_000),
     }),
   )
   .min(1)

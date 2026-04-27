@@ -44,7 +44,6 @@ export function JsonLdScript({ data }: Props) {
     <>
       {payload.map((item, i) => (
         <script
-          // eslint-disable-next-line react/no-array-index-key
           key={i}
           type="application/ld+json"
           suppressHydrationWarning

@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Loader2, Trash2, Plus, GripVertical } from "lucide-react";
+import { X, Loader2, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import clsx from "clsx";
 import { productSchema, type ProductFormData } from "@/features/admin/schemas/product";
@@ -16,7 +16,7 @@ import {
 } from "@/features/admin/actions/product-form";
 import { fetchCategoriesFlatAction } from "@/features/admin/actions/categories";
 import type { Row } from "@/lib/db/table-types";
-import ImageUploader, { type ImageItem } from "./ImageUploader";
+import ImageUploader from "./ImageUploader";
 import RichTextEditor from "./RichTextEditor";
 import SerpPreview from "./SerpPreview";
 

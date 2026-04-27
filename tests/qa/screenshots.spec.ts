@@ -68,7 +68,6 @@ for (const { slug, file } of PAGES) {
         await page.screenshot({ path: outPath, fullPage: false });
       } catch {
         // give up — just log
-        // eslint-disable-next-line no-console
         console.warn(`screenshot failed for ${projectName}/${file}:`, err);
       }
     }

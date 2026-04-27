@@ -39,7 +39,6 @@ vi.mock("@/lib/storage/s3", () => ({
   uploadFile: mockUploadFile,
   isS3Configured: mockIsS3Configured,
   deleteFile: vi.fn(),
-  createPresignedUploadUrl: vi.fn(),
 }));
 
 // rate-limit держим реальный, но обеспечиваем чистый стейт через unique IP.

@@ -1,5 +1,4 @@
 export { cdekFetch, CdekApiError, resetTokenCache, isCdekConfigured, CDEK_API_URL } from "./client";
-export { createCdekShipment } from "./shipment";
 export type {
   CdekTariffResult,
   CdekCalculateResponse,

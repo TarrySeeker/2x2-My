@@ -4,10 +4,12 @@ import { sql } from "@/lib/db/client";
 import type { Product, ProductFilters } from "@/types";
 
 /**
- * Заглушка getProducts — Этап 1 не требует реальных товаров.
- * Реализация с фильтрами и пагинацией придёт в Этапе 2 (каталог).
+ * Заглушка getProducts — фильтры пока не применяются (товары
+ * упразднены 2026-04-26, остались только сервисы). Если в будущем
+ * вернутся товары — взять реализацию из git history.
  */
 export async function getProducts(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _filters: ProductFilters = {},
 ): Promise<Product[]> {
   try {

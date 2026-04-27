@@ -24,7 +24,7 @@ export const teamMemberSchema = z.object({
 });
 
 export const reorderTeamSchema = z.object({
-  ids: z.array(z.number().int().positive()).min(1).max(100),
+  ids: z.array(z.coerce.number().int().positive()).min(1).max(100),
 });
 
 export type TeamMemberFormData = z.infer<typeof teamMemberSchema>;

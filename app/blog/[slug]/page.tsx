@@ -253,7 +253,6 @@ export default async function BlogPostPage({
                     sizes="(max-width: 768px) 100vw, 768px"
                     className="object-cover"
                     priority
-                    unoptimized
                   />
                 </div>
                 {article.excerpt ? (
@@ -288,7 +287,6 @@ export default async function BlogPostPage({
                           fill
                           sizes="(max-width: 768px) 100vw, 33vw"
                           className="object-cover transition duration-500 group-hover:scale-105"
-                          unoptimized
                         />
                       </div>
                       <div className="p-4">

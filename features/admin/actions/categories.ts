@@ -13,11 +13,12 @@ import { requireAdmin } from "@/features/auth/api";
 import { categorySchema } from "@/features/admin/schemas/category";
 import { logAdminAction } from "@/lib/audit";
 
-const idSchema = z.number().int().positive();
+// BIGSERIAL id → строка в RSC payload. coerce принимает оба варианта.
+const idSchema = z.coerce.number().int().positive();
 const reorderItemSchema = z.object({
-  id: z.number().int().positive(),
-  sort_order: z.number().int().nonnegative(),
-  parent_id: z.number().int().positive().nullable(),
+  id: z.coerce.number().int().positive(),
+  sort_order: z.coerce.number().int().nonnegative(),
+  parent_id: z.coerce.number().int().positive().nullable(),
 });
 
 export async function fetchCategoriesTreeAction() {
