@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useEffect, createElement } from 'react'
 import Image from 'next/image'
 import { motion, useMotionValue, useSpring } from 'framer-motion'
 import { Briefcase } from 'lucide-react'
@@ -64,8 +64,16 @@ const ALSO_GRADIENTS = [
   },
 ] as const
 
-function RulerBorder({ width, height }: { width: string; height: string }) {
-  const containerRef = useRef<HTMLDivElement>(null)
+function RulerBorder({
+  width,
+  height,
+  hostRef,
+}: {
+  width: string
+  height: string
+  /** Родитель-карточка, на котором висит mousemove — нужен для расчёта координат. */
+  hostRef: React.RefObject<HTMLDivElement | null>
+}) {
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
   const smoothX = useSpring(mouseX, { stiffness: 200, damping: 25 })
@@ -76,31 +84,42 @@ function RulerBorder({ width, height }: { width: string; height: string }) {
   const topTicks = 20
   const sideTicks = 12
 
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      if (!containerRef.current) return
-      const rect = containerRef.current.getBoundingClientRect()
+  // Слушаем события на родителе-карточке (а не на оверлее линеек) — иначе
+  // оверлей перехватывает клики по кнопке «Заказать», лежащей внутри
+  // карточки. См. fix(home) — баг master-plan 2026-04-26.
+  useEffect(() => {
+    const host = hostRef.current
+    if (!host) return
+    const onMove = (e: MouseEvent) => {
+      const rect = host.getBoundingClientRect()
       mouseX.set(e.clientX - rect.left)
       mouseY.set(e.clientY - rect.top)
       setPos({
         xPct: (e.clientX - rect.left) / rect.width,
         yPct: (e.clientY - rect.top) / rect.height,
       })
-    },
-    [mouseX, mouseY],
-  )
+    }
+    const onEnter = () => setHover(true)
+    const onLeave = () => setHover(false)
+    host.addEventListener('mousemove', onMove)
+    host.addEventListener('mouseenter', onEnter)
+    host.addEventListener('mouseleave', onLeave)
+    return () => {
+      host.removeEventListener('mousemove', onMove)
+      host.removeEventListener('mouseenter', onEnter)
+      host.removeEventListener('mouseleave', onLeave)
+    }
+  }, [hostRef, mouseX, mouseY])
 
   const widthNum = parseFloat(width) || 0
   const heightNum = parseFloat(height) || 0
 
   return (
     <div
-      ref={containerRef}
-      className="absolute inset-0 pointer-events-none z-10"
-      style={{ pointerEvents: 'auto' }}
-      onMouseMove={handleMouseMove}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
+      // pointer-events-none — критично! Иначе оверлей перехватывает
+      // клики по «Заказать» внутри карточки.
+      className="absolute inset-0 z-10 pointer-events-none"
+      aria-hidden="true"
     >
       <div className="absolute -top-6 left-0 right-0 h-6">
         <motion.div
@@ -208,6 +227,92 @@ function RulerBorder({ width, height }: { width: string; height: string }) {
   )
 }
 
+/**
+ * Карточка услуги — выделена в отдельный компонент чтобы:
+ *  1. RulerBorder получил ref на саму карточку (mousemove там, не на оверлее);
+ *  2. оверлей-линейка стал `pointer-events-none` и не перехватывал клик
+ *     по кнопке «Заказать». См. fix(home) 2026-04-26.
+ */
+function ServiceCard({
+  service,
+  index,
+  reversed,
+  onOrder,
+}: {
+  service: ServiceItem
+  index: number
+  reversed: boolean
+  onOrder: (s: ServiceItem) => void
+}) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  // Используем React.createElement, чтобы не объявлять локальную
+  // PascalCase-переменную в теле компонента (lint-правило
+  // «Cannot create components during render»). resolveIcon просто
+  // возвращает готовый lucide-компонент.
+  const iconNode = createElement(resolveIcon(service.icon), {
+    className: 'w-8 h-8 text-white',
+    strokeWidth: 1.5,
+  })
+
+  return (
+    <div className="relative md:pl-8 md:pt-8">
+      <div className="hidden md:block">
+        <RulerBorder width={service.width} height={service.height} hostRef={cardRef} />
+      </div>
+      <div
+        ref={cardRef}
+        className={`group flex flex-col ${reversed ? 'md:flex-row-reverse' : 'md:flex-row'} rounded-2xl border border-gray-100 bg-white transition-all duration-400 hover:shadow-xl md:rounded-3xl`}
+      >
+        <div className="relative h-56 min-h-[220px] overflow-hidden md:h-auto md:min-h-[300px] md:w-1/2">
+          {service.image && (
+            <Image
+              src={asset(service.image)}
+              alt={service.title}
+              fill
+              className="object-cover transition-transform duration-700 group-hover:scale-105"
+              // sizes — критичен для Firefox, чтобы он не ломал srcset и
+              // загружал корректный источник (P1-5 QA-audit).
+              sizes="(max-width: 768px) 100vw, 50vw"
+              // Первые две карточки — above/near fold, грузим eager,
+              // остальные lazy. FF при lazy+IO+transform мог откладывать
+              // загрузку бесконечно, поэтому первые две — гарантированно.
+              loading={index < 2 ? 'eager' : 'lazy'}
+              fetchPriority={index === 0 ? 'high' : 'auto'}
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+          <div className="absolute bottom-5 left-5 w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 via-brand-orange to-amber-600 flex items-center justify-center shadow-[0_10px_30px_-8px_rgba(255,102,0,0.55)] ring-1 ring-white/25 backdrop-blur-sm">
+            {iconNode}
+          </div>
+        </div>
+        <div className="flex flex-col justify-center p-6 sm:p-8 md:w-1/2 md:p-12">
+          <h3 className="mb-3 text-xl font-black text-brand-dark sm:mb-4 sm:text-2xl md:text-3xl">
+            {service.title}
+          </h3>
+          <p className="mb-5 text-base leading-relaxed text-gray-500 sm:mb-6 md:text-lg">
+            {service.description}
+          </p>
+          <div className="mb-6">
+            <span className="inline-flex items-center gap-2 bg-brand-orange/10 text-brand-orange px-4 py-2 rounded-full text-sm font-semibold shadow-[0_0_12px_rgba(255,107,0,0.3)]">
+              <span className="w-2 h-2 bg-brand-orange rounded-full animate-pulse" />
+              {service.badge}
+            </span>
+          </div>
+          <div className="relative z-20">
+            <Button
+              onClick={() => onOrder(service)}
+              size="md"
+              className="rounded-full px-7 shadow-md shadow-brand-orange/30"
+            >
+              {service.cta_text || 'Заказать'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ServicesPreviewClient({ data }: { data: ServicesSectionData }) {
   const openQuote = useUIStore((s) => s.openQuote)
 
@@ -261,64 +366,10 @@ export default function ServicesPreviewClient({ data }: { data: ServicesSectionD
 
         <div className="space-y-14">
           {data.items.map((s, i) => {
-            const Icon = resolveIcon(s.icon)
             const reversed = i % 2 !== 0
             return (
               <AnimatedSection key={`${s.title}-${i}`} delay={i * 0.1} direction={reversed ? 'right' : 'left'}>
-                <div className="relative md:pl-8 md:pt-8">
-                  <div className="hidden md:block">
-                    <RulerBorder width={s.width} height={s.height} />
-                  </div>
-                  <div
-                    className={`group flex flex-col ${reversed ? 'md:flex-row-reverse' : 'md:flex-row'} rounded-2xl border border-gray-100 bg-white transition-all duration-400 hover:shadow-xl md:rounded-3xl`}
-                  >
-                    <div className="relative h-56 min-h-[220px] overflow-hidden md:h-auto md:min-h-[300px] md:w-1/2">
-                      {s.image && (
-                        <Image
-                          src={asset(s.image)}
-                          alt={s.title}
-                          fill
-                          className="object-cover transition-transform duration-700 group-hover:scale-105"
-                          // sizes — критичен для Firefox, чтобы он не ломал srcset и
-                          // загружал корректный источник (P1-5 QA-audit).
-                          sizes="(max-width: 768px) 100vw, 50vw"
-                          // Первые две карточки — above/near fold, грузим eager,
-                          // остальные lazy. FF при lazy+IO+transform мог откладывать
-                          // загрузку бесконечно, поэтому первые две — гарантированно.
-                          loading={i < 2 ? 'eager' : 'lazy'}
-                          fetchPriority={i === 0 ? 'high' : 'auto'}
-                        />
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-                      <div className="absolute bottom-5 left-5 w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 via-brand-orange to-amber-600 flex items-center justify-center shadow-[0_10px_30px_-8px_rgba(255,102,0,0.55)] ring-1 ring-white/25 backdrop-blur-sm">
-                        <Icon className="w-8 h-8 text-white" strokeWidth={1.5} />
-                      </div>
-                    </div>
-                    <div className="flex flex-col justify-center p-6 sm:p-8 md:w-1/2 md:p-12">
-                      <h3 className="mb-3 text-xl font-black text-brand-dark sm:mb-4 sm:text-2xl md:text-3xl">
-                        {s.title}
-                      </h3>
-                      <p className="mb-5 text-base leading-relaxed text-gray-500 sm:mb-6 md:text-lg">
-                        {s.description}
-                      </p>
-                      <div className="mb-6">
-                        <span className="inline-flex items-center gap-2 bg-brand-orange/10 text-brand-orange px-4 py-2 rounded-full text-sm font-semibold shadow-[0_0_12px_rgba(255,107,0,0.3)]">
-                          <span className="w-2 h-2 bg-brand-orange rounded-full animate-pulse" />
-                          {s.badge}
-                        </span>
-                      </div>
-                      <div>
-                        <Button
-                          onClick={() => handleOrder(s)}
-                          size="md"
-                          className="rounded-full px-7 shadow-md shadow-brand-orange/30"
-                        >
-                          {s.cta_text || 'Заказать'}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <ServiceCard service={s} index={i} reversed={reversed} onOrder={handleOrder} />
               </AnimatedSection>
             )
           })}
