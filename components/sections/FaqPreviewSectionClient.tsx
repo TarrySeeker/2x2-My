@@ -18,12 +18,10 @@ export interface FaqSectionData {
 
 function FaqCard({
   item,
-  index,
   isOpen,
   toggle,
 }: {
   item: FaqItem
-  index: number
   isOpen: boolean
   toggle: () => void
 }) {
@@ -67,14 +65,15 @@ function FaqCard({
 
           <div className="relative flex items-center gap-5">
             {item.emoji && (
-              <motion.div
+              // Статический <div> вместо motion.div — клиент попросил
+              // убрать качающуюся idle-анимацию у эмодзи (правка 2026-04-27,
+              // баг 5 из репорта). chevron-rotation при открытии оставлен.
+              <div
                 className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl
                   ${isOpen ? 'bg-white/20 backdrop-blur-sm' : 'bg-brand-orange/15'}`}
-                animate={!isOpen ? { rotate: [0, 5, -5, 0] } : { rotate: 0 }}
-                transition={{ duration: 4, repeat: Infinity, delay: index * 0.4 }}
               >
                 {item.emoji}
-              </motion.div>
+              </div>
             )}
 
             <div className="flex-1 min-w-0">
@@ -167,7 +166,6 @@ export default function FaqPreviewSectionClient({ data }: { data: FaqSectionData
               <FaqCard
                 key={`${item.question}-${i}`}
                 item={item}
-                index={i}
                 isOpen={openIndex === i}
                 toggle={() => setOpenIndex(openIndex === i ? null : i)}
               />
