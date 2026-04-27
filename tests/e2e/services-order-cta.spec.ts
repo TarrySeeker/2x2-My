@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * Регрессия: кнопка «Заказать» в блоке услуг на главной должна
+ * Регрессия: кнопка «Заказать» под карточкой услуги на главной должна
  * открывать QuoteModal. Раньше был баг — оверлей RulerBorder с
  * `pointer-events: auto` на `inset-0 z-10` перехватывал клики по
  * кнопке внутри карточки. Фикс: оверлей `pointer-events-none`,
@@ -13,18 +13,38 @@ test.describe("Главная — кнопка «Заказать» под ка�
   test("клик открывает QuoteModal с pre-fill названия услуги", async ({ page }) => {
     await page.goto("/", { waitUntil: "networkidle" });
 
-    // Берём первую кнопку «Заказать» в секции услуг — это первая
-    // карточка ServicesPreviewClient.
+    // На проде сразу всплывает PromoPopupBanner (тоже role=dialog) —
+    // закроем его, чтобы не перекрывал клик. На dev/CI без БД попапа
+    // нет, поэтому делаем закрытие best-effort.
+    const promoPopup = page
+      .getByRole("dialog", { name: /500 визиток|визитки|подарок/i });
+    if ((await promoPopup.count()) > 0) {
+      await promoPopup
+        .first()
+        .getByRole("button", { name: /закрыть|^×$|^x$/i })
+        .first()
+        .click({ timeout: 3000 })
+        .catch(() => {
+          // fallback: ESC
+          return page.keyboard.press("Escape");
+        });
+    }
+
+    // Берём кнопку «Заказать» в секции услуг — Button рендерит
+    // <button>Заказать</button> (без Link), это уникальная сигнатура.
     const orderBtn = page
-      .getByRole("button", { name: /^Заказать/i })
+      .getByRole("button", { name: /^Заказать$/ })
       .first();
     await expect(orderBtn).toBeVisible();
+    await orderBtn.scrollIntoViewIfNeeded();
     await orderBtn.click();
 
-    // Должна открыться QuoteModal (role=dialog), фильтруем cookie-баннер.
+    // Должна открыться QuoteModal (role=dialog), фильтруем cookie/promo.
     const dialog = page
       .getByRole("dialog")
-      .filter({ hasNotText: /cookie|cookies|куки/i })
+      .filter({
+        hasNotText: /cookie|cookies|куки|подарок|визиток|листовок/i,
+      })
       .first();
     await expect(dialog).toBeVisible();
 
