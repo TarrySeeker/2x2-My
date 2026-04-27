@@ -7,7 +7,6 @@
  * Ведёт: content-manager (Этап 6, 2026-04-23).
  */
 
-export * from './home'
 export * from './promotions'
 export * from './empty-states'
 export * from './blog-starters'

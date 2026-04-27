@@ -609,12 +609,12 @@ function ServiceDialog({
             <Field
               label="Ссылка карточки"
               error={errors.href?.message}
-              hint="Куда ведёт клик: /catalog/<slug>, /calculator, /contacts..."
+              hint="Куда ведёт клик: /services, /calculator, /contacts..."
             >
               <input
                 {...register("href")}
                 className={inputCls}
-                placeholder="/catalog/polygrafiya"
+                placeholder="/services"
               />
             </Field>
 

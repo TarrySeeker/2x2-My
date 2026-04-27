@@ -26,7 +26,7 @@ const validService = {
   icon: "printer",
   cover_image: "/img/pint.png",
   category: "polygraphy",
-  href: "/catalog/polygrafiya",
+  href: "/services",
   enabled: true,
   display_order: 10,
   features: ["Срок 1-3 дня", "Дизайн в подарок"],

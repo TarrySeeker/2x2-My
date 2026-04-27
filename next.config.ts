@@ -19,6 +19,17 @@ const nextConfig: NextConfig = {
       }
     : {
         output: "standalone",
+        async redirects() {
+          // chore(catalog) 2026-04-26 — каталог /catalog и карточки
+          // /product/<slug> удалены: сайт продаёт только услуги, всё
+          // ушло в /services. Редиректы 308 (permanent) сохраняют
+          // SEO-вес внешних ссылок на удалённые страницы.
+          return [
+            { source: "/catalog", destination: "/services", permanent: true },
+            { source: "/catalog/:path*", destination: "/services", permanent: true },
+            { source: "/product/:path*", destination: "/services", permanent: true },
+          ];
+        },
         images: {
           formats: ["image/avif", "image/webp"],
           remotePatterns: [

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   X,
@@ -13,7 +12,6 @@ import {
   Loader2,
   ThumbsUp,
   ThumbsDown,
-  ExternalLink,
 } from "lucide-react";
 import clsx from "clsx";
 import { toast } from "sonner";
@@ -227,16 +225,12 @@ export default function ReviewDetailDialog({
                     {review.product_name}
                   </p>
                 </div>
-                {review.product_slug && (
-                  <Link
-                    href={`/catalog/${review.product_slug}`}
-                    target="_blank"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-brand-orange dark:hover:bg-white/10"
-                    title="Открыть товар"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Link>
-                )}
+                {/*
+                  Кнопка перехода к товару удалена: каталог /catalog и
+                  /product/<slug> снят (chore(catalog), 2026-04-26).
+                  product_slug сохраняется на отзыве для истории, но
+                  публичной страницы для перехода больше нет.
+                */}
               </div>
             )}
 

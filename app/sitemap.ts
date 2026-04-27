@@ -1,7 +1,5 @@
 import type { MetadataRoute } from "next";
 import { siteUrl } from "@/lib/siteConfig";
-import { getCategories } from "@/lib/data/categories";
-import { getProducts } from "@/lib/data/products";
 import { getPortfolio } from "@/lib/data/portfolio";
 import { getPublishedBlogPostsForSitemap } from "@/lib/data/blog";
 import { listEnabledServices } from "@/lib/data/services";
@@ -24,7 +22,6 @@ const STATIC_PAGES: Array<{
 }> = [
   { path: "",           priority: 1.0, changeFreq: "weekly"  },
   { path: "/about",     priority: 0.7, changeFreq: "monthly" },
-  { path: "/catalog",   priority: 0.9, changeFreq: "weekly"  },
   { path: "/services",  priority: 0.9, changeFreq: "weekly"  },
   { path: "/portfolio", priority: 0.8, changeFreq: "weekly"  },
   { path: "/blog",      priority: 0.7, changeFreq: "weekly"  },
@@ -55,50 +52,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: p.changeFreq,
     priority: p.priority,
   }));
-
-  // ── Категории каталога ──
-  // Источник: Supabase `categories` (только is_active). Fallback — пусто.
-  // NB: статических страниц «услуг» из content/home.ts сюда НЕ добавляем:
-  // `/services` уже в STATIC_PAGES, а служебные `servicesTeasers` не имеют
-  // отдельных роутов (`/catalog/<slug>` формируется из таблицы categories).
-  try {
-    const categories = await getCategories();
-    for (const c of categories) {
-      entries.push({
-        url: abs(`/catalog/${c.slug}`),
-        lastModified: toDate(
-          (c as { updated_at?: string | Date | null }).updated_at,
-          now,
-        ),
-        changeFrequency: "weekly",
-        priority: 0.8,
-      });
-    }
-  } catch (err) {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[sitemap] getCategories failed:", err);
-    }
-  }
-
-  // ── Товары / услуги ──
-  // Источник: products (status='active'). При ошибке БД — пустой список,
-  // sitemap не падает.
-  try {
-    const products = await getProducts({ per_page: 500 });
-    for (const p of products) {
-      const updated = (p as { updated_at?: string | Date | null }).updated_at;
-      entries.push({
-        url: abs(`/product/${p.slug}`),
-        lastModified: toDate(updated, now),
-        changeFrequency: "weekly",
-        priority: 0.7,
-      });
-    }
-  } catch (err) {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[sitemap] getProducts failed:", err);
-    }
-  }
 
   // ── Услуги (детальные карточки) ──
   // Источник: services (enabled=TRUE). Каждой enabled-услуге

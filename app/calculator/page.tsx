@@ -45,37 +45,37 @@ const CALC_LINKS_FALLBACK: CalcLink[] = [
   {
     title: 'Визитки',
     description: 'Тираж, бумага, ламинация — цена за 1 тираж и за штуку.',
-    href: '/catalog/poligrafiya',
+    href: '/services',
     badge: 'от 1,7 ₽/шт.',
   },
   {
     title: 'Листовки и флаеры',
     description: 'Формат А6–А4, плотность бумаги, цветность — мгновенный расчёт.',
-    href: '/catalog/poligrafiya',
+    href: '/services',
     badge: 'от 3 ₽/шт.',
   },
   {
     title: 'Баннеры',
     description: 'Ширина × высота в метрах. Материал, люверсы, оформление.',
-    href: '/catalog/naruzhnaya-reklama',
+    href: '/services',
     badge: 'от 450 ₽/м²',
   },
   {
     title: 'Световые буквы',
     description: 'Длина периметра, тип подсветки, материал. Сразу вилка цены.',
-    href: '/catalog/naruzhnaya-reklama',
+    href: '/services',
     badge: 'от 150 ₽/см',
   },
   {
     title: 'Вывески и лайтбоксы',
     description: 'Размеры, тип конструкции, материалы лицевой части.',
-    href: '/catalog/naruzhnaya-reklama',
+    href: '/services',
     badge: 'от 8 500 ₽/м²',
   },
   {
     title: 'Оклейка транспорта',
     description: 'Частичная или полный wrap. Плёнка, площадь, срок.',
-    href: '/catalog/oformlenie',
+    href: '/services',
     badge: 'от 15 000 ₽',
   },
 ]

@@ -241,7 +241,7 @@ export function buildProduct(p: ProductSeoInput): JsonLdData {
           priceCurrency: "RUB",
           price: p.priceFrom,
           availability: "https://schema.org/InStock",
-          url: absoluteUrl(`/product/${p.slug}`),
+          url: absoluteUrl(`/services/${p.slug}`),
           seller: { "@id": `${SITE.url}/#organization` },
           ...(p.unit ? { priceSpecification: { "@type": "UnitPriceSpecification", price: p.priceFrom, priceCurrency: "RUB", unitText: p.unit } } : {}),
         }
@@ -250,11 +250,11 @@ export function buildProduct(p: ProductSeoInput): JsonLdData {
   return {
     "@context": "https://schema.org",
     "@type": "Product",
-    "@id": absoluteUrl(`/product/${p.slug}#product`),
+    "@id": absoluteUrl(`/services/${p.slug}#product`),
     name: p.name,
     description: p.description,
     sku: p.sku ?? p.slug,
-    url: absoluteUrl(`/product/${p.slug}`),
+    url: absoluteUrl(`/services/${p.slug}`),
     image: images.map((src) => absoluteUrl(src)),
     brand: { "@type": "Brand", name: SITE.shortName },
     category: p.categoryName,
@@ -289,13 +289,13 @@ export function buildService(s: ServiceSeoInput): JsonLdData {
   return {
     "@context": "https://schema.org",
     "@type": "Service",
-    "@id": absoluteUrl(`/product/${s.slug}#service`),
+    "@id": absoluteUrl(`/services/${s.slug}#service`),
     name: s.name,
     description: s.description,
     serviceType: s.categoryName ?? "Реклама и полиграфия",
     provider: { "@id": `${SITE.url}/#organization` },
     areaServed: BUSINESS.areaServed.map((name) => ({ "@type": "City", name })),
-    url: absoluteUrl(`/product/${s.slug}`),
+    url: absoluteUrl(`/services/${s.slug}`),
     ...(s.image ? { image: absoluteUrl(s.image) } : {}),
     ...(typeof s.priceFrom === "number"
       ? {

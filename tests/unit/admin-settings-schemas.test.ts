@@ -117,7 +117,7 @@ describe("promoBarSettingsSchema", () => {
   it("accepts valid promo bar settings", () => {
     const result = promoBarSettingsSchema.safeParse({
       promo_bar_text: "Скидка 10% на все визитки!",
-      promo_bar_link: "/catalog/vizitki",
+      promo_bar_link: "/services",
       promo_bar_active: true,
     });
     expect(result.success).toBe(true);
@@ -327,8 +327,8 @@ describe("menuItemSchema", () => {
   it("accepts valid header menu item", () => {
     const result = menuItemSchema.safeParse({
       position: "header",
-      title: "Каталог",
-      url: "/catalog",
+      title: "Услуги",
+      url: "/services",
     });
     expect(result.success).toBe(true);
   });
@@ -355,7 +355,7 @@ describe("menuItemSchema", () => {
     const result = menuItemSchema.safeParse({
       position: "header",
       title: "",
-      url: "/catalog",
+      url: "/services",
     });
     expect(result.success).toBe(false);
   });

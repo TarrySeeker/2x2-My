@@ -355,7 +355,7 @@ export default function MenuPageClient({
                   </label>
                   <input
                     {...register("url")}
-                    placeholder="/catalog или https://..."
+                    placeholder="/services или https://..."
                     className="h-10 w-full rounded-lg border border-neutral-200 bg-transparent px-3 text-sm dark:border-white/10 dark:text-white"
                   />
                   {errors.url && (

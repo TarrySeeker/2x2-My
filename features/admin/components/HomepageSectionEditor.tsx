@@ -854,7 +854,7 @@ function PromotionsHeaderFields({
         </Field>
         <Field
           label="URL кнопки"
-          hint="Внутренняя ссылка: /promotions, /catalog. Внешняя: https://example.com"
+          hint="Внутренняя ссылка: /services, /portfolio, /contacts. Внешняя: https://example.com"
         >
           <TextInput register={register("cta_url")} placeholder="/promotions" />
         </Field>

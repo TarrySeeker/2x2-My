@@ -60,53 +60,10 @@ test.describe("ContactForm на /contacts", () => {
   });
 });
 
-test.describe("OneClickModal на /product/[slug]", () => {
-  test("без чекбокса submit заблокирован, с чекбоксом — POST в /api/leads/one-click", async ({ page }) => {
-    await page.goto("/product/vizitki-90x50");
-    const trigger = page.getByRole("button", { name: /в 1 клик|купить в 1 клик|быстрый расчёт/i }).first();
-    if ((await trigger.count()) === 0) {
-      test.skip(true, "Кнопка OneClick не найдена на этом продукте");
-      return;
-    }
-    await trigger.click();
-
-    // Cookie banner тоже role="dialog" — фильтруем.
-    const dialog = page
-      .getByRole("dialog")
-      .filter({ hasNotText: /cookie|cookies|куки/i })
-      .first();
-    await dialog.getByLabel(/имя/i).first().fill("Тестер");
-    await dialog.getByLabel(/телефон/i).first().fill("+79324247740");
-
-    // Без consent — не отправляется (force:true — см. комментарий в
-    // ContactForm-тесте: на WebKit actionability для disabled работает
-    // нестабильно, важно проверить именно защиту onSubmit, а не UI-блок).
-    let called = false;
-    page.on("request", (r) => {
-      if (r.url().endsWith("/api/leads/one-click")) called = true;
-    });
-    await dialog
-      .getByRole("button", { name: /отправить|оставить/i })
-      .click({ force: true });
-    await page.waitForTimeout(300);
-    expect(called).toBe(false);
-
-    // Ставим consent
-    const consent = await findConsentCheckbox(dialog);
-    await consent.check();
-
-    const reqP = page.waitForRequest(
-      (r) => r.url().endsWith("/api/leads/one-click") && r.method() === "POST",
-    );
-    await dialog.getByRole("button", { name: /отправить|оставить/i }).click();
-    const req = await reqP;
-    const body = req.postDataJSON();
-    expect(body).toMatchObject({ pdConsent: true });
-    expect(req.headers()["idempotency-key"]).toBeTruthy();
-    // НЕ /api/orders (которая теперь 410)
-    expect(req.url()).not.toContain("/api/orders");
-  });
-});
+// Старый блок «OneClickModal на /product/[slug]» удалён вместе с
+// каталогом и страницей карточки товара (chore(catalog) 2026-04-26).
+// OneClick / QuoteModal по-прежнему доступны через Hero-CTA и кнопку
+// «Заказать» в блоке услуг — они покрываются leads-flow.spec.ts.
 
 test.describe("QuoteModal — pdConsent contract", () => {
   test("body содержит pdConsent:true и Idempotency-Key в header", async ({ page }) => {

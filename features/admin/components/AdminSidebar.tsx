@@ -115,9 +115,10 @@ const NAV_ITEMS: NavEntry[] = [
   // «Услуги» — единый редактор карточек услуг (`services` table). Заменил
   // группу «Каталог» (Товары + Категории). Старые роуты /admin/products
   // и /admin/categories остались как orphan — доступны по прямому URL,
-  // но не отображаются в навигации (cleanup 2026-04-25, см. комментарий
-  // выше). Сами таблицы products/categories/product_images НЕ удалены —
-  // их использует legacy /catalog и фасеты.
+  // но не отображаются в навигации (cleanup 2026-04-25). Сами таблицы
+  // products/categories/product_images НЕ удалены: продакшн витрины
+  // /catalog и /product/[slug] также удалены (chore(catalog) 2026-04-26),
+  // но БД оставлена для возможного восстановления данных.
   {
     label: "Услуги",
     href: "/admin/content/services",

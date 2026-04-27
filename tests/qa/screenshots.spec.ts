@@ -15,7 +15,7 @@ import path from "node:path";
 
 const PAGES: Array<{ slug: string; file: string }> = [
   { slug: "/", file: "home" },
-  { slug: "/catalog", file: "catalog" },
+  { slug: "/services", file: "services" },
   { slug: "/portfolio", file: "portfolio" },
   { slug: "/about", file: "about" },
   { slug: "/contacts", file: "contacts" },

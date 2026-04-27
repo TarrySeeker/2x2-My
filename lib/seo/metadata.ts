@@ -14,7 +14,7 @@ export type SeoInput = {
   /** Заголовок страницы (без суффикса бренда — он добавится из template). */
   title: string;
   description: string;
-  /** Путь относительно корня, например `/catalog/polygrafiya`. */
+  /** Путь относительно корня, например `/services/polygrafiya`. */
   path: string;
   /** Относительный путь к изображению для OG. */
   image?: string;

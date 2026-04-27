@@ -42,19 +42,8 @@ test.fixme("H4 — клик по WhatsApp дёргает trackEvent('whatsapp_cl
   expect(events).toContain("whatsapp_click");
 });
 
-test("H4 — отправка OneClickModal дёргает trackEvent('one_click_submit')", async ({ page }) => {
-  const events = await collectAnalytics(page);
-  await page.goto("/product/vizitki-90x50");
-  const trigger = page.getByRole("button", { name: /в 1 клик|купить в 1 клик/i });
-  await trigger.click();
-  await page.getByLabel(/имя/i).fill("Тестер");
-  await page.getByLabel(/телефон/i).fill("+7 999 999 99 99");
-  await page.getByRole("button", { name: /отправить|оставить/i }).click();
-  expect(events).toContain("one_click_submit");
-});
-
-test("H4 — открытие карточки товара дёргает view_product", async ({ page }) => {
-  const events = await collectAnalytics(page);
-  await page.goto("/product/vizitki-90x50");
-  expect(events).toContain("view_product");
-});
+// Тесты one_click_submit и view_product завязаны на /product/[slug],
+// которого больше нет (chore(catalog) 2026-04-26). OneClickModal сейчас
+// не вызывается с витрины — все CTA идут в QuoteModal, и она покрыта
+// leads-flow.spec.ts. Когда OneClick вернётся (например, на странице
+// услуги), нужно добавить аналогичный тест с актуальным роутом.

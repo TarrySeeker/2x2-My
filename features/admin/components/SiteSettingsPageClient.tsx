@@ -1250,7 +1250,7 @@ function NavigationHeaderForm({
                 />
                 <input
                   {...register(`items.${idx}.href` as const)}
-                  placeholder="/catalog или https://..."
+                  placeholder="/services или https://..."
                   className={clsx(inputCn, "font-mono text-xs")}
                 />
                 <label className="flex items-center gap-2 whitespace-nowrap px-2 text-xs text-neutral-600 dark:text-neutral-300">
