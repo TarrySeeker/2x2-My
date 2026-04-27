@@ -39,7 +39,22 @@ export const portfolioItemSchema = z.object({
     .positive()
     .nullable()
     .default(null),
-  category_label: z.string().max(120).nullable().default(null),
+  // Из админки приходит value <select>: либо строка из
+  // PORTFOLIO_CATEGORIES, либо "" (опция «— не задана —»), либо
+  // legacy-значение (старое произвольное name из БД, см. legacy-блок
+  // в PortfolioPageClient). Пустую строку приводим к null, чтобы
+  // не плодить лишние пустяки в БД и чтобы фильтр по != ''
+  // в коде витрины работал предсказуемо.
+  category_label: z
+    .string()
+    .max(120)
+    .nullable()
+    .default(null)
+    .transform((v) => {
+      if (typeof v !== "string") return null;
+      const trimmed = v.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    }),
   related_product_id: z
     .number()
     .int()

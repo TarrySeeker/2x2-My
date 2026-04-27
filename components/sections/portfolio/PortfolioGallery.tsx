@@ -8,8 +8,11 @@ import Badge from '@/components/ui/Badge'
 import type { PortfolioItem } from '@/lib/types'
 import { featuredPortfolioWorks } from '@/lib/featuredPortfolioWorks'
 import { asset } from '@/lib/asset'
+import { PORTFOLIO_FILTER_LIST } from '@/lib/portfolio/categories'
 
-const categories = ['Все', 'Полиграфия', 'Наружная реклама', 'Фасады'] as const
+// Единый источник истины: значения совпадают с админским <select>
+// в PortfolioPageClient.tsx (см. PORTFOLIO_CATEGORIES).
+const categories = PORTFOLIO_FILTER_LIST
 
 export default function PortfolioGallery({ items }: { items: PortfolioItem[] }) {
   const [active, setActive] = useState<(typeof categories)[number]>('Все')

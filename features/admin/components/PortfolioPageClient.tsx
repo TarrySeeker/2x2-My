@@ -45,6 +45,7 @@ import {
   portfolioItemSchema,
   type PortfolioFormData,
 } from "@/features/admin/schemas/portfolio";
+import { PORTFOLIO_CATEGORIES } from "@/lib/portfolio/categories";
 import {
   createPortfolioItemAction,
   updatePortfolioItemAction,
@@ -833,7 +834,11 @@ function PortfolioFormDialog({
         description: editItem.description,
         short_description: editItem.short_description,
         category_id: editItem.category_id,
-        category_label: editItem.category_label,
+        // Для <select> RHF ожидает строку. null сбивает initial
+        // selectedIndex на первый <option>, и при сохранении без явного
+        // клика категория могла «сбрасываться». Пустая строка → option
+        // value="" (— не задана —). Та же ловушка, что в d2f84c9 для услуг.
+        category_label: editItem.category_label ?? "",
         related_product_id: editItem.related_product_id,
         client_name: editItem.client_name,
         industry: editItem.industry,
@@ -856,7 +861,8 @@ function PortfolioFormDialog({
       description: null,
       short_description: null,
       category_id: null,
-      category_label: null,
+      // Пустая строка для select; см. комментарий выше в edit-ветке.
+      category_label: "",
       related_product_id: null,
       client_name: null,
       industry: null,
@@ -892,6 +898,25 @@ function PortfolioFormDialog({
   const images = watch("images") ?? [];
   const slugValue = watch("slug");
   const titleValue = watch("title");
+
+  // Опции для <select> категории.
+  // Если у редактируемой работы category_label НЕ из текущего набора
+  // PORTFOLIO_CATEGORIES (legacy-значение, оставшееся с эпохи свободного
+  // input'а — например, «Печать», «Световые буквы», «Внутреннее
+  // оформление»), добавляем его как первую опцию с пометкой «(старая)».
+  // Это страхует от случайной потери значения при простом «открыть →
+  // сохранить» (иначе select без matching option показал бы «— не задана —»).
+  const categoryOptionsForSelect = useMemo<
+    ReadonlyArray<{ value: string; label: string }>
+  >(() => {
+    const known = new Set<string>(PORTFOLIO_CATEGORIES.map((c) => c.value));
+    const current = editItem?.category_label ?? null;
+    const legacy =
+      current && !known.has(current)
+        ? [{ value: current, label: `${current} (старая)` }]
+        : [];
+    return [...legacy, ...PORTFOLIO_CATEGORIES];
+  }, [editItem?.category_label]);
 
   function autoSlug() {
     if (!titleValue) return;
@@ -1120,12 +1145,25 @@ function PortfolioFormDialog({
                     placeholder="ВТБ"
                   />
                 </Field>
-                <Field label="Категория (label)">
-                  <input
+                <Field label="Категория">
+                  {/*
+                    ВАЖНО: НЕ передаём `defaultValue` на select — он
+                    конфликтует с `register` от RHF. Initial value берётся
+                    из useForm({ values: defaultValues }). Та же ловушка,
+                    что мы уже наступали для услуг (commit d2f84c9).
+                    Влияет на фильтр на /portfolio (PORTFOLIO_FILTER_LIST).
+                  */}
+                  <select
                     {...register("category_label")}
                     className={inputCls}
-                    placeholder="Наружная реклама"
-                  />
+                  >
+                    <option value="">— не задана —</option>
+                    {categoryOptionsForSelect.map((c) => (
+                      <option key={c.value} value={c.value}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
