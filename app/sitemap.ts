@@ -73,21 +73,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   // ── Портфолио ──
-  // Сейчас карточек /portfolio/[slug] нет (D-012: lightbox на /portfolio).
-  // Импорт сохранён ради будущего — чтобы не забыть при появлении роута.
-  // Когда появится /portfolio/[slug], раскомментировать блок ниже.
-  void getPortfolio;
-  // try {
-  //   const works = await getPortfolio();
-  //   for (const w of works) {
-  //     entries.push({
-  //       url: abs(`/portfolio/${w.slug}`),
-  //       lastModified: toDate(w.updated_at, now),
-  //       changeFrequency: "monthly",
-  //       priority: 0.5,
-  //     });
-  //   }
-  // } catch (err) { /* silent */ }
+  // Каждой опубликованной работе соответствует роут
+  // app/portfolio/[slug]/page.tsx (создан 2026-04-27 вместе с фиксом
+  // багов клиента — раньше карточки на /portfolio были без ссылки).
+  // При ошибке БД — тихий пропуск (sitemap.xml остаётся валидным).
+  try {
+    const works = await getPortfolio();
+    for (const w of works) {
+      entries.push({
+        url: abs(`/portfolio/${w.slug}`),
+        lastModified: toDate(w.updated_at, now),
+        changeFrequency: "monthly",
+        priority: 0.6,
+      });
+    }
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[sitemap] portfolio fetch failed:", err);
+    }
+  }
 
   // ── Блог ──
   // 1) Основной источник — таблица `blog_posts` (status='published').

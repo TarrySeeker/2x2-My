@@ -114,6 +114,51 @@ export async function listFeaturedPortfolioItems(): Promise<PortfolioItem[]> {
  * Защита от >3 — в server action (Zod max(3)). На уровне БД тоже
  * стоит CHECK (`featured_order BETWEEN 1 AND 3 AND is_featured`).
  */
+/**
+ * Возвращает одну опубликованную работу портфолио по slug.
+ *
+ * Используется страницей `app/portfolio/[slug]/page.tsx` (страница работы).
+ * Поведение симметрично `getPortfolio()`: при недоступной БД (placeholder
+ * DATABASE_URL в Docker builder) или пустом результате — fallback в STUB.
+ *
+ * Кешируется per-slug на 60 секунд под общим тегом
+ * `PORTFOLIO_FEATURED_CACHE_TAG` — после revalidateTag в админке
+ * (publish/unpublish/edit) свежие данные подхватываются автоматически.
+ */
+const getBySlugCached = unstable_cache(
+  async (slug: string): Promise<PortfolioItem | null> => {
+    try {
+      const rows = await sql<PortfolioItem[]>`
+        SELECT *
+        FROM portfolio_items
+        WHERE slug = ${slug}
+          AND is_published = true
+        LIMIT 1
+      `;
+      if (rows[0]) return rows[0];
+    } catch (err) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          "[portfolio.getBySlug] DB request failed, using stub:",
+          err,
+        );
+      }
+    }
+    const stub = PORTFOLIO_STUB.find(
+      (p) => p.slug === slug && p.is_published,
+    );
+    return stub ? toPortfolioItemShape(stub) : null;
+  },
+  ["portfolio-by-slug"],
+  { revalidate: 60, tags: [PORTFOLIO_FEATURED_CACHE_TAG] },
+);
+
+export async function getPortfolioItemBySlug(
+  slug: string,
+): Promise<PortfolioItem | null> {
+  return getBySlugCached(slug);
+}
+
 export async function setFeaturedPortfolio(ids: number[]): Promise<void> {
   if (ids.length > 3) {
     throw new Error("Можно отметить не более 3 «главных» работ");

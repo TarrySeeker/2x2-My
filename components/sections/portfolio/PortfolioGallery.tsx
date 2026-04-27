@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import AnimatedSection from '@/components/ui/AnimatedSection'
 import Badge from '@/components/ui/Badge'
 import type { PortfolioItem } from '@/lib/types'
@@ -42,37 +43,56 @@ export default function PortfolioGallery({ items }: { items: PortfolioItem[] }) 
                 `https://picsum.photos/seed/${encodeURIComponent(work._id)}/600/400`
               const isLocal = resolvedSrc.startsWith('/')
 
-              return (
-                <AnimatedSection key={work._id} delay={i * 0.05}>
-                  <div className="group rounded-2xl overflow-hidden border border-gray-100 hover:shadow-lg transition-all duration-300">
-                    <div className="relative overflow-hidden aspect-[4/3]">
-                      {isLocal ? (
-                        <Image
-                          src={asset(resolvedSrc)}
-                          alt={work.title}
-                          fill
-                          className="object-cover transition-transform duration-500 group-hover:scale-105"
-                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                        />
-                      ) : (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={resolvedSrc}
-                          alt={work.title}
-                          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
-                      )}
-                      <div className="absolute left-3 top-3 max-w-[min(100%-1.5rem,220px)] sm:max-w-[min(100%-1.5rem,260px)]">
-                        <Badge className="whitespace-normal break-words">{work.badgeLabel ?? work.category}</Badge>
-                      </div>
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-bold text-brand-dark mb-1 text-sm">{work.title}</h3>
-                      {work.description?.trim() ? (
-                        <p className="whitespace-pre-line text-gray-500 text-xs">{work.description}</p>
-                      ) : null}
+              // Карточка ведёт на /portfolio/[slug]. У stub-fallback'а
+              // (`featuredPortfolioWorks`) slug всегда есть (см. lib/...),
+              // у БД-рядов тоже (NOT NULL UNIQUE). Если по какой-то причине
+              // slug пуст — рендерим невыводимую ссылку (#) и логируем.
+              const hasSlug =
+                typeof work.slug === 'string' && work.slug.length > 0
+              const cardInner = (
+                <div className="group rounded-2xl overflow-hidden border border-gray-100 hover:shadow-lg transition-all duration-300">
+                  <div className="relative overflow-hidden aspect-[4/3]">
+                    {isLocal ? (
+                      <Image
+                        src={asset(resolvedSrc)}
+                        alt={work.title}
+                        fill
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={resolvedSrc}
+                        alt={work.title}
+                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    )}
+                    <div className="absolute left-3 top-3 max-w-[min(100%-1.5rem,220px)] sm:max-w-[min(100%-1.5rem,260px)]">
+                      <Badge className="whitespace-normal break-words">{work.badgeLabel ?? work.category}</Badge>
                     </div>
                   </div>
+                  <div className="p-4">
+                    <h3 className="font-bold text-brand-dark mb-1 text-sm group-hover:text-brand-orange transition-colors">{work.title}</h3>
+                    {work.description?.trim() ? (
+                      <p className="whitespace-pre-line text-gray-500 text-xs">{work.description}</p>
+                    ) : null}
+                  </div>
+                </div>
+              )
+              return (
+                <AnimatedSection key={work._id} delay={i * 0.05}>
+                  {hasSlug ? (
+                    <Link
+                      href={`/portfolio/${work.slug}`}
+                      className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange focus-visible:ring-offset-2 rounded-2xl"
+                      aria-label={`Открыть проект: ${work.title}`}
+                    >
+                      {cardInner}
+                    </Link>
+                  ) : (
+                    cardInner
+                  )}
                 </AnimatedSection>
               )
             })}
