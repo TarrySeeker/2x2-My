@@ -48,6 +48,10 @@ import {
   reorderServicesAction,
 } from "@/features/admin/actions/services";
 import type { Service } from "@/types";
+import {
+  SERVICE_CATEGORIES,
+  getServiceCategoryLabel,
+} from "@/lib/services/categories";
 import AdminPageHeader from "./AdminPageHeader";
 import ConfirmDialog from "./ConfirmDialog";
 import ImageUploadField from "./ImageUploadField";
@@ -314,7 +318,9 @@ function SortableRow({
       </div>
 
       <div className="hidden items-center text-xs text-neutral-500 lg:flex">
-        {service.category ?? "—"}
+        {service.category
+          ? getServiceCategoryLabel(service.category, service.category)
+          : "—"}
       </div>
 
       <div className="hidden items-center text-xs text-neutral-600 dark:text-neutral-400 lg:flex">
@@ -585,13 +591,20 @@ function ServiceDialog({
               <Field
                 label="Категория"
                 error={errors.category?.message}
-                hint="polygraphy, outdoor, facade, design, installation"
+                hint="Влияет на группировку карточек на /services"
               >
-                <input
+                <select
                   {...register("category")}
                   className={inputCls}
-                  placeholder="polygraphy"
-                />
+                  defaultValue={service?.category ?? ""}
+                >
+                  <option value="">— не задана —</option>
+                  {SERVICE_CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
               </Field>
               <Field
                 label="Иконка (lucide-react)"
