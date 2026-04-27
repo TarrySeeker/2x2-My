@@ -94,8 +94,12 @@ async function audit(
 }
 
 function invalidate() {
+  // updateTag — корректный API для server actions в Next 16 (даёт
+  // read-your-own-writes семантику). Дополнительно сбрасываем layout-cache,
+  // т.к. карточки услуг рендерятся в RSC внутри корневого layout (Header
+  // тоже зависит от services через ServicesPreview).
   updateTag(SERVICES_CACHE_TAG);
-  revalidatePath("/");
+  revalidatePath("/", "layout");
   revalidatePath("/services");
   revalidatePath("/admin/content/services");
 }

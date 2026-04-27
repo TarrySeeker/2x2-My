@@ -384,7 +384,10 @@ function ServiceDialog({
       price_label: service?.price_label ?? null,
       icon: service?.icon ?? null,
       cover_image: service?.cover_image ?? null,
-      category: service?.category ?? null,
+      // Для select RHF ожидает строку. null сбивает initial selectedIndex
+      // на первый <option>, и при сохранении без явного клика категория
+      // могла "сбрасываться". Пустая строка → option value="" (— не задана —).
+      category: service?.category ?? "",
       href: service?.href ?? null,
       enabled: service?.enabled ?? true,
       display_order:
@@ -593,10 +596,16 @@ function ServiceDialog({
                 error={errors.category?.message}
                 hint="Влияет на группировку карточек на /services"
               >
+                {/*
+                  ВАЖНО: НЕ передаём `defaultValue` на select — он конфликтует
+                  с `register` от RHF. RHF сам выставляет initial value через
+                  ref на основе useForm({ defaultValues: { category } }).
+                  При параллельном `defaultValue` React предупреждал и в
+                  некоторых сценариях value сбивался при первой синхронизации.
+                */}
                 <select
                   {...register("category")}
                   className={inputCls}
-                  defaultValue={service?.category ?? ""}
                 >
                   <option value="">— не задана —</option>
                   {SERVICE_CATEGORIES.map((c) => (
