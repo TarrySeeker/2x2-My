@@ -4,6 +4,7 @@ import ServicesPreview from '@/components/sections/ServicesPreview'
 import PromotionsSection from '@/components/sections/PromotionsSection'
 import PortfolioPreview from '@/components/sections/PortfolioPreview'
 import AboutPreview from '@/components/sections/AboutPreview'
+import AboutTeam from '@/components/sections/about/AboutTeam'
 import FeaturesSection from '@/components/sections/FeaturesSection'
 import FaqPreviewSection from '@/components/sections/FaqPreviewSection'
 import CtaSection from '@/components/sections/CtaSection'
@@ -39,16 +40,19 @@ export const generateMetadata = makeGenerateMetadata({
 })
 
 /**
- * Порядок секций главной (master-plan правка 5, 2026-04-23):
+ * Порядок секций главной (master-plan правка 5, 2026-04-23;
+ *  обновление 2026-04-27 — добавлен блок «Наша команда»):
  *  1. Hero
  *  2. Trust-bar (клиенты; рендерится только если site_settings.homepage_trust_bar.clients непустой)
  *  3. Услуги (с кнопкой «Заказать» под каждой и блоком «Также мы занимаемся»)
  *  4. Акции
  *  5. Наши работы (3 featured)
  *  6. О компании (с «Мы вас понимаем» + 17 городов)
- *  7. Почему выбирают нас
- *  8. Частые вопросы
- *  9. CTA (без волны)
+ *  7. Наша команда (server-rendered AboutTeam — gracefully возвращает null,
+ *     если в БД нет активных team_members; админка /admin/content/team)
+ *  8. Почему выбирают нас
+ *  9. Частые вопросы
+ * 10. CTA (без волны)
  *
  * Удалено: TestimonialsSection (по решению клиента — компания не собирает
  * публичные отзывы на текущем этапе).
@@ -62,6 +66,7 @@ export default function HomePage() {
       <PromotionsSection />
       <PortfolioPreview />
       <AboutPreview />
+      <AboutTeam />
       <FeaturesSection />
       <FaqPreviewSection />
       <CtaSection />
