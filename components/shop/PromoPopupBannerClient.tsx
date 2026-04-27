@@ -170,7 +170,15 @@ export default function PromoPopupBanner({
           {promo.link_url && (
             <Link
               href={promo.link_url}
-              onClick={() => trackEvent('promo_popup_cta', { promoId: promo.id })}
+              onClick={() => {
+                // Сначала аналитика (синхронно), потом dismiss. Если бы
+                // dismiss() шёл первым, на медленных устройствах модалка
+                // могла размонтироваться раньше, чем trackEvent поставит
+                // запрос в очередь. См. fix(promo) клиент-репорт 7-багов
+                // 2026-04-27.
+                trackEvent('promo_popup_cta', { promoId: promo.id })
+                dismiss()
+              }}
               className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-brand-orange shadow-md transition-all hover:bg-white/95 hover:shadow-lg sm:w-auto sm:text-base"
             >
               {promo.link_text || strings.ctaDefault}
