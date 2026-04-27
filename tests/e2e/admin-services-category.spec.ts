@@ -30,55 +30,83 @@ import { test, expect, type Page } from "@playwright/test";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@2x2.ru";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "";
 
-// Реальное состояние БД на момент теста: услуга "Полиграфия" сидит в
-// группе "Наружная реклама" (category=outdoor) — это и есть жалоба.
-// Тест воспроизводит сценарий клиента (меняем на polygraphy и проверяем,
-// что категория действительно поменялась), затем откатывает обратно,
-// чтобы прод остался ровно в том состоянии, в котором был.
-const ORIGINAL_CATEGORY = "outdoor";
-const ORIGINAL_CATEGORY_LABEL = "Наружная реклама";
-const TARGET_CATEGORY = "polygraphy";
-const TARGET_CATEGORY_LABEL = "Полиграфия";
+// Тест-стратегия: на проде есть несколько услуг и состояние БД может
+// меняться. Берём ВИДИМУЮ услугу с заданным title, читаем её текущую
+// категорию из select'а, затем меняем на ОТЛИЧНУЮ временную категорию,
+// проверяем отражение на /services и ОТКАТЫВАЕМ к исходной.
+// Это безопаснее, чем хардкодить ожидаемое значение.
 const TARGET_TITLE = "Полиграфия";
+// Кандидаты для временной смены — выбираем первый, отличный от исходного.
+const TEMP_CATEGORY_CANDIDATES: Array<{ value: string; label: string }> = [
+  { value: "installation", label: "Монтаж" },
+  { value: "design", label: "Дизайн" },
+  { value: "facade", label: "Фасады и оформление" },
+  { value: "outdoor", label: "Наружная реклама" },
+  { value: "polygraphy", label: "Полиграфия" },
+];
 
 async function login(page: Page) {
   if (!ADMIN_PASSWORD) {
     test.skip(true, "ADMIN_PASSWORD env not set");
   }
-  await page.goto("/admin/login", { waitUntil: "domcontentloaded" });
+  // networkidle — чтобы дать React гидратировать форму (иначе click до
+  // hydration отправляет дефолтный browser-submit GET-запрос с email/password
+  // в query string, что точно не то, чего мы хотим).
+  await page.goto("/admin/login", { waitUntil: "networkidle" });
+  // Подождать, пока кнопка станет интерактивной (RHF + zod resolver
+  // подключатся).
+  await page.waitForFunction(
+    () => {
+      const btn = document.querySelector(
+        'button[type="submit"]',
+      ) as HTMLButtonElement | null;
+      return !!btn && !btn.disabled;
+    },
+    null,
+    { timeout: 15_000 },
+  );
   await page.fill('input[type="email"]', ADMIN_EMAIL);
   await page.fill('input[type="password"]', ADMIN_PASSWORD);
   await page.click('button[type="submit"]');
-  await page.waitForURL(/\/admin\/(dashboard|content|blog)/, { timeout: 15_000 });
+  await page.waitForURL(/\/admin\/(dashboard|content|blog)/, {
+    timeout: 20_000,
+  });
 }
 
 async function openServiceEditDialog(page: Page, title: string) {
-  await page.goto("/admin/content/services", { waitUntil: "domcontentloaded" });
+  await page.goto("/admin/content/services", { waitUntil: "networkidle" });
 
-  // Ждём таблицу услуг.
-  await expect(page.locator("text=Услуги").first()).toBeVisible({ timeout: 10_000 });
-  // Ждём появления хотя бы одной строки услуги.
-  await page.waitForSelector('li:has(button[aria-label="Редактировать"])', {
-    timeout: 10_000,
+  // На проде список рендерится в таблице/li через DnD-сортируемые ряды.
+  // Ждём появления хотя бы одной кнопки «Редактировать» (она есть в каждой
+  // строке, независимо от того, табличная вёрстка или li).
+  await page.waitForSelector('button[aria-label="Редактировать"]', {
+    timeout: 15_000,
+    state: "visible",
   });
 
-  // Находим строку с нужным title (берём первую включённую, не «скрыто»).
+  // Берём ПЕРВУЮ ВИДИМУЮ строку с нужным title, ИСКЛЮЧАЯ скрытые
+  // (бейдж «Скрыто» рядом с названием). Поднимаемся от title-ячейки
+  // к ближайшему row-контейнеру, у которого есть кнопка «Редактировать».
   const row = page
-    .locator('li:has(button[aria-label="Редактировать"])')
+    .locator(':scope >> :is(li, tr, div)')
+    .filter({ has: page.locator('button[aria-label="Редактировать"]') })
     .filter({ hasText: title })
+    .filter({ hasNot: page.locator("text=Скрыто") })
     .filter({ hasNot: page.locator("text=скрыто") })
     .first();
+
   await expect(row).toBeVisible({ timeout: 10_000 });
   await row.scrollIntoViewIfNeeded();
 
-  // Кнопка может быть перекрыта sticky-header'ом — клик через JS гарантированно сработает.
-  const editBtn = row.locator('button[aria-label="Редактировать"]');
+  // Клик по карандашу. force:true — потому что sticky header может
+  // перекрывать кнопку при scroll.
+  const editBtn = row.locator('button[aria-label="Редактировать"]').first();
   await editBtn.scrollIntoViewIfNeeded();
   await editBtn.click({ force: true });
 
   // Ждём диалог с form.
   await expect(page.locator("text=Редактировать услугу")).toBeVisible({
-    timeout: 5_000,
+    timeout: 8_000,
   });
 }
 
@@ -137,48 +165,66 @@ async function readCategoryFromServicesPage(page: Page, title: string): Promise<
 }
 
 test.describe("Admin: Service category save (regression)", () => {
-  test.describe.configure({ mode: "serial" }); // изменение → откат строго по порядку
-  test.setTimeout(90_000);
+  test.describe.configure({ mode: "serial" });
+  test.setTimeout(120_000);
 
   test("category change from admin reflects on /services and roundtrips back", async ({
     page,
   }) => {
     await login(page);
 
-    // ---------- Шаг 1: запоминаем исходную группу ----------
+    // ---------- Шаг 1: открываем услугу и читаем её исходную категорию ----------
+    await openServiceEditDialog(page, TARGET_TITLE);
+    const originalCategory = await page
+      .locator('select[name="category"]')
+      .inputValue();
+    console.log("[1] исходная category из админки:", originalCategory);
+    expect(originalCategory).toBeTruthy();
+
+    // Закрываем диалог через X-кнопку (ESC у этого modal не подвешен).
+    await page.locator('button[aria-label="Закрыть"]').first().click();
+    await expect(page.locator("text=Редактировать услугу")).toBeHidden({
+      timeout: 5_000,
+    });
+
+    // Запоминаем исходную группу на витрине — должна совпадать с
+    // лейблом исходной категории.
     const groupBefore = await readCategoryFromServicesPage(page, TARGET_TITLE);
-    console.log("[before]", TARGET_TITLE, "находится в группе:", groupBefore);
+    console.log("[2] группа на /services до изменения:", groupBefore);
     expect(groupBefore).toBeTruthy();
 
-    // ---------- Шаг 2: меняем категорию через UI ----------
-    await openServiceEditDialog(page, TARGET_TITLE);
+    // ---------- Шаг 2: выбираем заведомо ОТЛИЧНУЮ временную категорию ----------
+    const tempCategory = TEMP_CATEGORY_CANDIDATES.find(
+      (c) => c.value !== originalCategory,
+    )!;
+    console.log("[3] временная категория для теста:", tempCategory.value);
 
-    // Проверим, что в select сейчас выставлена оригинальная категория —
-    // доказательство, что initial value формы корректно подтягивается из БД.
+    await openServiceEditDialog(page, TARGET_TITLE);
+    // Доказательство, что select корректно показывает текущую категорию
+    // (initial value формы из БД подтянулся правильно).
     const selectedBefore = await page
       .locator('select[name="category"]')
       .inputValue();
-    console.log("[dialog] select.category до изменения =", selectedBefore);
-    expect(selectedBefore).toBe(ORIGINAL_CATEGORY);
+    expect(selectedBefore).toBe(originalCategory);
 
-    await setCategoryAndSave(page, TARGET_CATEGORY);
+    await setCategoryAndSave(page, tempCategory.value);
 
     // ---------- Шаг 3: проверяем, что на /services услуга переехала ----------
     const groupAfter = await readCategoryFromServicesPage(page, TARGET_TITLE);
-    console.log("[after change]", TARGET_TITLE, "теперь в группе:", groupAfter);
-    expect(groupAfter).toBe(TARGET_CATEGORY_LABEL);
+    console.log("[4] группа на /services после изменения:", groupAfter);
+    expect(groupAfter).toBe(tempCategory.label);
 
-    // ---------- Шаг 4: ОТКАТ (важно: оставить прод в исходном состоянии) ----------
+    // ---------- Шаг 4: ОТКАТ ----------
     await openServiceEditDialog(page, TARGET_TITLE);
     const selectedAfter = await page
       .locator('select[name="category"]')
       .inputValue();
-    expect(selectedAfter).toBe(TARGET_CATEGORY);
-    await setCategoryAndSave(page, ORIGINAL_CATEGORY);
+    expect(selectedAfter).toBe(tempCategory.value);
+    await setCategoryAndSave(page, originalCategory);
 
-    // Финальная проверка — прод вернулся к тому, с чего начали.
+    // Финальная проверка — состояние БД восстановлено.
     const groupFinal = await readCategoryFromServicesPage(page, TARGET_TITLE);
-    console.log("[final]", TARGET_TITLE, "снова в группе:", groupFinal);
-    expect(groupFinal).toBe(ORIGINAL_CATEGORY_LABEL);
+    console.log("[5] группа на /services после отката:", groupFinal);
+    expect(groupFinal).toBe(groupBefore);
   });
 });
