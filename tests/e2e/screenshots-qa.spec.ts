@@ -19,7 +19,6 @@ const PAGES: Array<{ slug: string; file: string }> = [
   { slug: "/portfolio", file: "portfolio" },
   { slug: "/about", file: "about" },
   { slug: "/contacts", file: "contacts" },
-  { slug: "/calculator", file: "calculator" },
 ];
 
 test.describe.configure({ mode: "serial" });

@@ -134,9 +134,6 @@ export default async function ServiceDetailPage({ params }: Props) {
                   <Button href={service.href ?? '/contacts'}>
                     Заказать <ArrowRight className="h-4 w-4" />
                   </Button>
-                  <Button href="/calculator" variant="outline">
-                    Открыть калькулятор
-                  </Button>
                 </div>
               </div>
 

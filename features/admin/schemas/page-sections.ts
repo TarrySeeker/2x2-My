@@ -84,7 +84,7 @@ export const valuesSectionSchema = z.object({
 });
 
 // ── cards_grid ──
-// Универсальная сетка карточек со ссылками (используется для /calculator/categories).
+// Универсальная сетка карточек со ссылками (общий блок для лендинговых страниц).
 const cardItemSchema = z.object({
   icon:        iconName,
   title:       z.string().max(200),
@@ -229,11 +229,6 @@ export const PAGE_SECTIONS_ALLOWED: readonly {
   // /contacts
   { page_path: "/contacts",   section_key: "hero",          content_type: "hero"         },
   { page_path: "/contacts",   section_key: "contact_info",  content_type: "contact_info" },
-  // /calculator
-  { page_path: "/calculator", section_key: "hero",          content_type: "hero"         },
-  { page_path: "/calculator", section_key: "categories",    content_type: "cards_grid"   },
-  { page_path: "/calculator", section_key: "faq",           content_type: "faq"          },
-  { page_path: "/calculator", section_key: "cta",           content_type: "cta"          },
   // /portfolio
   { page_path: "/portfolio",  section_key: "hero",          content_type: "hero"         },
   // /faq

@@ -43,7 +43,6 @@ SEO
 - `/services` — Услуги
 - `/portfolio` — Портфолио
 - `/contacts` — Контакты
-- `/calculator` — Калькулятор
 - `/faq` — FAQ
 - `/blog` — Блог
 - `/privacy` — Политика конфиденциальности

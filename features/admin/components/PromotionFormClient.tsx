@@ -281,7 +281,7 @@ export default function PromotionFormClient({ initial }: Props) {
                   placeholder="/contacts"
                 />
                 <p className="mt-1 text-xs text-neutral-500">
-                  Внутренняя ссылка: /contacts, /calculator. Внешняя: https://example.com
+                  Внутренняя ссылка: /contacts, /services. Внешняя: https://example.com
                 </p>
               </div>
             </div>

@@ -609,7 +609,7 @@ function ServiceDialog({
             <Field
               label="Ссылка карточки"
               error={errors.href?.message}
-              hint="Куда ведёт клик: /services, /calculator, /contacts..."
+              hint="Куда ведёт клик: /services, /contacts..."
             >
               <input
                 {...register("href")}

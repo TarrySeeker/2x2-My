@@ -24,10 +24,13 @@ const nextConfig: NextConfig = {
           // /product/<slug> удалены: сайт продаёт только услуги, всё
           // ушло в /services. Редиректы 308 (permanent) сохраняют
           // SEO-вес внешних ссылок на удалённые страницы.
+          // chore(calculator) 2026-04-27 — /calculator также удалён:
+          // все услуги по индивидуальному расчёту через QuoteModal.
           return [
             { source: "/catalog", destination: "/services", permanent: true },
             { source: "/catalog/:path*", destination: "/services", permanent: true },
             { source: "/product/:path*", destination: "/services", permanent: true },
+            { source: "/calculator", destination: "/services", permanent: true },
           ];
         },
         images: {

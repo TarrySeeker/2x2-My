@@ -456,11 +456,11 @@ function HeroFields({
           </Field>
           <Field
             label="URL основной кнопки"
-            hint="Внутренняя ссылка: /calculator, /portfolio. Внешняя: https://example.com"
+            hint="Внутренняя ссылка: /services, /portfolio. Внешняя: https://example.com"
           >
             <TextInput
               register={register("cta_primary_url")}
-              placeholder="/calculator"
+              placeholder="/services"
             />
           </Field>
           <Field label="Текст второй кнопки">
@@ -468,7 +468,7 @@ function HeroFields({
           </Field>
           <Field
             label="URL второй кнопки"
-            hint="Внутренняя ссылка: /calculator, /portfolio. Внешняя: https://example.com"
+            hint="Внутренняя ссылка: /services, /portfolio. Внешняя: https://example.com"
           >
             <TextInput
               register={register("cta_secondary_url")}
@@ -610,7 +610,7 @@ function AboutFields({
           </Field>
           <Field
             label="URL кнопки"
-            hint="Внутренняя ссылка: /calculator, /portfolio. Внешняя: https://example.com"
+            hint="Внутренняя ссылка: /services, /portfolio. Внешняя: https://example.com"
           >
             <TextInput register={register("cta_url")} placeholder="/about" />
           </Field>
@@ -1046,7 +1046,7 @@ function CtaFields({
         </Field>
         <Field
           label="URL кнопки"
-          hint="Внутренняя ссылка: /contacts, /calculator. Внешняя: https://example.com"
+          hint="Внутренняя ссылка: /contacts, /services. Внешняя: https://example.com"
         >
           <TextInput
             register={register("button_url")}

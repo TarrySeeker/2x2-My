@@ -47,7 +47,6 @@ const PATH_LABELS: Record<string, string> = {
   "/services":    "Услуги",
   "/portfolio":   "Портфолио",
   "/contacts":    "Контакты",
-  "/calculator":  "Калькулятор",
   "/faq":         "FAQ",
   "/blog":        "Блог",
   "/privacy":     "Политика конфиденциальности",

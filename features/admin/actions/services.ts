@@ -32,7 +32,7 @@ import type { Service } from "@/types";
  *   1. invalidate cache tag `services` → следующий запрос витрины
  *      обновит карточки.
  *   2. revalidatePath ключевых маршрутов, где услуги выводятся:
- *      `/`, `/services`, `/calculator`, `/admin/content/services`.
+ *      `/`, `/services`, `/admin/content/services`.
  *
  * Audit-лог пишется через `log_admin_action` (RPC из миграции 003).
  */
@@ -97,7 +97,6 @@ function invalidate() {
   updateTag(SERVICES_CACHE_TAG);
   revalidatePath("/");
   revalidatePath("/services");
-  revalidatePath("/calculator");
   revalidatePath("/admin/content/services");
 }
 

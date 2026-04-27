@@ -729,7 +729,7 @@ function CardsGridForm({
                   onChange(set(content, "items", next));
                 }}
                 className={inputCn}
-                placeholder="/calculator/category или https://..."
+                placeholder="/services/<slug> или https://..."
               />
             </ItemRow>
           ))}

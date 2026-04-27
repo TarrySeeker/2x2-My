@@ -23,7 +23,6 @@ const PAGE_LABELS: Record<string, string> = {
   "/":           "Главная",
   "/about":      "О компании",
   "/contacts":   "Контакты",
-  "/calculator": "Калькулятор",
   "/portfolio":  "Портфолио",
   "/faq":        "FAQ",
   "/blog":       "Блог",

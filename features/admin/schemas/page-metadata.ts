@@ -60,7 +60,6 @@ export const PAGE_METADATA_ALLOWED_PATHS: readonly string[] = [
   "/services",
   "/portfolio",
   "/contacts",
-  "/calculator",
   "/faq",
   "/blog",
   "/privacy",
