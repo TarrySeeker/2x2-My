@@ -189,6 +189,17 @@ test.describe("Admin: Portfolio category dropdown (regression)", () => {
     console.log("[3] временная категория:", tempCategory.value);
 
     await openFirstPortfolioEditDialog(page);
+    // Ждём, пока RHF проинициализирует select.
+    await page.waitForFunction(
+      (expected: string) => {
+        const sel = document.querySelector(
+          'select[name="category_label"]',
+        ) as HTMLSelectElement | null;
+        return !!sel && sel.value === expected;
+      },
+      originalCategory,
+      { timeout: 5_000 },
+    );
     const selectedBefore = await page
       .locator('select[name="category_label"]')
       .inputValue();
@@ -212,6 +223,18 @@ test.describe("Admin: Portfolio category dropdown (regression)", () => {
 
     // ---------- Шаг 4: ОТКАТ ----------
     await openFirstPortfolioEditDialog(page);
+    // Ждём, пока RHF проинициализирует select из defaultValues
+    // (`useForm({ values })` синхронизируется не на первый кадр).
+    await page.waitForFunction(
+      (expected: string) => {
+        const sel = document.querySelector(
+          'select[name="category_label"]',
+        ) as HTMLSelectElement | null;
+        return !!sel && sel.value === expected;
+      },
+      tempCategory.value,
+      { timeout: 5_000 },
+    );
     const selectedAfter = await page
       .locator('select[name="category_label"]')
       .inputValue();

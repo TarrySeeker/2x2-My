@@ -186,6 +186,13 @@ export async function updatePortfolioItemAction(
     };
   }
 
+  // TEMP DEBUG: см. payload, что приходит от RHF
+  console.log("[portfolio.update] raw data:", JSON.stringify(data));
+  console.log(
+    "[portfolio.update] parsed.data.category_label:",
+    JSON.stringify(parsed.data.category_label),
+  );
+
   try {
     await updatePortfolioItem(idParsed.data, parsed.data);
 
