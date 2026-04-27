@@ -186,23 +186,8 @@ export async function updatePortfolioItemAction(
     };
   }
 
-  // TEMP DEBUG: см. payload, что приходит от RHF
-  console.log("[portfolio.update] id:", idParsed.data);
-  console.log(
-    "[portfolio.update] parsed.data.category_label:",
-    JSON.stringify(parsed.data.category_label),
-  );
-
   try {
     await updatePortfolioItem(idParsed.data, parsed.data);
-    // Verify what was actually written
-    const verify = await sql<
-      { id: number; category_label: string | null }[]
-    >`SELECT id, category_label FROM portfolio_items WHERE id = ${idParsed.data}`;
-    console.log(
-      "[portfolio.update] AFTER UPDATE — DB row:",
-      JSON.stringify(verify[0]),
-    );
 
     invalidatePortfolioCache();
     await logAudit(profile.id, "portfolio.update", idParsed.data, {
