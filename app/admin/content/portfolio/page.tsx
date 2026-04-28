@@ -1,23 +1,24 @@
 import { getAllPortfolioForAdmin } from "@/features/admin/api/portfolio";
-import {
-  PORTFOLIO_STUB,
-  toPortfolioItemShape,
-} from "@/data/portfolio-stub";
-import type { PortfolioItem } from "@/types";
 import PortfolioPageClient from "@/features/admin/components/PortfolioPageClient";
 
 export const metadata = { title: "Портфолио" };
 export const dynamic = "force-dynamic";
 
-async function loadAllPortfolio(): Promise<PortfolioItem[]> {
-  const rows = await getAllPortfolioForAdmin();
-  if (rows.length > 0) return rows;
-  // Fallback на stub только если в БД пусто И сама БД отвечает.
-  // (getAllPortfolioForAdmin сама ловит ошибку и возвращает []).
-  return PORTFOLIO_STUB.map(toPortfolioItemShape);
-}
-
+/**
+ * В админке показываем ТОЛЬКО реальные строки из БД.
+ * Никаких stub-fallback'ов: в админке любая отображаемая карточка должна
+ * быть редактируемой записью БД с настоящим id, иначе UPDATE по фиктивному
+ * id — silent no-op (Postgres не находит строку, ничего не пишет, ошибки нет).
+ *
+ * Если БД отвечает, но пуста — компонент покажет empty-state «Работ пока
+ * нет, нажмите “Добавить работу”». Если БД упала — getAllPortfolioForAdmin
+ * вернёт [] (с warn'ом в dev) и поведение будет таким же.
+ *
+ * ВАЖНО: публичная витрина `/portfolio` сохраняет stub-fallback в
+ * `lib/data/portfolio.ts:getPortfolio()`, чтобы посетители видели примеры
+ * до того, как клиент наполнит реальными работами.
+ */
 export default async function PortfolioAdminPage() {
-  const items = await loadAllPortfolio();
+  const items = await getAllPortfolioForAdmin();
   return <PortfolioPageClient items={items} />;
 }

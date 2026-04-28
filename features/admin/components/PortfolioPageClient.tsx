@@ -484,13 +484,23 @@ function ListTab(props: ListTabProps) {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-neutral-200 bg-neutral-50 p-12 text-center dark:border-white/10 dark:bg-white/[0.02]">
-          <ImageIcon className="mx-auto h-8 w-8 text-neutral-300" />
-          <p className="mt-3 text-sm text-neutral-500">
-            {items.length === 0
-              ? "Работы ещё не добавлены"
-              : "Под фильтр ничего не подходит"}
-          </p>
+        <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-neutral-50 p-12 text-center dark:border-white/10 dark:bg-white/[0.02]">
+          <ImageIcon className="mx-auto h-12 w-12 text-neutral-300 dark:text-neutral-600" />
+          {items.length === 0 ? (
+            <>
+              <h3 className="mt-4 text-lg font-semibold text-brand-dark dark:text-white">
+                Работ пока нет
+              </h3>
+              <p className="mt-2 text-sm text-neutral-500">
+                Нажмите «Добавить работу» в правом верхнем углу, чтобы создать
+                первую запись портфолио.
+              </p>
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-neutral-500">
+              Под фильтр ничего не подходит
+            </p>
+          )}
         </div>
       ) : (
         <DndContext
