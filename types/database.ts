@@ -747,6 +747,30 @@ export interface Database {
         Relationships: [];
       };
 
+      // 029_service_categories.sql. PK = bigint (BIGSERIAL),
+      // slug уникален и совпадает со значением services.category
+      // (без FK — слабая связь). Подробнее — db/migrations/029.
+      service_categories: {
+        Row: {
+          id: number;
+          slug: string;
+          label: string;
+          description: string | null;
+          sort_order: number;
+          is_published: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["service_categories"]["Row"],
+          "id" | "created_at" | "updated_at"
+        > & { id?: number; created_at?: string; updated_at?: string };
+        Update: Partial<
+          Database["public"]["Tables"]["service_categories"]["Insert"]
+        >;
+        Relationships: [];
+      };
+
       blog_categories: {
         Row: {
           id: number;

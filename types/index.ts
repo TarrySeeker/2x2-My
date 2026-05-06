@@ -48,6 +48,14 @@ export type Promotion = Tables["promotions"]["Row"];
 // Используется как источник истины вместо `content/home.ts → servicesTeasers`.
 export type Service = Tables["services"]["Row"];
 
+// Справочник категорий услуг (`service_categories`) — миграция 029.
+// CRUD через /admin/content/services-categories. Slug совпадает со
+// значением в services.category (без FK — слабая связь, чтобы legacy-
+// значения в services не падали).
+export type ServiceCategory = Tables["service_categories"]["Row"];
+export type ServiceCategoryInsert = Tables["service_categories"]["Insert"];
+export type ServiceCategoryUpdate = Tables["service_categories"]["Update"];
+
 // ============================================================
 // Insert-типы (для форм / API)
 // ============================================================
