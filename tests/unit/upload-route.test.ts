@@ -181,15 +181,18 @@ describe("POST /api/upload — happy path", () => {
     expect(mockUploadFile).toHaveBeenCalledTimes(1);
   });
 
-  it("использует whitelisted folder из form (products)", async () => {
+  it("использует whitelisted folder из form (portfolio)", async () => {
+    // Раньше тест проверял folder=products, но папка удалена из
+    // whitelist 2026-05-06 вместе с сущностью «Товары». Проверяем
+    // на любой другой реально используемой папке (portfolio).
     const fd = new FormData();
     fd.set("file", makeFile("a.png", "image/png", 100));
-    fd.set("folder", "products");
+    fd.set("folder", "portfolio");
     const res = await POST(makeRequest(fd));
     expect(res.status).toBe(200);
     expect(mockUploadFile).toHaveBeenCalledWith(
       expect.any(File),
-      expect.objectContaining({ folder: "products" }),
+      expect.objectContaining({ folder: "portfolio" }),
     );
   });
 
