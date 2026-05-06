@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -47,7 +48,7 @@ import {
   deleteServiceAction,
   reorderServicesAction,
 } from "@/features/admin/actions/services";
-import type { Service } from "@/types";
+import type { Service, ServiceCategory } from "@/types";
 import {
   SERVICE_CATEGORIES,
   getServiceCategoryLabel,
@@ -58,6 +59,13 @@ import ImageUploadField from "./ImageUploadField";
 
 interface ServicesPageClientProps {
   initialServices: Service[];
+  /**
+   * Справочник категорий услуг из БД (`service_categories`, миграция 029).
+   * Если массив пустой / не передан — используется fallback из
+   * `lib/services/categories.ts`. Это страхует UI от пустой БД и от
+   * кода, который ещё не обновлён под новый пропс (старые тесты).
+   */
+  serviceCategories?: ServiceCategory[];
 }
 
 // Общие input-классы (вынесены, чтобы все поля выглядели одинаково
@@ -79,12 +87,28 @@ function plural(n: number, one: string, few: string, many: string): string {
 
 export default function ServicesPageClient({
   initialServices,
+  serviceCategories = [],
 }: ServicesPageClientProps) {
   const [services, setServices] = useState<Service[]>(initialServices);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Service | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Опции для select'а категорий в форме услуги.
+  // Источник истины — таблица service_categories (приходит пропсом из RSC).
+  // Если пусто (БД недоступна / миграция 029 не накатана) — fallback на
+  // захардкоженный SERVICE_CATEGORIES из lib/services/categories.ts.
+  const categoryOptions = useMemo<
+    ReadonlyArray<{ value: string; label: string }>
+  >(() => {
+    if (serviceCategories.length > 0) {
+      return serviceCategories
+        .filter((c) => c.is_published)
+        .map((c) => ({ value: c.slug, label: c.label }));
+    }
+    return SERVICE_CATEGORIES.map((c) => ({ value: c.value, label: c.label }));
+  }, [serviceCategories]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -160,14 +184,24 @@ export default function ServicesPageClient({
         title="Услуги"
         description={`${services.length} ${plural(services.length, "услуга", "услуги", "услуг")} · ${enabledCount} опубликовано · перетаскивайте, чтобы менять порядок`}
         actions={
-          <button
-            type="button"
-            onClick={openCreate}
-            className="inline-flex items-center gap-2 rounded-lg bg-brand-orange px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-orange-hover"
-          >
-            <Plus className="h-4 w-4" />
-            Добавить услугу
-          </button>
+          <>
+            <Link
+              href="/admin/content/services-categories"
+              className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-700 transition-colors hover:border-brand-orange hover:text-brand-orange dark:border-white/10 dark:bg-white/5 dark:text-neutral-300"
+              title="Управление списком категорий"
+            >
+              <Layers className="h-4 w-4" />
+              Категории услуг
+            </Link>
+            <button
+              type="button"
+              onClick={openCreate}
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-orange px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-orange-hover"
+            >
+              <Plus className="h-4 w-4" />
+              Добавить услугу
+            </button>
+          </>
         }
       />
 
@@ -208,6 +242,7 @@ export default function ServicesPageClient({
                   <SortableRow
                     key={s.id}
                     service={s}
+                    categoryOptions={categoryOptions}
                     onEdit={() => openEdit(s)}
                     onDelete={() => setDeleteId(s.id)}
                   />
@@ -223,6 +258,7 @@ export default function ServicesPageClient({
           <ServiceDialog
             service={editing}
             existingCount={services.length}
+            categoryOptions={categoryOptions}
             onClose={() => setDialogOpen(false)}
             onSaved={handleSaved}
           />
@@ -245,13 +281,23 @@ export default function ServicesPageClient({
 
 function SortableRow({
   service,
+  categoryOptions,
   onEdit,
   onDelete,
 }: {
   service: Service;
+  categoryOptions: ReadonlyArray<{ value: string; label: string }>;
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  // Резолвим label категории сначала из БД-списка (актуальные данные),
+  // потом — из захардкоженного fallback (для legacy-категорий).
+  function resolveCategoryLabel(slug: string | null): string {
+    if (!slug) return "—";
+    const fromDb = categoryOptions.find((o) => o.value === slug);
+    if (fromDb) return fromDb.label;
+    return getServiceCategoryLabel(slug, slug);
+  }
   const {
     attributes,
     listeners,
@@ -318,9 +364,7 @@ function SortableRow({
       </div>
 
       <div className="hidden items-center text-xs text-neutral-500 lg:flex">
-        {service.category
-          ? getServiceCategoryLabel(service.category, service.category)
-          : "—"}
+        {resolveCategoryLabel(service.category)}
       </div>
 
       <div className="hidden items-center text-xs text-neutral-600 dark:text-neutral-400 lg:flex">
@@ -356,15 +400,34 @@ function SortableRow({
 function ServiceDialog({
   service,
   existingCount,
+  categoryOptions,
   onClose,
   onSaved,
 }: {
   service: Service | null;
   existingCount: number;
+  categoryOptions: ReadonlyArray<{ value: string; label: string }>;
   onClose: () => void;
   onSaved: (s: Service, isCreate: boolean) => void;
 }) {
   const isEdit = !!service;
+
+  // Если у редактируемой услуги category НЕ из текущего набора (legacy
+  // или удалённая категория) — показываем её отдельным option-ом с
+  // пометкой «(не из списка)». Иначе value сбросится на «— не задана —»
+  // при простом «открыть и сохранить». Та же стратегия, что в
+  // PortfolioPageClient (см. PORTFOLIO_CATEGORIES + isKnownPortfolioCategory).
+  const categoryOptionsForSelect = useMemo<
+    ReadonlyArray<{ value: string; label: string }>
+  >(() => {
+    const known = new Set(categoryOptions.map((c) => c.value));
+    const current = service?.category ?? null;
+    const legacy =
+      current && !known.has(current)
+        ? [{ value: current, label: `${current} (не из списка)` }]
+        : [];
+    return [...legacy, ...categoryOptions];
+  }, [categoryOptions, service?.category]);
 
   const {
     register,
@@ -594,7 +657,7 @@ function ServiceDialog({
               <Field
                 label="Категория"
                 error={errors.category?.message}
-                hint="Влияет на группировку карточек на /services"
+                hint="Список редактируется в «Категории услуг»"
               >
                 {/*
                   ВАЖНО: НЕ передаём `defaultValue` на select — он конфликтует
@@ -602,13 +665,20 @@ function ServiceDialog({
                   ref на основе useForm({ defaultValues: { category } }).
                   При параллельном `defaultValue` React предупреждал и в
                   некоторых сценариях value сбивался при первой синхронизации.
+
+                  Опции теперь приходят из БД (`service_categories`,
+                  миграция 029). Legacy-значения (которые есть в
+                  services.category, но отсутствуют в текущем списке)
+                  показываются отдельной первой опцией с пометкой
+                  «(не из списка)» — чтобы не потерять значение при
+                  обычном «открыть и сохранить».
                 */}
                 <select
                   {...register("category")}
                   className={inputCls}
                 >
                   <option value="">— не задана —</option>
-                  {SERVICE_CATEGORIES.map((c) => (
+                  {categoryOptionsForSelect.map((c) => (
                     <option key={c.value} value={c.value}>
                       {c.label}
                     </option>
