@@ -7,24 +7,16 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockListEnabledServices, mockGetCategories, mockGetProducts, mockGetBlog } =
-  vi.hoisted(() => ({
-    mockListEnabledServices: vi.fn(),
-    mockGetCategories: vi.fn(),
-    mockGetProducts: vi.fn(),
-    mockGetBlog: vi.fn(),
-  }));
+// Моки lib/data/products и lib/data/categories убраны 2026-05-06 —
+// сами модули удалены вместе с сущностью «Товары» (см.
+// AdminSidebar.tsx, app/admin/products/*).
+const { mockListEnabledServices, mockGetBlog } = vi.hoisted(() => ({
+  mockListEnabledServices: vi.fn(),
+  mockGetBlog: vi.fn(),
+}));
 
 vi.mock("@/lib/data/services", () => ({
   listEnabledServices: mockListEnabledServices,
-}));
-
-vi.mock("@/lib/data/categories", () => ({
-  getCategories: mockGetCategories,
-}));
-
-vi.mock("@/lib/data/products", () => ({
-  getProducts: mockGetProducts,
 }));
 
 vi.mock("@/lib/data/portfolio", () => ({
@@ -47,12 +39,8 @@ import sitemap from "@/app/sitemap";
 
 beforeEach(() => {
   mockListEnabledServices.mockReset();
-  mockGetCategories.mockReset();
-  mockGetProducts.mockReset();
   mockGetBlog.mockReset();
 
-  mockGetCategories.mockResolvedValue([]);
-  mockGetProducts.mockResolvedValue([]);
   mockGetBlog.mockResolvedValue([]);
 });
 

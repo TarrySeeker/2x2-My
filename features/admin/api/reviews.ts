@@ -64,72 +64,34 @@ export async function getAdminReviews(
 
     if (reviews.length === 0) return { data: [], total };
 
-    const productIds = [
-      ...new Set(
-        reviews
-          .map((r: ReviewRow) => r.product_id)
-          .filter((id: number | null): id is number => id !== null),
-      ),
-    ];
-
-    const productMap = new Map<
-      number,
-      { name: string; slug: string; image_url: string | null }
-    >();
-
-    if (productIds.length > 0) {
-      const products = await sql<
-        { id: number; name: string; slug: string }[]
-      >`
-        SELECT id, name, slug
-        FROM products
-        WHERE id IN ${sql(productIds)}
-      `;
-
-      const images = await sql<{ product_id: number; url: string }[]>`
-        SELECT product_id, url
-        FROM product_images
-        WHERE product_id IN ${sql(productIds)}
-          AND is_primary = true
-      `;
-
-      const imageMap = new Map<number, string>();
-      for (const img of images) imageMap.set(img.product_id, img.url);
-
-      for (const p of products) {
-        productMap.set(p.id, {
-          name: p.name,
-          slug: p.slug,
-          image_url: imageMap.get(p.id) ?? null,
-        });
-      }
-    }
-
-    const enriched: AdminReview[] = reviews.map((r: ReviewRow) => {
-      const product = r.product_id ? productMap.get(r.product_id) : null;
-      return {
-        id: r.id,
-        product_id: r.product_id,
-        order_id: r.order_id,
-        author_name: r.author_name,
-        author_email: r.author_email,
-        author_company: r.author_company,
-        rating: r.rating,
-        title: r.title,
-        text: r.text,
-        pros: r.pros,
-        cons: r.cons,
-        images: r.images,
-        status: r.status,
-        is_featured: r.is_featured,
-        admin_reply: r.admin_reply,
-        admin_reply_at: r.admin_reply_at,
-        created_at: r.created_at,
-        product_name: product?.name ?? null,
-        product_slug: product?.slug ?? null,
-        product_image: product?.image_url ?? null,
-      };
-    });
+    // JOIN с products / product_images убран 2026-05-06 вместе с
+    // сущностью «Товары». Раздел /admin/reviews и так скрыт из
+    // sidebar (cleanup 2026-04-25), а ReviewDetailDialog уже не
+    // показывает кнопку перехода к товару (chore(catalog) 2026-04-26).
+    // Поля product_* остаются в AdminReview как `null` для
+    // обратной совместимости контракта.
+    const enriched: AdminReview[] = reviews.map((r: ReviewRow) => ({
+      id: r.id,
+      product_id: r.product_id,
+      order_id: r.order_id,
+      author_name: r.author_name,
+      author_email: r.author_email,
+      author_company: r.author_company,
+      rating: r.rating,
+      title: r.title,
+      text: r.text,
+      pros: r.pros,
+      cons: r.cons,
+      images: r.images,
+      status: r.status,
+      is_featured: r.is_featured,
+      admin_reply: r.admin_reply,
+      admin_reply_at: r.admin_reply_at,
+      created_at: r.created_at,
+      product_name: null,
+      product_slug: null,
+      product_image: null,
+    }));
 
     return { data: enriched, total };
   } catch (err) {

@@ -1,5 +1,5 @@
 import type { Row } from "@/lib/db/table-types";
-import type { ProductStatus, OrderStatus, OrderType, PostStatus, Json } from "@/types/database";
+import type { OrderStatus, OrderType, PostStatus, Json } from "@/types/database";
 
 // ── Dashboard ──
 // Типы DashboardStats / TopProduct удалены вместе с виджетами «Выручка»
@@ -33,32 +33,10 @@ export interface TopProduct {
   revenue: number;
 }
 
-// ── Products ──
-
-export interface AdminProductFilters {
-  search?: string;
-  status?: ProductStatus;
-  categoryId?: number;
-  page: number;
-  perPage: number;
-}
-
-export interface ProductWithImage extends Row<"products"> {
-  primary_image_url: string | null;
-  category_name: string | null;
-}
-
-export interface ProductFull extends Row<"products"> {
-  images: Row<"product_images">[];
-  variants: Row<"product_variants">[];
-  category: Row<"categories"> | null;
-}
-
-// ── Categories ──
-
-export interface CategoryTreeNode extends Row<"categories"> {
-  children: CategoryTreeNode[];
-}
+// ── Products / Categories — удалены 2026-05-06 ──
+// Типы AdminProductFilters / ProductWithImage / ProductFull /
+// CategoryTreeNode сняты вместе с разделом /admin/products.
+// Каталог 2х2 — только `services` (см. ServicesPageClient.tsx).
 
 // ── Orders (deprecated, удалены миграцией 006) ──
 // Типы оставлены как заглушки до зачистки UI в этапе 3.
@@ -249,6 +227,5 @@ export interface SettingsUpdate {
 }
 
 // ── Form data (Zod-inferred, re-exported for convenience) ──
-
-export type { ProductFormData } from "@/features/admin/schemas/product";
-export type { CategoryFormData } from "@/features/admin/schemas/category";
+// Re-export'ы ProductFormData / CategoryFormData удалены 2026-05-06
+// вместе со схемами и админ-разделом /admin/products.

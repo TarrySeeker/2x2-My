@@ -1,4 +1,5 @@
 import { listAllServices } from "@/lib/data/services";
+import { listAllServiceCategoriesForAdmin } from "@/features/admin/api/service-categories";
 import ServicesPageClient from "@/features/admin/components/ServicesPageClient";
 
 export const metadata = { title: "Услуги — админка" };
@@ -8,6 +9,18 @@ export const metadata = { title: "Услуги — админка" };
 export const dynamic = "force-dynamic";
 
 export default async function ServicesAdminPage() {
-  const services = await listAllServices();
-  return <ServicesPageClient initialServices={services} />;
+  // Параллельно: услуги + справочник категорий. Категории передаются
+  // в форму услуги (выпадающий список вместо захардкоженного
+  // SERVICE_CATEGORIES — теперь клиент может добавлять новые через
+  // /admin/content/services-categories).
+  const [services, categories] = await Promise.all([
+    listAllServices(),
+    listAllServiceCategoriesForAdmin(),
+  ]);
+  return (
+    <ServicesPageClient
+      initialServices={services}
+      serviceCategories={categories}
+    />
+  );
 }

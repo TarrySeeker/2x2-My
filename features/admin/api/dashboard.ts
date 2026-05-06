@@ -4,11 +4,11 @@ import { sql } from "@/lib/db/client";
 import type { DashboardStats } from "@/types";
 import type { Row } from "@/lib/db/table-types";
 
-type ProductRow = Row<"products">;
 type ReviewRow = Row<"reviews">;
 
 /**
- * Дашборд после миграции 006 + cleanup 2026-04-25.
+ * Дашборд после миграции 006 + cleanup 2026-04-25 + удаление товаров
+ * 2026-05-06.
  *
  * Бизнес-модель «только индивидуальный расчёт» — таблиц `orders` /
  * `order_items` нет, выручки/среднего чека нет. Дашборд показывает
@@ -20,12 +20,20 @@ type ReviewRow = Row<"reviews">;
  * `getLatestOrders()`, `getTopProducts()` удалены вместе с виджетами
  * «Выручка», «Средний чек», «Последние заказы», «Топ товаров»
  * (см. handoff admin-dashboard-cleanup-2026-04-25).
+ *
+ * `getLowStockProducts()` удалён 2026-05-06 вместе с сущностью «Товары»:
+ * 2х2 продаёт услуги, а склад как сущность отсутствует.
  */
 
 /**
  * Основной снапшот для дашборда — RPC `get_dashboard_stats()`.
  * Возвращает типизированный объект; при ошибке БД отдаёт «нулевой»
  * снапшот, чтобы UI не падал.
+ *
+ * Поля `products_active` / `products_draft` в JSON RPC всё ещё
+ * приходят из get_dashboard_stats() (в БД таблица products пока есть
+ * как deprecated), но в UI их больше не используем — на дашборде
+ * показываем счётчик услуг через `getServicesCount()`.
  */
 export async function getDashboardStatsV2(): Promise<DashboardStats> {
   try {
@@ -119,23 +127,28 @@ export async function getLeadsWithPromoMonth(): Promise<number> {
   }
 }
 
-export async function getLowStockProducts(): Promise<ProductRow[]> {
+/**
+ * Счётчик карточек услуг для дашборда. Заменил парный счётчик
+ * «Активных товаров / черновиков» (удалён вместе с сущностью products
+ * 2026-05-06).
+ */
+export async function getServicesCount(): Promise<{
+  enabled: number;
+  disabled: number;
+}> {
   try {
-    const rows = await sql<ProductRow[]>`
-      SELECT *
-      FROM products
-      WHERE status = 'active'
-        AND track_stock = true
-        AND stock < 5
-      ORDER BY stock ASC
-      LIMIT 10
+    const rows = await sql<{ enabled: number; disabled: number }[]>`
+      SELECT
+        COUNT(*) FILTER (WHERE enabled = TRUE)::int  AS enabled,
+        COUNT(*) FILTER (WHERE enabled = FALSE)::int AS disabled
+      FROM services
     `;
-    return rows;
+    return rows[0] ?? { enabled: 0, disabled: 0 };
   } catch (err) {
     if (process.env.NODE_ENV !== "production") {
-      console.warn("[getLowStockProducts] DB request failed:", err);
+      console.warn("[getServicesCount] DB request failed:", err);
     }
-    return [];
+    return { enabled: 0, disabled: 0 };
   }
 }
 
