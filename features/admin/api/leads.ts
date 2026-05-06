@@ -199,6 +199,12 @@ async function getCalcRequest(idOrRef: string): Promise<LeadDetail | null> {
   // Две отдельных SELECT-ветки вместо nested sql-template (`WHERE ${sql`...`}`) —
   // эта форма ломает наш test-мок (mockSql не поддерживает вложенные tagged
   // templates) и в целом менее читаема.
+  // Поле product_name раньше тянули JOIN'ом с products (legacy-таблица
+  // от шаблонной CMS). Сущность «Товары» удалена 2026-05-06, JOIN
+  // заменён на NULL — у заявок на расчёт сегодня вместо «товара»
+  // фигурирует свободный комментарий клиента (`comment`) и
+  // одноимённое поле в params. UI заявки и так использует comment как
+  // основной носитель смысла.
   const rows = isNumeric
     ? await sql<CalcRow[]>`
         SELECT
@@ -221,9 +227,8 @@ async function getCalcRequest(idOrRef: string): Promise<LeadDetail | null> {
           c.manager_comment,
           c.assigned_to,
           c.created_at,
-          p.name AS product_name
+          NULL::text AS product_name
         FROM calculation_requests c
-        LEFT JOIN products p ON p.id = c.product_id
         WHERE c.id = ${numericId}
         LIMIT 1
       `
@@ -248,9 +253,8 @@ async function getCalcRequest(idOrRef: string): Promise<LeadDetail | null> {
           c.manager_comment,
           c.assigned_to,
           c.created_at,
-          p.name AS product_name
+          NULL::text AS product_name
         FROM calculation_requests c
-        LEFT JOIN products p ON p.id = c.product_id
         WHERE c.request_number = ${idOrRef}
         LIMIT 1
       `;
@@ -296,6 +300,10 @@ async function getOneClickLead(idOrRef: string): Promise<LeadDetail | null> {
   const isNumeric = !Number.isNaN(numericId) && /^\d+$/.test(idOrRef);
 
   // См. комментарий в getCalcRequest — две отдельные ветки вместо nested sql.
+  // См. комментарий выше про NULL вместо JOIN с products. Для one-click
+  // имя услуги по-прежнему есть в `context.product_name` (туда его
+  // кладёт OneClickModal — это «продаваемая позиция» из категорий
+  // /services), и оно используется как fallback ниже.
   const rows = isNumeric
     ? await sql<OneClickRow[]>`
         SELECT
@@ -320,9 +328,8 @@ async function getOneClickLead(idOrRef: string): Promise<LeadDetail | null> {
           l.manager_comment,
           l.assigned_to,
           l.created_at,
-          p.name AS product_name
+          NULL::text AS product_name
         FROM leads l
-        LEFT JOIN products p ON p.id = l.product_id
         WHERE l.id = ${numericId}
         LIMIT 1
       `
@@ -349,9 +356,8 @@ async function getOneClickLead(idOrRef: string): Promise<LeadDetail | null> {
           l.manager_comment,
           l.assigned_to,
           l.created_at,
-          p.name AS product_name
+          NULL::text AS product_name
         FROM leads l
-        LEFT JOIN products p ON p.id = l.product_id
         WHERE l.lead_number = ${idOrRef}
         LIMIT 1
       `;

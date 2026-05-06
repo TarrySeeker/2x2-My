@@ -7,8 +7,8 @@ import { ChevronRight, Home } from "lucide-react";
 const LABELS: Record<string, string> = {
   admin: "Админ",
   dashboard: "Дашборд",
-  products: "Товары",
-  categories: "Категории",
+  // products / categories — удалены 2026-05-06 (рудимент шаблонной CMS,
+  // 2х2 продаёт только услуги).
   orders: "Заказы",
   leads: "Заявки",
   customers: "Клиенты",

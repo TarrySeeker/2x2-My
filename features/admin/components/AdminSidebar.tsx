@@ -65,7 +65,8 @@ function isGroup(entry: NavEntry): entry is NavGroup {
   return (entry as NavGroup).type === "group";
 }
 
-// ВАЖНО: пункты sidebar намеренно сокращены (cleanup 2026-04-25).
+// ВАЖНО: пункты sidebar намеренно сокращены (cleanup 2026-04-25,
+// продолжение 2026-05-06).
 // Скрыты разделы, у которых нет читателя на витрине либо они дублируют
 // другие. Сами роуты и страницы остались — доступны по прямому URL,
 // но не отображаются в навигации:
@@ -74,8 +75,13 @@ function isGroup(entry: NavEntry): entry is NavGroup {
 //   /admin/content/banners    (нет компонента-читателя на витрине)
 //   /admin/content/pages      (дублирует legal-pages, таблица не читается)
 //   /admin/content/menu       (Header/Footer hardcoded)
-//   /admin/products           (заменён единым «Услуги», см. ниже)
-//   /admin/categories         (заменён единым «Услуги», см. ниже)
+//
+// Раздел «Товары» (/admin/products + /admin/categories) полностью
+// удалён 2026-05-06: 2х2 продаёт услуги, а не товары — таблица
+// products оставалась рудиментом шаблонной CMS. Все страницы, API
+// и компоненты вычищены; данные products/categories в БД помечены
+// deprecated на уровне комментария к таблице (миграция не требуется,
+// просто перестаём использовать).
 //
 // /admin/seo вернули обратно (2026-04-25 second pass): группа «SEO»
 // содержит «Мета-теги страниц» (= /admin/content/metadata, основная
@@ -112,18 +118,35 @@ const NAV_ITEMS: NavEntry[] = [
       },
     ],
   },
-  // «Услуги» — единый редактор карточек услуг (`services` table). Заменил
-  // группу «Каталог» (Товары + Категории). Старые роуты /admin/products
-  // и /admin/categories остались как orphan — доступны по прямому URL,
-  // но не отображаются в навигации (cleanup 2026-04-25). Сами таблицы
-  // products/categories/product_images НЕ удалены: продакшн витрины
-  // /catalog и /product/[slug] также удалены (chore(catalog) 2026-04-26),
-  // но БД оставлена для возможного восстановления данных.
+  // «Услуги» — единый редактор карточек услуг (`services` table).
+  // Это основной (и единственный) каталог сайта. Сущность «Товары»
+  // (products/categories/product_images) удалена 2026-05-06; таблицы
+  // в БД оставлены без обращений к ним из приложения, чтобы не делать
+  // блокирующую миграцию.
+  //
+  // Группа «Услуги» — карточки + справочник категорий услуг.
+  // Категории заведены отдельной таблицей service_categories
+  // (миграция 029) — клиент может добавлять/редактировать через UI.
   {
+    type: "group",
     label: "Услуги",
-    href: "/admin/content/services",
     icon: Wrench,
+    basePath: "/admin/content/services",
     roles: ["owner", "manager"],
+    items: [
+      {
+        label: "Карточки услуг",
+        href: "/admin/content/services",
+        icon: Wrench,
+        roles: ["owner", "manager"],
+      },
+      {
+        label: "Категории услуг",
+        href: "/admin/content/services-categories",
+        icon: Layers,
+        roles: ["owner", "manager"],
+      },
+    ],
   },
   {
     type: "group",

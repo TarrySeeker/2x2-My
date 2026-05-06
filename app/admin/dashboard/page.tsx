@@ -1,11 +1,14 @@
 /**
- * /admin/dashboard — обновлено 2026-04-25.
+ * /admin/dashboard — обновлено 2026-05-06.
  *
  * Бизнес-модель «2х2» — только индивидуальные расчёты, онлайн-оплаты
  * и заказов нет. Поэтому виджеты «Выручка», «Средний чек», «Заказы»,
  * «Новые заказы» + график выручки + последние заказы + топ товаров
- * убраны. Вместо них — счётчики заявок, источники лидов и заявки
- * по промокоду-маркеру.
+ * убраны (cleanup 2026-04-25).
+ *
+ * 2026-05-06: удалена сущность «Товары» целиком — 2х2 продаёт услуги,
+ * не товары. Убраны виджеты «Активных товаров» и «Мало на складе»,
+ * освободившееся место заняли счётчики «Услуг в каталоге».
  */
 
 import Link from "next/link";
@@ -14,19 +17,18 @@ import {
   PhoneCall,
   Mail,
   TicketPercent,
-  Package,
   Star,
   Briefcase,
   TrendingUp,
+  Wrench,
 } from "lucide-react";
 import {
   getDashboardStatsV2,
   getLeadsBySource30d,
   getLeadsWithPromoMonth,
-  getLowStockProducts,
   getPendingReviews,
+  getServicesCount,
 } from "@/features/admin/api/dashboard";
-import LowStockList from "@/features/admin/components/LowStockList";
 import PendingReviewsList from "@/features/admin/components/PendingReviewsList";
 import StatTile from "@/features/admin/components/StatTile";
 import LeadsBySourceCard from "@/features/admin/components/LeadsBySourceCard";
@@ -40,13 +42,13 @@ function formatNumber(value: number): string {
 }
 
 export default async function DashboardPage() {
-  const [stats, sources, promoMonth, lowStock, pendingReviews] =
+  const [stats, sources, promoMonth, pendingReviews, servicesCount] =
     await Promise.all([
       getDashboardStatsV2(),
       getLeadsBySource30d(5),
       getLeadsWithPromoMonth(),
-      getLowStockProducts(),
       getPendingReviews(5),
+      getServicesCount(),
     ]);
 
   const newRequestsTotal =
@@ -119,7 +121,10 @@ export default async function DashboardPage() {
         />
       </div>
 
-      {/* Row 2: вспомогательные счётчики каталога/контента */}
+      {/* Row 2: вспомогательные счётчики каталога/контента.
+          «Активных товаров» / «Мало на складе» удалены вместе с
+          сущностью «Товары» (2026-05-06). Их место занял счётчик
+          опубликованных карточек услуг — основа каталога 2х2. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile
           title="Заявок с промокодом"
@@ -129,11 +134,11 @@ export default async function DashboardPage() {
           href="/admin/promos"
         />
         <StatTile
-          title="Активных товаров"
-          value={formatNumber(stats.products_active)}
-          caption={`черновиков: ${formatNumber(stats.products_draft)}`}
-          icon={<Package className="h-5 w-5" />}
-          href="/admin/products"
+          title="Услуг в каталоге"
+          value={formatNumber(servicesCount.enabled)}
+          caption={`черновиков: ${formatNumber(servicesCount.disabled)}`}
+          icon={<Wrench className="h-5 w-5" />}
+          href="/admin/content/services"
         />
         <StatTile
           title="Отзывов на модерации"
@@ -157,9 +162,6 @@ export default async function DashboardPage() {
         <LeadsBySourceCard sources={sources} />
         <PendingReviewsList reviews={pendingReviews} />
       </div>
-
-      {/* Row 4: low stock — показываем, только если есть что показать */}
-      {lowStock.length > 0 && <LowStockList products={lowStock} />}
     </div>
   );
 }

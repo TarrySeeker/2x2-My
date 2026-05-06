@@ -24,7 +24,8 @@ const ALLOWED_TYPES = new Set([
 
 const ALLOWED_FOLDERS = new Set([
   "uploads",
-  "products",
+  // "products" удалён 2026-05-06 вместе с сущностью «Товары»
+  // (см. features/admin/components/AdminSidebar.tsx).
   "portfolio",
   "blog",
   "banners",

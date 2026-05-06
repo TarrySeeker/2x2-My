@@ -50,9 +50,10 @@ const ENTITY_TABS = [
   { key: "redirects" as const, label: "Редиректы" },
 ];
 
+// Сущности «Товары» / «Категории» удалены 2026-05-06 вместе с разделом
+// /admin/products. Для услуг SEO-метаданные редактируются прямо в
+// карточке услуги (/admin/content/services), а не через эту таблицу.
 const ENTITY_TYPES = [
-  { key: "product" as const, label: "Товары" },
-  { key: "category" as const, label: "Категории" },
   { key: "page" as const, label: "Страницы" },
   { key: "post" as const, label: "Статьи" },
 ];
@@ -69,7 +70,7 @@ export default function SeoPageClient({
   initialTemplates,
 }: SeoPageClientProps) {
   const [activeTab, setActiveTab] = useState<"meta" | "templates" | "redirects">("meta");
-  const [activeEntityType, setActiveEntityType] = useState<"product" | "category" | "page" | "post">("product");
+  const [activeEntityType, setActiveEntityType] = useState<"page" | "post">("page");
   const [entities] = useState(initialEntities);
   const [redirects, setRedirects] = useState(initialRedirects);
 

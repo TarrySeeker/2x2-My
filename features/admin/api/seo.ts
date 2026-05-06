@@ -12,58 +12,19 @@ type RedirectRow = Row<"redirects">;
 
 // ── SEO entities ──
 
+/**
+ * Тип сущности для SEO-таблицы. Раньше включал `product` и `category`,
+ * но 2026-05-06 эти типы удалены вместе с сущностью «Товары» — для
+ * услуг SEO-поля задаются прямо в карточке услуги
+ * (/admin/content/services), а не через эту таблицу.
+ */
+export type SeoEntityType = "page" | "post";
+
 export async function getSeoEntities(
-  type: "product" | "category" | "page" | "post",
+  type: SeoEntityType,
 ): Promise<SeoEntity[]> {
   try {
     switch (type) {
-      case "product": {
-        type R = {
-          id: number;
-          name: string;
-          slug: string;
-          seo_title: string | null;
-          seo_description: string | null;
-        };
-        const rows = await sql<R[]>`
-          SELECT id, name, slug, seo_title, seo_description
-          FROM products
-          WHERE deleted_at IS NULL
-          ORDER BY name ASC
-        `;
-        return rows.map((p: R) => ({
-          id: p.id,
-          name: p.name,
-          slug: p.slug,
-          seo_title: p.seo_title,
-          seo_description: p.seo_description,
-          filled: !!(p.seo_title && p.seo_description),
-        }));
-      }
-
-      case "category": {
-        type R = {
-          id: number;
-          name: string;
-          slug: string;
-          seo_title: string | null;
-          seo_description: string | null;
-        };
-        const rows = await sql<R[]>`
-          SELECT id, name, slug, seo_title, seo_description
-          FROM categories
-          ORDER BY name ASC
-        `;
-        return rows.map((c: R) => ({
-          id: c.id,
-          name: c.name,
-          slug: c.slug,
-          seo_title: c.seo_title,
-          seo_description: c.seo_description,
-          filled: !!(c.seo_title && c.seo_description),
-        }));
-      }
-
       case "page": {
         type R = {
           id: number;
