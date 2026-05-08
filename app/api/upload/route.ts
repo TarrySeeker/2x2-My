@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { isResponse, requireAdmin } from "@/lib/auth/admin";
 import { isS3Configured, uploadFile } from "@/lib/storage/s3";
+import { isClaimedMimeMatchingBytes } from "@/lib/upload/sniff-magic-bytes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -91,6 +92,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       {
         error: `Недопустимый тип файла: ${file.type || "неизвестен"}. Разрешены: JPG, PNG, WebP, AVIF`,
+      },
+      { status: 400 },
+    );
+  }
+
+  // 4b. Magic-byte sniff — file.type легко подделать переименованием
+  // (.exe → .jpg). Проверяем реальные первые байты против сигнатур
+  // (грабля #17 в LESSONS_LEARNED.md). Читаем только 12 байт.
+  let headBytes: Uint8Array;
+  try {
+    const head = file.slice(0, 12);
+    headBytes = new Uint8Array(await head.arrayBuffer());
+  } catch {
+    return NextResponse.json(
+      { error: "Не удалось прочитать файл" },
+      { status: 400 },
+    );
+  }
+  if (!isClaimedMimeMatchingBytes(headBytes, file.type)) {
+    return NextResponse.json(
+      {
+        error:
+          "Содержимое файла не соответствует заявленному типу (возможна подмена расширения)",
       },
       { status: 400 },
     );

@@ -61,14 +61,48 @@ function makeRequest(formData: FormData, ip = uniqueIp()): NextRequest {
   });
 }
 
+/** Magic bytes для каждого формата (см. lib/upload/sniff-magic-bytes.ts). */
+const MAGIC_BYTES: Record<string, number[]> = {
+  "image/jpeg": [0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0],
+  "image/png": [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0],
+  // RIFF....WEBP
+  "image/webp": [0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50],
+  // ....ftypavif
+  "image/avif": [0, 0, 0, 0, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66],
+};
+
+/**
+ * Создаёт File нужного MIME-типа с правильными magic bytes на старте,
+ * чтобы пройти sniff-проверку. Если magic для типа не определён —
+ * пишем чистый ASCII (нужно для негативных тестов).
+ */
 function makeFile(
   name: string,
   type: string,
   sizeBytes: number,
   content?: string,
 ): File {
-  const data = content ?? "x".repeat(sizeBytes);
-  return new File([data], name, { type });
+  if (content !== undefined) {
+    return new File([content], name, { type });
+  }
+  const magic = MAGIC_BYTES[type];
+  if (!magic) {
+    // Тип без сигнатуры (text/plain, image/svg+xml) — просто нули.
+    return new File(["x".repeat(sizeBytes)], name, { type });
+  }
+  const buf = new Uint8Array(Math.max(sizeBytes, magic.length));
+  buf.set(magic, 0);
+  // Дополняем до нужного размера произвольными байтами.
+  for (let i = magic.length; i < buf.length; i++) buf[i] = 0x41; // 'A'
+  return new File([buf], name, { type });
+}
+
+/** Файл с поддельным заголовком (заявлен JPG, но байты — рандом). */
+function makeSpoofedFile(name: string, type: string, sizeBytes: number): File {
+  const buf = new Uint8Array(sizeBytes);
+  // Намеренно НЕ ставим magic — заполняем 'X' (0x58).
+  for (let i = 0; i < buf.length; i++) buf[i] = 0x58;
+  return new File([buf], name, { type });
 }
 
 beforeEach(() => {
@@ -158,6 +192,32 @@ describe("POST /api/upload — валидация файла", () => {
   it("400 на SVG (потенциальный XSS)", async () => {
     const fd = new FormData();
     fd.set("file", makeFile("a.svg", "image/svg+xml", 100));
+    const res = await POST(makeRequest(fd));
+    expect(res.status).toBe(400);
+  });
+
+  it("400 если magic bytes не совпадают с заявленным MIME", async () => {
+    // Заявлен JPG, но в байтах нет FF D8 FF — это .exe переименованный в .jpg.
+    const fd = new FormData();
+    fd.set("file", makeSpoofedFile("a.jpg", "image/jpeg", 200));
+    const res = await POST(makeRequest(fd));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/не соответствует|подмен/i);
+    expect(mockUploadFile).not.toHaveBeenCalled();
+  });
+
+  it("400 если PNG-bytes но заявлен image/jpeg", async () => {
+    // У файла реальная PNG-сигнатура, но клиент сказал image/jpeg.
+    // Строгое sniffing'у это тоже mismatch — отбиваем.
+    const fd = new FormData();
+    fd.set("file", makeFile("a.jpg", "image/png", 200)); // PNG bytes, type=png
+    // Подменяем тип на JPG, оставляя PNG-байты:
+    const realFile = fd.get("file") as File;
+    const spoofed = new File([await realFile.arrayBuffer()], "a.jpg", {
+      type: "image/jpeg",
+    });
+    fd.set("file", spoofed);
     const res = await POST(makeRequest(fd));
     expect(res.status).toBe(400);
   });
