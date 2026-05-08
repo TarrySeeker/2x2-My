@@ -138,8 +138,10 @@ export function buildLocalBusiness(org?: OrgOverrides): JsonLdData {
     telephone: CONTACTS.phonePrimaryTel,
     email: CONTACTS.email,
     priceRange,
-    currenciesAccepted: "RUB",
-    paymentAccepted: "Cash, Credit Card, СБП",
+    // 2026-05-08: убраны currenciesAccepted и paymentAccepted —
+    // сайт работает только по индивидуальному расчёту, онлайн-оплат
+    // нет (см. CLAUDE.md → "ТОЛЬКО индивидуальные расчёты"). Schema.org
+    // эти поля ожидает для розничного магазина с готовым прайсом.
     address: {
       "@type": "PostalAddress",
       streetAddress: ADDRESS.streetAddress,
