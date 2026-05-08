@@ -15,40 +15,64 @@ import { MapPin, Navigation, ExternalLink } from 'lucide-react'
  * Яндекс закроет публичный endpoint — fallback на static.maps.2gis.ru
  * через тег <picture> или Image onError.
  *
- * Координаты: Ханты-Мансийск, ул. Парковая 92Б (получены через
- * Yandex.Maps geocoder; источник: открытые данные).
+ * Координаты и адрес читаются из props (передаются server-component'ом
+ * /contacts из site_settings.contacts.address_geo + site_settings.contacts.address).
+ * Это исправляет давний баг: координаты были захардкожены здесь и
+ * не реагировали на правки в админке (/admin/content/settings → Контакты).
+ *
+ * Fallback-значения: координаты Парковой 92Б в Ханты-Мансийске.
+ * Используются когда клиент ещё не заполнил поля «широта/долгота»
+ * в админке (lat=null или lng=null) — чтобы карта продолжала
+ * работать на свежей БД без ручной настройки.
  */
 
-const OFFICE = {
-  lat: 61.0029,
-  lon: 69.0019,
-  address: 'Ханты-Мансийск, ул. Парковая 92Б',
-  shortAddress: 'ул. Парковая 92Б, Ханты-Мансийск',
-}
-
-// Yandex Static Maps API. pt=lon,lat,style — pinred для офиса.
-// z=16 — близкий зум, чтобы было видно дом и окружение.
-// Без API-ключа: лимит ~25k запросов/день per IP, нам хватит с запасом.
-const STATIC_MAP_URL =
-  `https://static-maps.yandex.ru/1.x/?ll=${OFFICE.lon},${OFFICE.lat}` +
-  `&z=16&size=650,400&l=map&pt=${OFFICE.lon},${OFFICE.lat},pm2rdm`
-
-// Deeplinks в нативные приложения карт.
-const YANDEX_URL =
-  `https://yandex.ru/maps/?ll=${OFFICE.lon},${OFFICE.lat}&z=17` +
-  `&pt=${OFFICE.lon},${OFFICE.lat},pm2rdm&text=${encodeURIComponent(OFFICE.address)}`
-const YANDEX_ROUTE_URL =
-  `https://yandex.ru/maps/?rtext=~${OFFICE.lat},${OFFICE.lon}&rtt=auto`
-const GOOGLE_URL =
-  `https://www.google.com/maps/search/?api=1&query=${OFFICE.lat},${OFFICE.lon}`
-const TWOGIS_URL = `https://2gis.ru/geo/${OFFICE.lon},${OFFICE.lat}`
+const FALLBACK_LAT = 61.0029
+const FALLBACK_LON = 69.0019
+const FALLBACK_ADDRESS = 'Ханты-Мансийск, ул. Парковая 92Б'
 
 interface ContactMapProps {
   title?: string
+  /** Широта офиса (из site_settings.contacts.address_geo.lat). Если null/undefined — используется fallback. */
+  lat?: number | null
+  /** Долгота офиса (из site_settings.contacts.address_geo.lng). Если null/undefined — используется fallback. */
+  lon?: number | null
+  /** Полный адрес для подписи и deeplink-поиска (из site_settings.contacts.address). */
+  address?: string | null
 }
 
-export default function ContactMap({ title }: ContactMapProps) {
+export default function ContactMap({
+  title,
+  lat,
+  lon,
+  address,
+}: ContactMapProps) {
   const mapTitle = title || 'Карта офиса 2×2'
+
+  // Если координаты не пришли (пустая БД, миграции не прогнаны, RHF
+  // выставил null, и т.п.) — используем fallback. typeof === 'number'
+  // защищает от NaN/строк/прочей грязи.
+  const officeLat =
+    typeof lat === 'number' && Number.isFinite(lat) ? lat : FALLBACK_LAT
+  const officeLon =
+    typeof lon === 'number' && Number.isFinite(lon) ? lon : FALLBACK_LON
+  const officeAddress = address?.trim() || FALLBACK_ADDRESS
+
+  // Yandex Static Maps API. pt=lon,lat,style — pinred для офиса.
+  // z=16 — близкий зум, чтобы было видно дом и окружение.
+  // Без API-ключа: лимит ~25k запросов/день per IP, нам хватит с запасом.
+  const STATIC_MAP_URL =
+    `https://static-maps.yandex.ru/1.x/?ll=${officeLon},${officeLat}` +
+    `&z=16&size=650,400&l=map&pt=${officeLon},${officeLat},pm2rdm`
+
+  // Deeplinks в нативные приложения карт.
+  const YANDEX_URL =
+    `https://yandex.ru/maps/?ll=${officeLon},${officeLat}&z=17` +
+    `&pt=${officeLon},${officeLat},pm2rdm&text=${encodeURIComponent(officeAddress)}`
+  const YANDEX_ROUTE_URL =
+    `https://yandex.ru/maps/?rtext=~${officeLat},${officeLon}&rtt=auto`
+  const GOOGLE_URL =
+    `https://www.google.com/maps/search/?api=1&query=${officeLat},${officeLon}`
+  const TWOGIS_URL = `https://2gis.ru/geo/${officeLon},${officeLat}`
 
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
@@ -74,7 +98,7 @@ export default function ContactMap({ title }: ContactMapProps) {
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent p-4">
           <div className="flex items-start gap-2 text-white">
             <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-brand-orange" />
-            <div className="text-sm font-medium leading-tight">{OFFICE.address}</div>
+            <div className="text-sm font-medium leading-tight">{officeAddress}</div>
           </div>
         </div>
       </div>

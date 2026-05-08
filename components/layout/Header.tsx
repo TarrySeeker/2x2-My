@@ -12,6 +12,7 @@ interface SocialsValue {
   vk?: string
   telegram?: string
   dzen?: string
+  max?: string
 }
 
 interface NavigationHeaderValue {
@@ -34,6 +35,7 @@ const DEFAULT_SOCIALS: SocialsValue = {
   vk: '',
   telegram: '',
   dzen: '',
+  max: '',
 }
 
 /**
@@ -95,6 +97,7 @@ export default async function Header() {
         vk: socials.vk || '',
         telegram: socials.telegram || '',
         dzen: socials.dzen || '',
+        max: socials.max || '',
       }}
       navLinks={navLinks}
     />

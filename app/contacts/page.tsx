@@ -6,6 +6,15 @@ import ContactMap from '@/components/sections/contacts/ContactMap'
 import { makeGenerateMetadata } from '@/lib/seo/metadata-cms'
 import { JsonLdScript, buildBreadcrumbList } from '@/lib/seo/json-ld'
 import { readPageSectionContent } from '@/lib/cms/page-section-content'
+import { getSettingValue } from '@/lib/data/settings'
+
+interface ContactsSetting {
+  phone_primary?: string
+  phone_secondary?: string
+  email?: string
+  address?: string
+  address_geo?: { lat: number | null; lng: number | null }
+}
 
 // CMS-driven hero + contact_info. См. app/page.tsx.
 export const dynamic = 'force-dynamic'
@@ -45,6 +54,16 @@ export default async function ContactsPage() {
   // не используются (оставлены в БД как no-op для обратной совместимости).
   const mapTitle = infoCms?.content.map_iframe_title || 'Карта офиса 2×2'
 
+  // Координаты карты + адрес офиса берутся из site_settings.contacts.
+  // Раньше они были захардкожены в ContactMap.tsx — клиент менял их в
+  // админке (/admin/content/settings → Контакты), сохранение проходило,
+  // но карта не обновлялась. Теперь — единый источник истины.
+  // Fallback: если БД пуста / поля null — используются дефолты в ContactMap.
+  const contacts = await getSettingValue<ContactsSetting>('contacts', {})
+  const mapLat = contacts.address_geo?.lat ?? null
+  const mapLon = contacts.address_geo?.lng ?? null
+  const mapAddress = contacts.address ?? null
+
   return (
     <main>
       <JsonLdScript
@@ -70,7 +89,12 @@ export default async function ContactsPage() {
               <h2 className="text-2xl font-bold text-brand-dark mb-8">{infoTitle}</h2>
               <ContactInfo />
               <div className="mt-8">
-                <ContactMap title={mapTitle} />
+                <ContactMap
+                  title={mapTitle}
+                  lat={mapLat}
+                  lon={mapLon}
+                  address={mapAddress}
+                />
               </div>
             </AnimatedSection>
           </div>

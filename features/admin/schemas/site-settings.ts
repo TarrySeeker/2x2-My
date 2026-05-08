@@ -44,6 +44,9 @@ export const socialsSettingSchema = z.object({
   vk:       optionalUrl,
   telegram: optionalUrl,
   dzen:     optionalUrl,
+  // MAX (max.ru) — российский мессенджер от VK. Добавлен миграцией 033.
+  // Структурно идентичен остальным соцсетям: опциональный URL.
+  max:      optionalUrl,
 });
 
 export const statsSettingSchema = z.object({

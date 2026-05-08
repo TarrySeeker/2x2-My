@@ -19,7 +19,7 @@ const DEFAULTS: SiteSettingsBundle = {
     weekdays_short: "",
     weekend_short: "",
   },
-  socials: { vk: "", telegram: "", dzen: "" },
+  socials: { vk: "", telegram: "", dzen: "", max: "" },
   stats: {
     years_in_business: 0,
     projects_done: 0,
