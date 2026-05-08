@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -35,12 +36,13 @@ import {
   Star,
   Save,
   Info,
+  Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
 
-import type { PortfolioItem } from "@/types";
+import type { PortfolioCategory, PortfolioItem } from "@/types";
 import {
   portfolioItemSchema,
   type PortfolioFormData,
@@ -64,6 +66,17 @@ const MAX_FEATURED = 3;
 
 interface Props {
   items: PortfolioItem[];
+  /**
+   * Категории портфолио из таблицы `portfolio_categories` (миграция 031).
+   * Передаются из RSC-страницы `app/admin/content/portfolio/page.tsx`.
+   * Используются как опции для <select> в форме портфолио (вместо
+   * захардкоженного PORTFOLIO_CATEGORIES). Если БД упала — будет [],
+   * и форма падает на хардкод (см. categoryOptionsForSelect ниже).
+   *
+   * ОПЦИОНАЛЬНО: чтобы не сломать существующих вызовов компонента
+   * (тестов и т.п.), default = []. На проде RSC всегда передаёт массив.
+   */
+  portfolioCategories?: PortfolioCategory[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -204,7 +217,10 @@ function SortableRow({
 // Главный компонент
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function PortfolioPageClient({ items: initialItems }: Props) {
+export default function PortfolioPageClient({
+  items: initialItems,
+  portfolioCategories = [],
+}: Props) {
   const [tab, setTab] = useState<Tab>("list");
   const [items, setItems] = useState<PortfolioItem[]>(initialItems);
   const [search, setSearch] = useState("");
@@ -334,14 +350,24 @@ export default function PortfolioPageClient({ items: initialItems }: Props) {
         description={`${items.length} ${pluralize(items.length, ["работа", "работы", "работ"])}`}
         actions={
           tab === "list" ? (
-            <button
-              type="button"
-              onClick={openCreate}
-              className="flex items-center gap-2 rounded-lg bg-brand-orange px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-orange-hover"
-            >
-              <Plus className="h-4 w-4" />
-              Добавить работу
-            </button>
+            <>
+              <Link
+                href="/admin/content/portfolio-categories"
+                className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-700 transition-colors hover:border-brand-orange hover:text-brand-orange dark:border-white/10 dark:bg-white/5 dark:text-neutral-300"
+                title="Управление списком категорий портфолио"
+              >
+                <Layers className="h-4 w-4" />
+                Категории портфолио
+              </Link>
+              <button
+                type="button"
+                onClick={openCreate}
+                className="flex items-center gap-2 rounded-lg bg-brand-orange px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-orange-hover"
+              >
+                <Plus className="h-4 w-4" />
+                Добавить работу
+              </button>
+            </>
           ) : null
         }
       />
@@ -388,6 +414,7 @@ export default function PortfolioPageClient({ items: initialItems }: Props) {
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         editItem={editItem}
+        portfolioCategories={portfolioCategories}
         onSaved={(saved) => {
           setItems((prev) => {
             const exists = prev.some((p) => p.id === saved.id);
@@ -827,6 +854,12 @@ interface PortfolioFormDialogProps {
   open: boolean;
   onClose: () => void;
   editItem: PortfolioItem | null;
+  /**
+   * Категории из БД (`portfolio_categories`). Если массив пустой
+   * (БД упала / миграция 031 не применена) — падаем на хардкод
+   * PORTFOLIO_CATEGORIES, чтобы форма всё равно работала.
+   */
+  portfolioCategories: PortfolioCategory[];
   onSaved: (saved: PortfolioItem) => void;
 }
 
@@ -834,6 +867,7 @@ function PortfolioFormDialog({
   open,
   onClose,
   editItem,
+  portfolioCategories,
   onSaved,
 }: PortfolioFormDialogProps) {
   const defaultValues: PortfolioFormData = useMemo(() => {
@@ -910,23 +944,44 @@ function PortfolioFormDialog({
   const titleValue = watch("title");
 
   // Опции для <select> категории.
-  // Если у редактируемой работы category_label НЕ из текущего набора
-  // PORTFOLIO_CATEGORIES (legacy-значение, оставшееся с эпохи свободного
-  // input'а — например, «Печать», «Световые буквы», «Внутреннее
-  // оформление»), добавляем его как первую опцию с пометкой «(старая)».
-  // Это страхует от случайной потери значения при простом «открыть →
-  // сохранить» (иначе select без matching option показал бы «— не задана —»).
+  // Источник истины: таблица `portfolio_categories` (миграция 031,
+  // CRUD на /admin/content/portfolio-categories). Прокидывается из
+  // RSC-страницы. Берём только опубликованные.
+  //
+  // Fallback: если БД отдала [] (упала / миграция не применена) — берём
+  // захардкоженный PORTFOLIO_CATEGORIES, чтобы форма не оказалась без
+  // опций. value === label — для портфолио в БД хранится русская строка
+  // (см. lib/portfolio/categories.ts и db/migrations/031).
+  //
+  // Legacy-значения: если у редактируемой работы category_label НЕ из
+  // текущего набора (старое произвольное name из БД — «Печать»,
+  // «Световые буквы», «Внутреннее оформление»), добавляем его как
+  // первую опцию с пометкой «(не из списка)». Это страхует от случайной
+  // потери значения при «открыть → сохранить» (иначе select без matching
+  // option показал бы «— не задана —» и при сохранении category_label
+  // обнулился бы).
   const categoryOptionsForSelect = useMemo<
     ReadonlyArray<{ value: string; label: string }>
   >(() => {
-    const known = new Set<string>(PORTFOLIO_CATEGORIES.map((c) => c.value));
+    const fromDb = portfolioCategories
+      .filter((c) => c.is_published)
+      .map((c) => ({ value: c.label, label: c.label }));
+    const base =
+      fromDb.length > 0
+        ? fromDb
+        : PORTFOLIO_CATEGORIES.map((c) => ({
+            value: c.value,
+            label: c.label,
+          }));
+
+    const known = new Set<string>(base.map((c) => c.value));
     const current = editItem?.category_label ?? null;
     const legacy =
       current && !known.has(current)
-        ? [{ value: current, label: `${current} (старая)` }]
+        ? [{ value: current, label: `${current} (не из списка)` }]
         : [];
-    return [...legacy, ...PORTFOLIO_CATEGORIES];
-  }, [editItem?.category_label]);
+    return [...legacy, ...base];
+  }, [editItem?.category_label, portfolioCategories]);
 
   function autoSlug() {
     if (!titleValue) return;

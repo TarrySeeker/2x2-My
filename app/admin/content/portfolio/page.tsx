@@ -1,4 +1,5 @@
 import { getAllPortfolioForAdmin } from "@/features/admin/api/portfolio";
+import { listAllPortfolioCategoriesForAdmin } from "@/features/admin/api/portfolio-categories";
 import PortfolioPageClient from "@/features/admin/components/PortfolioPageClient";
 
 export const metadata = { title: "Портфолио" };
@@ -17,8 +18,21 @@ export const dynamic = "force-dynamic";
  * ВАЖНО: публичная витрина `/portfolio` сохраняет stub-fallback в
  * `lib/data/portfolio.ts:getPortfolio()`, чтобы посетители видели примеры
  * до того, как клиент наполнит реальными работами.
+ *
+ * Параллельно тянем справочник категорий портфолио (миграция 031) — он
+ * подставляется в <select> формы редактирования работы. До миграции
+ * категории были захардкожены в lib/portfolio/categories.ts, теперь
+ * редактируются через /admin/content/portfolio-categories.
  */
 export default async function PortfolioAdminPage() {
-  const items = await getAllPortfolioForAdmin();
-  return <PortfolioPageClient items={items} />;
+  const [items, portfolioCategories] = await Promise.all([
+    getAllPortfolioForAdmin(),
+    listAllPortfolioCategoriesForAdmin(),
+  ]);
+  return (
+    <PortfolioPageClient
+      items={items}
+      portfolioCategories={portfolioCategories}
+    />
+  );
 }
