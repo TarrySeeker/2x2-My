@@ -771,6 +771,31 @@ export interface Database {
         Relationships: [];
       };
 
+      // 031_portfolio_categories.sql. PK = bigint (BIGSERIAL),
+      // slug уникален; label совпадает со значением portfolio_items.category_label
+      // (без FK — слабая связь, как и для service_categories). Подробнее
+      // — db/migrations/031.
+      portfolio_categories: {
+        Row: {
+          id: number;
+          slug: string;
+          label: string;
+          description: string | null;
+          sort_order: number;
+          is_published: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["portfolio_categories"]["Row"],
+          "id" | "created_at" | "updated_at"
+        > & { id?: number; created_at?: string; updated_at?: string };
+        Update: Partial<
+          Database["public"]["Tables"]["portfolio_categories"]["Insert"]
+        >;
+        Relationships: [];
+      };
+
       blog_categories: {
         Row: {
           id: number;
