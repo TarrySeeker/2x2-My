@@ -5,6 +5,7 @@ import ServicesHero from "@/components/sections/services/ServicesHero";
 import CtaSection from "@/components/sections/CtaSection";
 import { featuredPortfolioWorks } from "@/lib/featuredPortfolioWorks";
 import { getPortfolio } from "@/lib/data/portfolio";
+import { listPublishedPortfolioCategories } from "@/features/admin/api/portfolio-categories";
 import { makeGenerateMetadata } from "@/lib/seo/metadata-cms";
 import { readPageSectionContent } from "@/lib/cms/page-section-content";
 import { JsonLdScript, buildBreadcrumbList } from "@/lib/seo/json-ld";
@@ -54,16 +55,26 @@ function toLegacyItem(item: PortfolioItem): LegacyPortfolioItem {
 }
 
 export default async function PortfolioPage() {
-  const dbItems = await getPortfolio();
+  // Параллельно: работы + список категорий-фильтров.
+  // Категории из БД (миграция 031). Если БД упала / [], галерея сама
+  // падает на хардкод PORTFOLIO_FILTER_LIST из lib/portfolio/categories.ts.
+  const [dbItems, dbCategories, heroCms] = await Promise.all([
+    getPortfolio(),
+    listPublishedPortfolioCategories(),
+    readPageSectionContent("/portfolio", "hero", "hero"),
+  ]);
+
   // getPortfolio() уже сам делает fallback на stub при пустой БД, но если
   // и stub'а вдруг нет (теоретически — при правке файла) — деградируем
   // до `featuredPortfolioWorks`, чтобы страница не была пустой.
   const items: LegacyPortfolioItem[] =
     dbItems.length > 0 ? dbItems.map(toLegacyItem) : featuredPortfolioWorks;
 
-  const fallbackDescription = `${items.length} реализованных проектов — и сотни других задач`;
+  // Передаём в галерею label'ы опубликованных категорий из БД.
+  // Если пусто — галерея использует свой fallback (PORTFOLIO_FILTER_LIST).
+  const categoryLabels = dbCategories.map((c) => c.label);
 
-  const heroCms = await readPageSectionContent("/portfolio", "hero", "hero");
+  const fallbackDescription = `${items.length} реализованных проектов — и сотни других задач`;
 
   return (
     <main>
@@ -80,7 +91,7 @@ export default async function PortfolioPage() {
         title={heroCms?.content.title || "Портфолио"}
         description={heroCms?.content.description || fallbackDescription}
       />
-      <PortfolioGallery items={items} />
+      <PortfolioGallery items={items} categoryLabels={categoryLabels} />
       <CtaSection />
     </main>
   );

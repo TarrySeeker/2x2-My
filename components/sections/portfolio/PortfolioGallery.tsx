@@ -10,12 +10,34 @@ import { featuredPortfolioWorks } from '@/lib/featuredPortfolioWorks'
 import { asset } from '@/lib/asset'
 import { PORTFOLIO_FILTER_LIST } from '@/lib/portfolio/categories'
 
-// Единый источник истины: значения совпадают с админским <select>
-// в PortfolioPageClient.tsx (см. PORTFOLIO_CATEGORIES).
-const categories = PORTFOLIO_FILTER_LIST
+interface PortfolioGalleryProps {
+  items: PortfolioItem[]
+  /**
+   * Список label'ов категорий для фильтра-кнопок. Передаётся из RSC
+   * (`app/portfolio/page.tsx`), читается из таблицы `portfolio_categories`
+   * (миграция 031). Если пусто (БД упала / миграция не применена) —
+   * fallback на захардкоженный `PORTFOLIO_FILTER_LIST` из
+   * `lib/portfolio/categories.ts`.
+   *
+   * «Все» добавляется в начало автоматически — не передавайте его извне.
+   */
+  categoryLabels?: string[]
+}
 
-export default function PortfolioGallery({ items }: { items: PortfolioItem[] }) {
-  const [active, setActive] = useState<(typeof categories)[number]>('Все')
+export default function PortfolioGallery({
+  items,
+  categoryLabels,
+}: PortfolioGalleryProps) {
+  // Источник истины: БД через RSC (categoryLabels). Fallback: хардкод
+  // PORTFOLIO_FILTER_LIST. «Все» — спец-значение, сбрасывает фильтр.
+  const categories = useMemo<readonly string[]>(() => {
+    if (categoryLabels && categoryLabels.length > 0) {
+      return ['Все', ...categoryLabels]
+    }
+    return PORTFOLIO_FILTER_LIST
+  }, [categoryLabels])
+
+  const [active, setActive] = useState<string>('Все')
   const list = useMemo(() => (items.length > 0 ? items : featuredPortfolioWorks), [items])
   const filtered = active === 'Все' ? list : list.filter(w => w.category === active)
 

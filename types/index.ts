@@ -56,6 +56,14 @@ export type ServiceCategory = Tables["service_categories"]["Row"];
 export type ServiceCategoryInsert = Tables["service_categories"]["Insert"];
 export type ServiceCategoryUpdate = Tables["service_categories"]["Update"];
 
+// Справочник категорий портфолио (`portfolio_categories`) — миграция 031.
+// CRUD через /admin/content/portfolio-categories. Label совпадает со
+// значением в portfolio_items.category_label (без FK — слабая связь,
+// чтобы legacy-значения в портфолио не падали).
+export type PortfolioCategory = Tables["portfolio_categories"]["Row"];
+export type PortfolioCategoryInsert = Tables["portfolio_categories"]["Insert"];
+export type PortfolioCategoryUpdate = Tables["portfolio_categories"]["Update"];
+
 // ============================================================
 // Insert-типы (для форм / API)
 // ============================================================
