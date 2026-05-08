@@ -363,7 +363,7 @@ export default function SeoPageClient({
             <input
               value={templateTitle}
               onChange={(e) => setTemplateTitle(e.target.value)}
-              placeholder="{name} — купить в Ханты-Мансийске | 2×2"
+              placeholder="{name} — купить в Ханты-Мансийске | 2х2"
               className="h-10 w-full rounded-lg border border-neutral-200 bg-transparent px-3 text-sm dark:border-white/10 dark:text-white"
             />
             <p className="mt-1 text-xs text-neutral-400">
@@ -377,7 +377,7 @@ export default function SeoPageClient({
             <textarea
               value={templateDesc}
               onChange={(e) => setTemplateDesc(e.target.value)}
-              placeholder="{name} по цене от {price} ₽. Доставка по ХМАО. Компания 2×2."
+              placeholder="{name} по цене от {price} ₽. Доставка по ХМАО. Компания «2х2»."
               rows={3}
               className="w-full resize-none rounded-lg border border-neutral-200 bg-transparent p-3 text-sm dark:border-white/10 dark:text-white"
             />

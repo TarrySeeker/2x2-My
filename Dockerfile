@@ -23,8 +23,17 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# pnpm через corepack (без глобальной установки)
-RUN corepack enable pnpm
+# pnpm через corepack с ПИНОМ конкретной версии.
+#
+# Регрессия 2026-05-09: corepack без аргумента pnpm@<ver> подтягивает
+# latest pnpm 11.x, который требует Node 22 (использует встроенный
+# `node:sqlite`, добавленный в 22.5). На node:20-alpine это падает с
+# `Error [ERR_UNKNOWN_BUILTIN_MODULE]: No such built-in module: node:sqlite`
+# во время `pnpm install`.
+#
+# Версия 10.18.4 — последняя из 10.x ветки, проверена на Node 20 + Linux.
+# При апдейте Node до 22 можно снять пин (тогда pnpm@latest снова работает).
+RUN corepack enable && corepack prepare pnpm@10.18.4 --activate
 
 # Зависимости — в отдельном слое, чтобы переиспользовать кэш Docker
 # при изменениях кода (но не lockfile).

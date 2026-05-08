@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'
 const servicesSchema = {
   '@context': 'https://schema.org',
   '@type': 'ItemList',
-  name: 'Услуги рекламного агентства 2×2',
+  name: 'Услуги рекламного агентства «2х2»',
   itemListElement: [
     {
       '@type': 'ListItem',
@@ -41,7 +41,8 @@ import { JsonLdScript, buildBreadcrumbList } from '@/lib/seo/json-ld'
 export const generateMetadata = makeGenerateMetadata({
   path: '/services',
   fallback: {
-    title: 'Услуги рекламной компании «2х2» — полиграфия, наружная реклама, фасады',
+    // Title 47 символов; добавляется ` | 2х2` из layout → итог 53 символов.
+    title: 'Услуги — полиграфия, наружная реклама, фасады',
     description:
       'Полный спектр рекламных услуг в Ханты-Мансийске: печать визиток, листовок, вывески, световые буквы, стелы, оформление фасадов. Онлайн-калькулятор и стартовые цены.',
     keywords: [

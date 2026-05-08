@@ -26,8 +26,13 @@
 }
 
 {$DOMAIN:localhost} {
-    # ---- Compression (zstd для современных, gzip для остальных) ----
-    encode zstd gzip
+    # ---- Compression (zstd для современных, br=Brotli, gzip для остальных) ----
+    # ВНИМАНИЕ: br требует кастомный билд Caddy с ubicloud/caddy-brotli
+    # (см. infra/caddy/Dockerfile). На стандартном `caddy:2` директива
+    # упадёт. Этот Caddyfile в текущем docker-compose.yml НЕ используется —
+    # реально подключается infra/caddy/Caddyfile. Здесь оставлено для
+    # справки и для случаев standalone-запуска.
+    encode zstd br gzip
 
     # ---- Security headers (применяются ко всем ответам) ----
     header {

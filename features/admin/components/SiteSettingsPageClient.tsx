@@ -987,7 +987,7 @@ function OrganizationForm({
           <input
             {...register("name")}
             className={inputCn}
-            placeholder="Рекламная компания 2×2"
+            placeholder="Рекламная компания «2х2»"
             maxLength={300}
           />
         </Field>
@@ -996,7 +996,7 @@ function OrganizationForm({
           <input
             {...register("short_name")}
             className={inputCn}
-            placeholder="2×2"
+            placeholder="2х2"
             maxLength={60}
           />
         </Field>
@@ -1013,7 +1013,7 @@ function OrganizationForm({
           <input
             {...register("legal_name")}
             className={inputCn}
-            placeholder='ООО «Рекламная компания 2×2»'
+            placeholder='ООО «Рекламная компания 2х2»'
             maxLength={300}
           />
         </Field>

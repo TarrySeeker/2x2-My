@@ -406,7 +406,7 @@ function SidebarContent({
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-white/10 px-5">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-orange/20">
-          <span className="text-sm font-black text-brand-orange">2×2</span>
+          <span className="text-sm font-black text-brand-orange">2х2</span>
         </div>
         <div>
           <p className="text-sm font-bold text-white">Панель управления</p>

@@ -32,8 +32,10 @@ export const dynamic = 'force-dynamic'
 export const generateMetadata = makeGenerateMetadata({
   path: '/',
   fallback: {
-    title:
-      'Рекламная компания 2х2 — полиграфия, вывески, наружная реклама в Ханты-Мансийске',
+    // Title укорочён до 55 символов (с 87) — вписывается в SERP-обрезку.
+    // Подробности — в app/layout.tsx (title.default). Остальное берёт
+    // CMS (page_metadata.path = '/'), если заполнено в админке.
+    title: '2х2 Ханты-Мансийск — реклама, печать, вывески и фасады',
     description: SITE.description,
     keywords: [...SITE.keywords],
   },

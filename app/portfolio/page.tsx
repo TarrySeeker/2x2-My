@@ -17,7 +17,8 @@ export const dynamic = "force-dynamic";
 export const generateMetadata = makeGenerateMetadata({
   path: "/portfolio",
   fallback: {
-    title: "Портфолио — наши работы в Ханты-Мансийске и Сургуте",
+    // Title 53 символа; добавляется ` | 2х2` из layout → итог 59 символов.
+    title: "Портфолио работ в Ханты-Мансийске и Сургуте",
     description:
       "Реализованные проекты «2х2» в ХМАО: крышная вывеска ВТБ, стелы АЗС, оформление ЮКИОР, световые фигуры Брусники, новогоднее оформление автобусов.",
     keywords: [

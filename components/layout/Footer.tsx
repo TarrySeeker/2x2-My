@@ -79,7 +79,7 @@ const DEFAULT_CONTACTS: ContactsValue = {
   phone_primary: '+7-932-424-77-40',
   phone_secondary: '+7-904-480-77-40',
   email: 'sj_alex86@mail.ru',
-  address: 'г. Ханты-Мансийск, ул. Парковая 92 Б',
+  address: 'г. Ханты-Мансийск, ул. Парковая, 92 Б',
 }
 
 const DEFAULT_HOURS: BusinessHoursValue = {
@@ -185,7 +185,7 @@ export default async function Footer() {
             >
               <Image
                 src={asset('/img/logo.svg')}
-                alt="2×2 — рекламное агентство"
+                alt="2х2 — рекламное агентство"
                 className="h-9 w-auto max-h-10 max-w-[min(100%,260px)] object-contain object-left sm:h-10"
                 width={498}
                 height={71}

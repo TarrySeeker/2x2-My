@@ -28,7 +28,7 @@ const DEFAULT_CONTACTS: ContactsValue = {
   phone_primary: '+7-932-424-77-40',
   phone_secondary: '+7-904-480-77-40',
   email: 'sj_alex86@mail.ru',
-  address: 'г. Ханты-Мансийск, ул. Парковая 92 Б',
+  address: 'г. Ханты-Мансийск, ул. Парковая, 92 Б',
 }
 
 const DEFAULT_SOCIALS: SocialsValue = {

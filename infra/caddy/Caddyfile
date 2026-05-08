@@ -25,7 +25,10 @@
 }
 
 {$DOMAIN:localhost} {
-    encode zstd gzip
+    # Compression: zstd → br (Brotli) → gzip. Brotli даёт ~10-15 % лучше
+    # сжатия HTML/CSS/JS vs gzip — критично для мобильного TTFB. Требует
+    # кастомный билд Caddy (см. ./Dockerfile, ubicloud/caddy-brotli плагин).
+    encode zstd br gzip
 
     # ---- Security headers (полный набор из корневого Caddyfile) ----
     header {

@@ -58,8 +58,8 @@ export const generateMetadata = makeGenerateMetadata({
 })
 
 /** Дата последнего обновления документа для fallback-JSX. Обновляйте при редакции. */
-const POLICY_VERSION_FALLBACK = '2026-04-23'
-const POLICY_DATE_FALLBACK = '23 апреля 2026 г.'
+const POLICY_VERSION_FALLBACK = '1'
+const POLICY_DATE_FALLBACK = '24 апреля 2026 г.'
 
 function formatPolicyDate(iso: string | undefined | null): string {
   if (!iso) return POLICY_DATE_FALLBACK
@@ -111,7 +111,7 @@ export default async function PrivacyPage() {
             <AnimatedSection>
               <article className="mx-auto max-w-3xl space-y-6 text-[15px] leading-relaxed text-neutral-700 [&_a]:text-brand-orange [&_a]:underline [&_h2]:mt-10 [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:text-brand-dark [&_h3]:mt-6 [&_h3]:font-display [&_h3]:text-xl [&_h3]:font-bold [&_h3]:text-brand-dark [&_ul]:list-disc [&_ul]:pl-6 [&_ul_li]:mt-1">
                 <p className="text-sm text-neutral-500">
-                  Версия: {cmsContent.version} · Дата публикации: {publishedDate}
+                  Дата публикации: {publishedDate}
                 </p>
                 {renderSimpleMarkdown(cmsContent.contentMarkdown)}
               </article>
@@ -166,7 +166,7 @@ export default async function PrivacyPage() {
             <article className="mx-auto max-w-3xl space-y-6 text-[15px] leading-relaxed text-neutral-700 [&_a]:text-brand-orange [&_a]:underline [&_h2]:mt-10 [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:text-brand-dark [&_ul]:list-disc [&_ul]:pl-6 [&_ul_li]:mt-1">
 
               <p className="text-sm text-neutral-500">
-                Версия: {POLICY_VERSION} · Дата публикации: {POLICY_DATE}
+                Версия {POLICY_VERSION} от {POLICY_DATE}
               </p>
 
               {/* ── РАЗДЕЛ 1 ── */}

@@ -37,7 +37,7 @@ export default async function RootOgImage() {
               color: 'white',
             }}
           >
-            2×2
+            2х2
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ fontSize: 26, fontWeight: 700, lineHeight: 1 }}>

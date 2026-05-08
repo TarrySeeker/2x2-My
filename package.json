@@ -2,6 +2,7 @@
   "name": "2x2-shop",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.18.4",
   "scripts": {
     "dev": "next dev --webpack -H 0.0.0.0",
     "dev:clean": "rm -rf .next && next dev --webpack -H 0.0.0.0",

@@ -10,8 +10,8 @@ import AdminBreadcrumbs from "@/features/admin/components/AdminBreadcrumbs";
 
 export const metadata = {
   title: {
-    default: "Админ-панель — 2×2",
-    template: "%s — Админ 2×2",
+    default: "Админ-панель — 2х2",
+    template: "%s — Админ 2х2",
   },
   robots: { index: false, follow: false },
 };

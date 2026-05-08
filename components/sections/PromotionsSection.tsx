@@ -8,7 +8,7 @@ import PromotionsSectionClient, {
 const DEFAULT_DATA: PromotionsSectionData = {
   headline: 'Акции и спецпредложения',
   subheadline: 'Воспользуйтесь выгодными условиями прямо сейчас',
-  cta_text: 'Получить расчёт',
+  cta_text: 'Связаться с нами',
   cta_url: '/contacts',
 }
 

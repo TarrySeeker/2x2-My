@@ -35,6 +35,46 @@ export type OrgOverrides = Partial<
   >
 >;
 
+/**
+ * Соцсети из site_settings.socials. Все поля — опциональные строки.
+ * Пустые / не-https-значения игнорируются (не попадают в sameAs).
+ *
+ * Раньше JSON-LD захардкодил CONTACTS.vk / .telegram / .whatsapp. После
+ * 2026-05-06 (аудит): обе VK-ссылки в hardcoded и в settings.socials
+ * нерабочие (404 / редирект). Чтобы не отдавать поисковикам мусорные
+ * sameAs, тянем только то, что реально заполнено в админке.
+ */
+export interface OrgSocials {
+  vk?: string | null;
+  telegram?: string | null;
+  whatsapp?: string | null;
+  dzen?: string | null;
+  max?: string | null;
+}
+
+/**
+ * Возвращает массив URL для sameAs, отбрасывая пустые / невалидные
+ * (не-https) значения. Принимает CMS-socials и/или override-фолбэки.
+ *
+ * Используется в `buildOrganization` — единственный источник sameAs
+ * в Organization JSON-LD. На LocalBusiness sameAs не ставим (Google
+ * рекомендует только один Organization @id с полным sameAs).
+ */
+function buildSameAs(socials?: OrgSocials | null): string[] {
+  if (!socials) return [];
+  const values = [
+    socials.vk,
+    socials.telegram,
+    socials.whatsapp,
+    socials.dzen,
+    socials.max,
+  ];
+  return values
+    .map((v) => (typeof v === "string" ? v.trim() : ""))
+    .filter((v) => v.length > 0)
+    .filter((v) => v.startsWith("https://") || v.startsWith("http://"));
+}
+
 type Props = { data: JsonLdData | JsonLdData[] };
 
 /** Inline-скрипт <script type="application/ld+json"> — для Server Components. */
@@ -60,13 +100,17 @@ export function JsonLdScript({ data }: Props) {
 // Базовые блоки
 // ============================================================
 
-export function buildOrganization(org?: OrgOverrides): JsonLdData {
+export function buildOrganization(
+  org?: OrgOverrides,
+  socials?: OrgSocials | null,
+): JsonLdData {
   const name = org?.name || SITE.name;
   const legalName = org?.legal_name || SITE.legalName;
   const altName = org?.short_name || SITE.shortName;
   const description = org?.description || SITE.description;
   const slogan = org?.slogan || SITE.slogan;
   const ogImage = org?.og_image || SITE.ogImage;
+  const sameAs = buildSameAs(socials);
 
   return {
     "@context": "https://schema.org",
@@ -113,7 +157,11 @@ export function buildOrganization(org?: OrgOverrides): JsonLdData {
         availableLanguage: ["Russian"],
       },
     ],
-    sameAs: [CONTACTS.telegram, CONTACTS.vk, CONTACTS.whatsapp],
+    // sameAs: ТОЛЬКО из CMS site_settings.socials. Раньше hardcoded
+    // CONTACTS.vk → отдавал поисковикам нерабочий URL vk.com/ra2x2_hmao.
+    // Теперь — пустой массив, если в админке соцсети не заполнены.
+    // Если ВСЕ поля пустые — sameAs не включается в JSON-LD вообще.
+    ...(sameAs.length > 0 ? { sameAs } : {}),
   };
 }
 

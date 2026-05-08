@@ -5,9 +5,15 @@ import { motion } from 'framer-motion'
 import type { TeamMember } from '@/types'
 import { asset } from '@/lib/asset'
 
-const TEAM_PLACEHOLDER_SRC = '/team/placeholder.svg'
-
 export default function TeamSectionClient({ team }: { team: TeamMember[] }) {
+  // Показываем только сотрудников с реальным фото.
+  // Силуэты-заглушки (placeholder.svg) создают ощущение «болванки» на витрине —
+  // лучше не показывать секцию, чем показывать 6 одинаковых серых силуэтов.
+  const membersWithPhoto = team.filter((m) => m.photo_url && m.photo_url.trim().length > 0)
+
+  // Если ни у кого нет фото — скрываем всю секцию.
+  if (membersWithPhoto.length === 0) return null
+
   return (
     <section className="section-padding bg-white">
       <div className="container min-w-0">
@@ -36,7 +42,7 @@ export default function TeamSectionClient({ team }: { team: TeamMember[] }) {
         </div>
 
         <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 min-w-0 sm:grid-cols-2 sm:gap-6 md:gap-8 lg:grid-cols-3">
-          {team.map((m, i) => (
+          {membersWithPhoto.map((m, i) => (
             <motion.article
               key={m.id}
               initial={{ opacity: 1, y: 24 }}
@@ -47,23 +53,14 @@ export default function TeamSectionClient({ team }: { team: TeamMember[] }) {
               className="min-w-0 overflow-hidden rounded-2xl border border-gray-100 bg-white text-center shadow-sm transition-shadow hover:shadow-xl"
             >
               <div className="relative mx-auto mt-6 aspect-square w-32 overflow-hidden rounded-full ring-4 ring-orange-100 transition-all duration-300 hover:ring-brand-orange md:w-36">
-                {m.photo_url ? (
-                  <Image
-                    src={asset(m.photo_url)}
-                    alt={m.name}
-                    fill
-                    sizes="160px"
-                    className="object-cover"
-                  />
-                ) : (
-                  <Image
-                    src={asset(TEAM_PLACEHOLDER_SRC)}
-                    alt="Сотрудник 2х2"
-                    fill
-                    sizes="160px"
-                    className="object-cover"
-                  />
-                )}
+                {/* membersWithPhoto содержит только записи с photo_url */}
+                <Image
+                  src={asset(m.photo_url!)}
+                  alt={m.name}
+                  fill
+                  sizes="160px"
+                  className="object-cover"
+                />
               </div>
               <div className="px-5 py-5 md:px-6">
                 <h3 className="break-words text-lg font-bold text-brand-dark md:text-xl">{m.name}</h3>

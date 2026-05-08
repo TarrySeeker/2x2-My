@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 export const metadata = {
-  title: "Вход — Панель управления 2×2",
+  title: "Вход — Панель управления 2х2",
 };
 
 /**
