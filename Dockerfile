@@ -31,9 +31,10 @@ WORKDIR /app
 # `Error [ERR_UNKNOWN_BUILTIN_MODULE]: No such built-in module: node:sqlite`
 # во время `pnpm install`.
 #
-# Версия 10.18.4 — последняя из 10.x ветки, проверена на Node 20 + Linux.
+# Версия 10.x — последняя стабильная на Node 20. 10.x ещё не использует
+# node:sqlite, поэтому на node:20-alpine работает.
 # При апдейте Node до 22 можно снять пин (тогда pnpm@latest снова работает).
-RUN corepack enable && corepack prepare pnpm@10.18.4 --activate
+RUN npm install -g pnpm@10
 
 # Зависимости — в отдельном слое, чтобы переиспользовать кэш Docker
 # при изменениях кода (но не lockfile).
