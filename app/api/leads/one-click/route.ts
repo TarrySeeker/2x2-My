@@ -84,6 +84,7 @@ export async function POST(request: NextRequest) {
   }
 
   let leadId: number | null = null;
+  let insertFailed = false;
 
   try {
     const context: Json = {
@@ -148,7 +149,18 @@ export async function POST(request: NextRequest) {
         });
       }
     }
-    console.warn("[api/leads/one-click] DB insert failed:", err);
+    insertFailed = true;
+    console.error("[api/leads/one-click] DB insert failed:", err);
+  }
+
+  // Если INSERT не прошёл и id не получен — возвращаем 500, а не ложный
+  // success. Иначе клиент думает что заявка принята, а её нет в БД, и
+  // менеджер никогда о ней не узнает (паттерн как в /api/leads/quote).
+  if (insertFailed || leadId === null) {
+    return NextResponse.json(
+      { error: "Не удалось сохранить заявку. Попробуйте позже." },
+      { status: 500 },
+    );
   }
 
   try {

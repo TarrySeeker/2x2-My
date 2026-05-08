@@ -625,8 +625,10 @@ export interface Database {
       // ────────────────────────────────────────────────────
       // CMS (006_cms_and_security.sql)
       // ────────────────────────────────────────────────────
-      // homepage_sections удалена миграцией 024_drop_legacy_tables.sql
-      // (заменена на page_sections, см. миграцию 017).
+      // Примечание: homepage_sections, page_sections, page_content,
+      // page_metadata, ui_strings — реально существуют в БД, но типы
+      // для них не описаны в этом файле (доступ идёт через сырой SQL
+      // в lib/data/cms.ts и features/admin/actions/cms.ts).
 
       site_settings: {
         Row: {

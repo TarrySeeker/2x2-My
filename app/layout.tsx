@@ -16,7 +16,6 @@ import {
 import { SITE, absoluteUrl } from "@/lib/seo/site";
 import { getOrganization } from "@/lib/cms/organization";
 import { ThemeProvider } from "@/providers/theme-provider";
-import { SupabaseProvider } from "@/providers/supabase-provider";
 import { ToastProvider } from "@/providers/toast-provider";
 import UiStringsProviderServer from "@/features/cms/UiStringsProviderServer";
 import "./globals.css";
@@ -168,29 +167,27 @@ export default async function RootLayout({
     >
       <body className="flex min-h-screen min-w-0 flex-col">
         <ThemeProvider>
-          <SupabaseProvider>
-            <UiStringsProviderServer>
-              <ShopShell>
-                <Header />
-                <PromoPopupBanner />
-                <JsonLdScript
-                  data={[
-                    buildOrganization(org),
-                    buildLocalBusiness(org),
-                    buildWebSite(org),
-                  ]}
-                />
-              </ShopShell>
-              <div className="flex-1">{children}</div>
-              <ShopShell>
-                <Footer />
-                <ShopModals />
-                <CookieBanner />
-              </ShopShell>
-              <ToastProvider />
-              <AnalyticsScripts />
-            </UiStringsProviderServer>
-          </SupabaseProvider>
+          <UiStringsProviderServer>
+            <ShopShell>
+              <Header />
+              <PromoPopupBanner />
+              <JsonLdScript
+                data={[
+                  buildOrganization(org),
+                  buildLocalBusiness(org),
+                  buildWebSite(org),
+                ]}
+              />
+            </ShopShell>
+            <div className="flex-1">{children}</div>
+            <ShopShell>
+              <Footer />
+              <ShopModals />
+              <CookieBanner />
+            </ShopShell>
+            <ToastProvider />
+            <AnalyticsScripts />
+          </UiStringsProviderServer>
         </ThemeProvider>
       </body>
     </html>
