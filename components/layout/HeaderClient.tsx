@@ -49,7 +49,7 @@ export default function HeaderClient({
       <div className="container flex h-16 min-w-0 items-center justify-between gap-3 md:h-20 md:gap-6">
         <Link
           href="/"
-          aria-label="2×2 — рекламное агентство"
+          aria-label="2х2 — рекламное агентство"
           className="flex min-w-0 flex-1 items-center justify-start gap-3 py-1 pr-2 md:flex-none md:max-w-[min(100%,440px)] md:pr-4"
         >
           {/* Квадратик-знак из логотипа */}

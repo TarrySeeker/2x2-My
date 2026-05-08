@@ -49,7 +49,7 @@ export default async function BlogOgImage({
               color: 'white',
             }}
           >
-            2×2
+            2х2
           </div>
           <div
             style={{

@@ -35,7 +35,7 @@ const DEFAULT_INFO: ContactInfoItem[] = [
   {
     icon: MapPin,
     label: 'Адрес',
-    value: 'г. Ханты-Мансийск, ул. Парковая, 92Б',
+    value: 'г. Ханты-Мансийск, ул. Парковая, 92 Б',
     link: null,
   },
   {

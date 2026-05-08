@@ -8,8 +8,13 @@ import { cookieBanner } from "@/content/cookie-banner";
  * Загружает счётчики аналитики: Яндекс.Метрика и GA4.
  *
  * Подключается по env-переменным:
- *   NEXT_PUBLIC_YM_ID   — ID счётчика Яндекс.Метрики ("99999999")
- *   NEXT_PUBLIC_GA4_ID  — Measurement ID GA4 ("G-XXXXXXXXXX")
+ *   NEXT_PUBLIC_YANDEX_METRICA_ID  — ID счётчика Яндекс.Метрики ("99999999")
+ *   NEXT_PUBLIC_YM_ID              — устаревший алиас (legacy, обратная совместимость)
+ *   NEXT_PUBLIC_GA4_ID             — Measurement ID GA4 ("G-XXXXXXXXXX")
+ *
+ * Если задан и YANDEX_METRICA_ID, и YM_ID — приоритет у YANDEX_METRICA_ID
+ * (новое каноническое имя). Если ни один не задан — счётчик не подключается
+ * (no-op, ничего не рендерится).
  *
  * Скрипты грузятся ТОЛЬКО при условии:
  *   1) Соответствующий ENV задан;
@@ -60,8 +65,16 @@ function getServerConsent(): boolean {
 }
 
 export default function AnalyticsScripts() {
-  const ymId = process.env.NEXT_PUBLIC_YM_ID;
-  const ga4Id = process.env.NEXT_PUBLIC_GA4_ID;
+  // Каноническое имя — NEXT_PUBLIC_YANDEX_METRICA_ID. NEXT_PUBLIC_YM_ID
+  // оставлен как legacy-алиас, чтобы старые .env (на проде) продолжали
+  // работать без правок. Trim, потому что docker compose иногда добавляет
+  // невидимые пробелы при копировании из браузера.
+  const ymIdRaw =
+    process.env.NEXT_PUBLIC_YANDEX_METRICA_ID ||
+    process.env.NEXT_PUBLIC_YM_ID ||
+    "";
+  const ymId = ymIdRaw.trim() || undefined;
+  const ga4Id = process.env.NEXT_PUBLIC_GA4_ID?.trim() || undefined;
 
   const consented = useSyncExternalStore(
     subscribeConsent,

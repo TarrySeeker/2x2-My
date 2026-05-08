@@ -28,7 +28,7 @@ import { MapPin, Navigation, ExternalLink } from 'lucide-react'
 
 const FALLBACK_LAT = 61.0029
 const FALLBACK_LON = 69.0019
-const FALLBACK_ADDRESS = 'Ханты-Мансийск, ул. Парковая 92Б'
+const FALLBACK_ADDRESS = 'г. Ханты-Мансийск, ул. Парковая, 92 Б'
 
 interface ContactMapProps {
   title?: string
@@ -46,7 +46,7 @@ export default function ContactMap({
   lon,
   address,
 }: ContactMapProps) {
-  const mapTitle = title || 'Карта офиса 2×2'
+  const mapTitle = title || 'Карта офиса 2х2'
 
   // Если координаты не пришли (пустая БД, миграции не прогнаны, RHF
   // выставил null, и т.п.) — используем fallback. typeof === 'number'

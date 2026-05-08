@@ -179,7 +179,7 @@ export default function AboutPreviewClient({ data }: { data: AboutSectionData })
             >
               <Image
                 src={asset('/img/log-2.png')}
-                alt="2×2"
+                alt="2х2"
                 width={280}
                 height={90}
                 className="h-[0.92em] w-auto max-h-14 object-contain object-bottom sm:max-h-16 md:max-h-[4.5rem]"

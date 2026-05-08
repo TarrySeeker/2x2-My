@@ -45,8 +45,8 @@ const DEFAULTS: SiteSettingsBundle = {
     bik: "",
   },
   organization: {
-    name: "Рекламная компания 2×2",
-    short_name: "2×2",
+    name: "Рекламная компания «2х2»",
+    short_name: "2х2",
     legal_name: "",
     slogan: "",
     description: "",

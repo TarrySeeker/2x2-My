@@ -164,8 +164,12 @@ export default async function ServicesCards() {
           >
             {!hideGroupHeaders && (
               <div className="mb-10 md:mb-12">
-                <span className="inline-flex items-center gap-2 rounded-full bg-brand-orange/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-brand-orange">
-                  {/* Используем тот же label-резолвер — единый источник истины. */}
+                {/* aria-hidden: та же надпись есть в h2 ниже — скринридер не должен
+                    читать категорию дважды («Полиграфия Полиграфия»). */}
+                <span
+                  aria-hidden="true"
+                  className="inline-flex items-center gap-2 rounded-full bg-brand-orange/10 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-brand-orange"
+                >
                   {getServiceCategoryLabel(
                     group.key === '__other__' ? null : group.key,
                     group.label,

@@ -12,9 +12,11 @@ import {
   buildLocalBusiness,
   buildOrganization,
   buildWebSite,
+  type OrgSocials,
 } from "@/lib/seo/json-ld";
 import { SITE, absoluteUrl } from "@/lib/seo/site";
 import { getOrganization } from "@/lib/cms/organization";
+import { getSettingValue } from "@/lib/data/settings";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { ToastProvider } from "@/providers/toast-provider";
 import UiStringsProviderServer from "@/features/cms/UiStringsProviderServer";
@@ -54,9 +56,16 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: new URL(SITE.url),
     title: {
+      // Title главной — укорочён с 87 до 65 символов (вписывается в SERP-обрезку
+      // Google/Yandex ~60-70 символов). Раньше: «Рекламная компания 2х2 —
+      // полиграфия, вывески, наружная реклама в Ханты-Мансийске».
       default:
-        "Рекламная компания 2х2 — полиграфия, вывески, наружная реклама в Ханты-Мансийске",
-      template: `%s | ${org.short_name} Ханты-Мансийск`,
+        "2х2 Ханты-Мансийск — реклама, печать, вывески и фасады",
+      // Шаблон укорочён с " | %s Ханты-Мансийск" (24 символа suffix) до
+      // " | 2х2" (6 символов). Это убирает «дубль бренда» в SERP, когда
+      // page-title уже содержит «2х2» / «Ханты-Мансийск» (аудит 2026-05-06).
+      // Город указывается на самих страницах через page_metadata.title в БД.
+      template: `%s | ${org.short_name}`,
     },
     description: org.description,
     keywords: org.keywords_global,
@@ -70,8 +79,9 @@ export async function generateMetadata(): Promise<Metadata> {
       locale: org.locale,
       url: SITE.url,
       siteName: org.name,
-      title:
-        "Рекламная компания 2х2 — полиграфия, вывески, наружная реклама в Ханты-Мансийске",
+      // OG-title укорочён до 55 символов (Telegram/VK обрезают ≤ 60 для
+      // превью). Был 87 символов — обрезался посередине слова.
+      title: "2х2 Ханты-Мансийск — реклама, печать, вывески и фасады",
       description: org.description,
       images: [
         {
@@ -159,6 +169,11 @@ export default async function RootLayout({
   // CMS-driven Organization data: подставляется в JSON-LD Organization /
   // LocalBusiness / WebSite. При недоступной БД — fallback на SITE/BUSINESS.
   const org = await getOrganization();
+  // Socials из site_settings.socials → JSON-LD Organization.sameAs.
+  // Раньше hardcoded CONTACTS.vk → отдавал нерабочий vk.com/ra2x2_hmao.
+  // Если в админке поле пустое — sameAs не включается в JSON-LD вообще
+  // (см. buildSameAs() в lib/seo/json-ld.tsx).
+  const socials = await getSettingValue<OrgSocials>("socials", {});
   return (
     <html
       lang={org.language || "ru"}
@@ -173,7 +188,7 @@ export default async function RootLayout({
               <PromoPopupBanner />
               <JsonLdScript
                 data={[
-                  buildOrganization(org),
+                  buildOrganization(org, socials),
                   buildLocalBusiness(org),
                   buildWebSite(org),
                 ]}

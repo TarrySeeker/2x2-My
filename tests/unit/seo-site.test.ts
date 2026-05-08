@@ -35,10 +35,15 @@ describe("CONTACTS", () => {
     expect(CONTACTS.email).toMatch(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
   });
 
-  it("social links point to real hosts", () => {
+  it("social links point to real hosts (when set)", () => {
     expect(CONTACTS.telegram).toMatch(/^https:\/\/t\.me\//);
     expect(CONTACTS.whatsapp).toMatch(/^https:\/\/wa\.me\//);
-    expect(CONTACTS.vk).toMatch(/^https:\/\/vk\.com\//);
+    // vk-fallback может быть пустым (2026-05-09: vk.com/ra2x2_hmao на
+    // проде возвращает 404, fallback убран до получения реального URL).
+    // Если задан — должен быть https-vk-URL; если пусто — допустимо.
+    if (CONTACTS.vk.length > 0) {
+      expect(CONTACTS.vk).toMatch(/^https:\/\/vk\.com\//);
+    }
   });
 });
 

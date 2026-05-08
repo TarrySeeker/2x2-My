@@ -331,7 +331,7 @@ function HeroForm({
           onChange={(e) => onChange(set(content, "title", e.target.value))}
           maxLength={300}
           className={inputCn}
-          placeholder="О компании «2×2»"
+          placeholder="О компании «2х2»"
         />
       </Field>
       <Field label="Описание">

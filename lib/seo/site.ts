@@ -46,9 +46,15 @@ export const CONTACTS = {
   phoneSecondary: "+7 (904) 480-77-40",
   phoneSecondaryTel: "+79044807740",
   email: "sj_alex86@mail.ru",
+  // Соцсети ИСПОЛЬЗУЮТСЯ ТОЛЬКО как fallback в Footer и contact-page,
+  // если site_settings.socials не заполнены. JSON-LD больше НЕ берёт
+  // соцсети отсюда — только из БД (см. lib/seo/json-ld.tsx → buildSameAs).
+  // 2026-05-09: vk URL очищен (на проде vk.com/ra2x2_hmao возвращает 404,
+  // см. audit/2026-05-06-content-seo.md). Реальный URL клиент должен
+  // сообщить через админку → Настройки → Соцсети.
   telegram: "https://t.me/ra2x2_hmao",
   whatsapp: "https://wa.me/79324247740",
-  vk: "https://vk.com/ra2x2_hmao",
+  vk: "",
 } as const;
 
 export const ADDRESS = {

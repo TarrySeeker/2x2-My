@@ -440,7 +440,7 @@ function MetadataEditor({
             <input
               {...register("title")}
               className={inputCn}
-              placeholder="Например: Световые буквы в Ханты-Мансийске — 2×2"
+              placeholder="Например: Световые буквы в Ханты-Мансийске — 2х2"
             />
             {titleWatch.length > 60 && (
               <p className="mt-1 text-xs text-amber-600">

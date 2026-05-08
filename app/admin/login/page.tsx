@@ -74,11 +74,11 @@ export default function AdminLoginPage() {
           {/* Logo */}
           <div className="mb-8 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-orange/20">
-              <span className="text-2xl font-black text-brand-orange">2×2</span>
+              <span className="text-2xl font-black text-brand-orange">2х2</span>
             </div>
             <h1 className="text-xl font-bold text-white">Вход в панель</h1>
             <p className="mt-1 text-sm text-neutral-400">
-              Рекламная компания «2×2»
+              Рекламная компания «2х2»
             </p>
           </div>
 
@@ -179,7 +179,7 @@ export default function AdminLoginPage() {
 
         {/* Subtle footer */}
         <p className="mt-4 text-center text-xs text-neutral-600">
-          «2×2, потому что с нами просто!»
+          «2х2, потому что с нами просто!»
         </p>
       </motion.div>
     </div>
