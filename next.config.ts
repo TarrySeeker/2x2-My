@@ -31,6 +31,14 @@ const nextConfig: NextConfig = {
             { source: "/catalog/:path*", destination: "/services", permanent: true },
             { source: "/product/:path*", destination: "/services", permanent: true },
             { source: "/calculator", destination: "/services", permanent: true },
+            // 2026-05-08: опечатка 'pechtat' в slug блог-поста.
+            // db/migrations/034_fix_blog_slug.sql переименовывает в БД,
+            // редирект 308 сохраняет SEO-вес внешних ссылок и закладок.
+            {
+              source: "/blog/operativnaya-pechtat-vs-ofsetnaya-chto-vybrat",
+              destination: "/blog/operativnaya-pechat-vs-ofsetnaya-chto-vybrat",
+              permanent: true,
+            },
           ];
         },
         images: {
