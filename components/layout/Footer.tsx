@@ -23,6 +23,7 @@ interface SocialsValue {
   vk?: string
   telegram?: string
   dzen?: string
+  max?: string
 }
 
 interface LegalEntityValue {
@@ -88,7 +89,7 @@ const DEFAULT_HOURS: BusinessHoursValue = {
   weekend_short: 'Сб–Вс',
 }
 
-const DEFAULT_SOCIALS: SocialsValue = { vk: '', telegram: '', dzen: '' }
+const DEFAULT_SOCIALS: SocialsValue = { vk: '', telegram: '', dzen: '', max: '' }
 
 function digitsOnly(phone: string): string {
   const cleaned = phone.replace(/[^\d+]/g, '')
@@ -171,6 +172,7 @@ export default async function Footer() {
   if (socials.vk) socialEntries.push({ label: 'ВКонтакте', href: socials.vk })
   if (socials.telegram) socialEntries.push({ label: 'Telegram', href: socials.telegram })
   if (socials.dzen) socialEntries.push({ label: 'Дзен', href: socials.dzen })
+  if (socials.max) socialEntries.push({ label: 'MAX', href: socials.max })
 
   return (
     <footer className="bg-brand-dark text-white">

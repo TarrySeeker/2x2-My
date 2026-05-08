@@ -19,6 +19,7 @@ export interface HeaderClientProps {
     vk?: string
     telegram?: string
     dzen?: string
+    max?: string
   }
   navLinks: HeaderNavLink[]
 }

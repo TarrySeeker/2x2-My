@@ -59,7 +59,7 @@ export interface SiteSettingsBundle {
     weekdays_short?: string;
     weekend_short?: string;
   };
-  socials: { vk?: string; telegram?: string; dzen?: string };
+  socials: { vk?: string; telegram?: string; dzen?: string; max?: string };
   stats: {
     years_in_business?: number;
     projects_done?: number;
@@ -453,6 +453,7 @@ function SocialsForm({
       vk: defaults.vk ?? "",
       telegram: defaults.telegram ?? "",
       dzen: defaults.dzen ?? "",
+      max: defaults.max ?? "",
     },
   });
 
@@ -487,6 +488,18 @@ function SocialsForm({
             {...register("dzen")}
             className={inputCn}
             placeholder="https://dzen.ru/..."
+          />
+        </Field>
+        <Field
+          label="MAX"
+          hint="Российский мессенджер max.ru — ссылка на канал/профиль"
+          error={errors.max?.message}
+        >
+          <input
+            type="url"
+            {...register("max")}
+            className={inputCn}
+            placeholder="https://max.ru/..."
           />
         </Field>
 

@@ -8,6 +8,7 @@ interface SocialLinks {
   vk?: string
   telegram?: string
   dzen?: string
+  max?: string
 }
 
 interface HeaderSocialsProps {
@@ -32,8 +33,18 @@ const DZEN_ICON = (
   </svg>
 )
 
+// MAX (max.ru) — мессенджер от VK. Официального brand-asset SVG в open-source
+// нет, поэтому используем стилизованный плейсхолдер: круг с галочкой (по
+// сути — иконка-индикатор сообщения, которая не нарушает права бренда). Если
+// у клиента появится официальная иконка — заменить svg-path.
+const MAX_ICON = (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1.43 13.57L7 12l1.4-1.4 2.17 2.17 5.03-5.03L17 9.14l-6.43 6.43z" />
+  </svg>
+)
+
 interface SocialEntry {
-  key: 'vk' | 'telegram' | 'dzen'
+  key: 'vk' | 'telegram' | 'dzen' | 'max'
   label: string
   url: string
   icon: React.ReactNode
@@ -85,6 +96,16 @@ export default function HeaderSocials({ socials }: HeaderSocialsProps) {
       url: socials.dzen,
       icon: DZEN_ICON,
       brandClass: 'text-brand-dark hover:bg-neutral-100',
+    })
+  if (socials.max)
+    entries.push({
+      key: 'max',
+      label: 'MAX',
+      url: socials.max,
+      icon: MAX_ICON,
+      // Brand-цвет MAX — синий-голубой (по визуальной идентике app/иконки).
+      // Используем близкий оттенок Telegram (#229ED9 → шифт в фиолет: #6E54FF).
+      brandClass: 'text-[#6E54FF] hover:bg-[#6E54FF]/10',
     })
 
   // Если ни одна соцсеть не заполнена в админке — иконку не показываем,
