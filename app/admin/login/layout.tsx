@@ -6,7 +6,7 @@ export const metadata = {
 
 /**
  * Admin login has its own layout — no shop Header/Footer.
- * The root layout still provides ThemeProvider and SupabaseProvider.
+ * The root layout still provides ThemeProvider.
  */
 export default function AdminLoginLayout({
   children,
