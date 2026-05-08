@@ -19,9 +19,12 @@ export default function manifest(): MetadataRoute.Manifest {
     dir: "ltr",
     categories: ["business", "shopping", "productivity"],
     icons: [
-      { src: asset("/icon-192.png"), sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: asset("/icon-512.png"), sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: asset("/icon-512.png"), sizes: "512x512", type: "image/png", purpose: "maskable" },
+      // Реальные файлы лежат в /public как android-chrome-*.
+      // Раньше тут были /icon-192.png и /icon-512.png — они никогда
+      // не существовали, манифест ссылался в пустоту (2026-05-08 фикс).
+      { src: asset("/android-chrome-192x192.png"), sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: asset("/android-chrome-512x512.png"), sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: asset("/android-chrome-512x512.png"), sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }
