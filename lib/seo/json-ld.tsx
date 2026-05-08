@@ -80,7 +80,8 @@ export function buildOrganization(org?: OrgOverrides): JsonLdData {
     url: SITE.url,
     logo: {
       "@type": "ImageObject",
-      url: absoluteUrl("/logo-2x2.svg"),
+      // 2026-05-08: было /logo-2x2.svg — отдавал 404, в /public лежит Logo.svg.
+      url: absoluteUrl("/Logo.svg"),
       width: 512,
       height: 512,
     },
@@ -132,7 +133,8 @@ export function buildLocalBusiness(org?: OrgOverrides): JsonLdData {
     "@id": `${SITE.url}/#localbusiness`,
     name,
     image: absoluteUrl(ogImage),
-    logo: absoluteUrl("/logo-2x2.svg"),
+    // 2026-05-08: было /logo-2x2.svg → 404, реальный файл /public/Logo.svg.
+    logo: absoluteUrl("/Logo.svg"),
     description,
     url: SITE.url,
     telephone: CONTACTS.phonePrimaryTel,
