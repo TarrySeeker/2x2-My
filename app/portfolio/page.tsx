@@ -37,12 +37,41 @@ export const generateMetadata = makeGenerateMetadata({
  * наш доменный `PortfolioItem` (DB-row) к легаси-форме `LegacyPortfolioItem`,
  * которую ожидает `PortfolioGallery` (Yna-вёрстка с _id/imageUrl/category).
  *
- * Категория для фильтра в галерее: пробуем `category_label` (поле, заведённое
- * специально под фильтр), иначе строка-плейсхолдер.
+ * Категория для фильтра в галерее: разрешается в порядке приоритета
+ *   1) `category_label` (свободная строка, основной механизм)
+ *   2) label из `portfolio_categories` через `category_id` (если в админке
+ *      выбрана категория, но `category_label` забыли проставить — тогда
+ *      работа всё равно попадёт в нужный фильтр)
+ *   3) "Наружная реклама" как дефолт.
+ *
+ * Этот резолв решает баг «опубликовал работу — не видна на витрине»:
+ * раньше при категории, выбранной только через `category_id` (без
+ * `category_label`), карточка падала в "Наружная реклама" и кликом на
+ * целевой фильтр клиент её не находил.
+ *
+ * Изображение: при пустом `cover_url` подставляем картинку-плейсхолдер,
+ * чтобы карточка визуально не проваливалась. Раньше пустой src приводил
+ * к `<Image src="" />` → лэйаут срабатывал, но карточка казалась «битой».
  */
-function toLegacyItem(item: PortfolioItem): LegacyPortfolioItem {
-  const category = item.category_label || "Наружная реклама";
+const PLACEHOLDER_COVER = "/img/placeholders/portfolio-default.svg";
+
+function toLegacyItem(
+  item: PortfolioItem,
+  categoryById: Map<number, string>,
+): LegacyPortfolioItem {
+  const fromId =
+    item.category_id !== null && item.category_id !== undefined
+      ? categoryById.get(item.category_id)
+      : undefined;
+  const category =
+    (item.category_label && item.category_label.trim()) ||
+    fromId ||
+    "Наружная реклама";
   const year = item.year ?? new Date().getFullYear();
+  const imageUrl =
+    item.cover_url && item.cover_url.trim()
+      ? item.cover_url
+      : PLACEHOLDER_COVER;
   return {
     _id: `pf-${item.id}`,
     title: item.title,
@@ -50,7 +79,7 @@ function toLegacyItem(item: PortfolioItem): LegacyPortfolioItem {
     category,
     badgeLabel: category,
     description: item.short_description ?? item.description ?? "",
-    imageUrl: item.cover_url,
+    imageUrl,
     publishedAt: item.published_at ?? `${year}-01-01`,
   };
 }
@@ -65,11 +94,20 @@ export default async function PortfolioPage() {
     readPageSectionContent("/portfolio", "hero", "hero"),
   ]);
 
+  // Map категорий по id — для резолва category_label, когда у работы
+  // в админке выбрали category_id, но category_label остался пустым.
+  // См. комментарий в toLegacyItem про порядок приоритета.
+  const categoryById = new Map<number, string>(
+    dbCategories.map((c) => [c.id, c.label]),
+  );
+
   // getPortfolio() уже сам делает fallback на stub при пустой БД, но если
   // и stub'а вдруг нет (теоретически — при правке файла) — деградируем
   // до `featuredPortfolioWorks`, чтобы страница не была пустой.
   const items: LegacyPortfolioItem[] =
-    dbItems.length > 0 ? dbItems.map(toLegacyItem) : featuredPortfolioWorks;
+    dbItems.length > 0
+      ? dbItems.map((it) => toLegacyItem(it, categoryById))
+      : featuredPortfolioWorks;
 
   // Передаём в галерею label'ы опубликованных категорий из БД.
   // Если пусто — галерея использует свой fallback (PORTFOLIO_FILTER_LIST).

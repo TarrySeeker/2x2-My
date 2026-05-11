@@ -27,28 +27,45 @@ export const PORTFOLIO_FEATURED_CACHE_TAG = "portfolio:featured";
 /**
  * Возвращает опубликованные работы портфолио.
  * Этап 1: стаб из data/portfolio-stub.ts. При наличии БД — чтение из portfolio_items.
+ *
+ * Кеш: `unstable_cache` 60 сек, тег `PORTFOLIO_FEATURED_CACHE_TAG`. После
+ * publish/unpublish/CRUD в админке вызывается `revalidateTag` (см.
+ * `features/admin/actions/portfolio.ts → invalidatePortfolioCache`),
+ * благодаря чему свежие данные подхватываются без ожидания TTL.
+ *
+ * Раньше функция читала БД на каждый запрос (без кеша), но при этом
+ * страница `/portfolio` объявлена `force-dynamic` — то есть на каждом hit'е
+ * шёл SELECT. На прод-БД с ~10 работами это терпимо, но при росте каталога
+ * это лишняя нагрузка, плюс расхождение с `getBySlug`/`featured`-кэшами.
+ *
+ * Сортировка: по sort_order ASC, затем id ASC — чтобы новые добавленные
+ * работы (с одинаковым sort_order=0 по умолчанию) шли в стабильном порядке.
  */
-export async function getPortfolio(): Promise<PortfolioItem[]> {
-  const fallback: PortfolioItem[] = PORTFOLIO_STUB.filter(
-    (p) => p.is_published,
-  )
-    .sort((a, b) => a.sort_order - b.sort_order)
-    .map(toPortfolioItemShape);
-
-  try {
-    const rows = await sql<PortfolioItem[]>`
-      SELECT *
-      FROM portfolio_items
-      WHERE is_published = true
-      ORDER BY sort_order ASC
-    `;
-    return rows.length > 0 ? rows : fallback;
-  } catch (err) {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[getPortfolio] DB request failed, using stub:", err);
+const listPublishedCached = unstable_cache(
+  async (): Promise<PortfolioItem[]> => {
+    try {
+      const rows = await sql<PortfolioItem[]>`
+        SELECT *
+        FROM portfolio_items
+        WHERE is_published = true
+        ORDER BY sort_order ASC, id ASC
+      `;
+      if (rows.length > 0) return rows;
+    } catch (err) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[getPortfolio] DB request failed, using stub:", err);
+      }
     }
-    return fallback;
-  }
+    return PORTFOLIO_STUB.filter((p) => p.is_published)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map(toPortfolioItemShape);
+  },
+  ["portfolio-published"],
+  { revalidate: 60, tags: [PORTFOLIO_FEATURED_CACHE_TAG] },
+);
+
+export async function getPortfolio(): Promise<PortfolioItem[]> {
+  return listPublishedCached();
 }
 
 /**
