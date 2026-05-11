@@ -8,7 +8,7 @@ import {
   deleteBanner,
   reorderBanners,
 } from "@/features/admin/api/banners";
-import { requireAdmin } from "@/features/auth/api";
+import { requireResource } from "@/features/auth/api";
 import { bannerSchema } from "@/features/admin/schemas/banner";
 import { logAdminAction } from "@/lib/audit";
 
@@ -17,7 +17,7 @@ const idSchema = z.coerce.number().int().positive();
 const idsSchema = z.array(idSchema).min(1);
 
 export async function createBannerAction(data: unknown) {
-  const profile = await requireAdmin();
+  const profile = await requireResource("content.cms");
   const validated = bannerSchema.parse(data);
   const result = await createBanner(validated);
   revalidatePath("/admin/content/banners");
@@ -32,7 +32,7 @@ export async function createBannerAction(data: unknown) {
 }
 
 export async function updateBannerAction(id: number, data: unknown) {
-  const profile = await requireAdmin();
+  const profile = await requireResource("content.cms");
   const validatedId = idSchema.parse(id);
   const validated = bannerSchema.parse(data);
   await updateBanner(validatedId, validated);
@@ -47,7 +47,7 @@ export async function updateBannerAction(id: number, data: unknown) {
 }
 
 export async function deleteBannerAction(id: number) {
-  const profile = await requireAdmin();
+  const profile = await requireResource("content.cms");
   const validated = idSchema.parse(id);
   await deleteBanner(validated);
   revalidatePath("/admin/content/banners");
@@ -61,7 +61,7 @@ export async function deleteBannerAction(id: number) {
 }
 
 export async function reorderBannersAction(ids: unknown) {
-  const profile = await requireAdmin();
+  const profile = await requireResource("content.cms");
   const validated = idsSchema.parse(ids);
   await reorderBanners(validated);
   revalidatePath("/admin/content/banners");

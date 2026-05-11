@@ -2,7 +2,7 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 
-import { requireAdmin } from "@/features/auth/api";
+import { requireOwner } from "@/features/auth/api";
 import { sql } from "@/lib/db/client";
 import {
   SERVICE_CATEGORIES_CACHE_TAG,
@@ -87,7 +87,7 @@ function invalidate() {
 export async function fetchServiceCategoriesAction(): Promise<
   ServiceCategory[]
 > {
-  await requireAdmin();
+  await requireOwner();
   return listAllServiceCategoriesForAdmin();
 }
 
@@ -98,7 +98,7 @@ export async function fetchServiceCategoriesAction(): Promise<
 export async function createServiceCategoryAction(
   raw: unknown,
 ): Promise<ActionResult & { category?: ServiceCategory }> {
-  const profile = await requireAdmin();
+  const profile = await requireOwner();
 
   const parsed = serviceCategorySchema.safeParse(raw);
   if (!parsed.success) {
@@ -132,7 +132,7 @@ export async function updateServiceCategoryAction(
   rawId: number | string,
   raw: unknown,
 ): Promise<ActionResult & { category?: ServiceCategory }> {
-  const profile = await requireAdmin();
+  const profile = await requireOwner();
 
   const idResult = idSchema.safeParse(rawId);
   if (!idResult.success) return { ok: false, error: "Некорректный ID" };
@@ -188,7 +188,7 @@ export async function updateServiceCategoryAction(
 export async function deleteServiceCategoryAction(
   rawId: number | string,
 ): Promise<ActionResult> {
-  const profile = await requireAdmin();
+  const profile = await requireOwner();
 
   const idResult = idSchema.safeParse(rawId);
   if (!idResult.success) return { ok: false, error: "Некорректный ID" };
@@ -217,7 +217,7 @@ export async function deleteServiceCategoryAction(
 export async function reorderServiceCategoriesAction(
   raw: unknown,
 ): Promise<ActionResult> {
-  const profile = await requireAdmin();
+  const profile = await requireOwner();
 
   const parsed = serviceCategoryReorderSchema.safeParse(raw);
   if (!parsed.success) {

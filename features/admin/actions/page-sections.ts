@@ -2,7 +2,7 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 
-import { requireAdmin } from "@/features/auth/api";
+import { requireResource } from "@/features/auth/api";
 import {
   upsertPageSection,
   reorderPageSections,
@@ -55,7 +55,7 @@ export async function upsertPageSectionAction(
   rawSectionKey: string,
   rawData: unknown,
 ): Promise<PageSectionActionResult> {
-  const profile = await requireAdmin(["owner", "manager", "content"]);
+  const profile = await requireResource("content.cms");
 
   if (typeof rawPath !== "string" || typeof rawSectionKey !== "string") {
     return { ok: false, error: "Некорректный путь или ключ секции" };
@@ -168,7 +168,7 @@ export async function reorderPageSectionsAction(
   rawPath: string,
   orders: Array<{ key: string; order: number }>,
 ): Promise<PageSectionActionResult> {
-  const profile = await requireAdmin(["owner", "manager", "content"]);
+  const profile = await requireResource("content.cms");
 
   if (typeof rawPath !== "string") {
     return { ok: false, error: "Некорректный путь" };
@@ -239,7 +239,7 @@ export async function togglePageSectionAction(
   rawSectionKey: string,
   enabled: boolean,
 ): Promise<PageSectionActionResult> {
-  const profile = await requireAdmin(["owner", "manager", "content"]);
+  const profile = await requireResource("content.cms");
 
   if (typeof rawPath !== "string" || typeof rawSectionKey !== "string") {
     return { ok: false, error: "Некорректный путь или ключ секции" };

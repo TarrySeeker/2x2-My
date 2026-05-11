@@ -2,7 +2,7 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 
-import { requireAdmin } from "@/features/auth/api";
+import { requireResource } from "@/features/auth/api";
 import { upsertSection, setSectionPublished } from "@/lib/data/cms";
 import {
   isValidSectionKey,
@@ -30,7 +30,7 @@ export async function updateSectionAction(
   rawKey: string,
   contentJson: unknown,
 ): Promise<UpdateSectionResult> {
-  const profile = await requireAdmin();
+  const profile = await requireResource("content.cms");
 
   if (typeof rawKey !== "string" || !isValidSectionKey(rawKey)) {
     return { ok: false, error: `Неизвестная секция «${rawKey}»` };
@@ -90,7 +90,7 @@ export async function setSectionPublishedAction(
   rawKey: string,
   isPublished: boolean,
 ): Promise<UpdateSectionResult> {
-  const profile = await requireAdmin();
+  const profile = await requireResource("content.cms");
 
   if (typeof rawKey !== "string" || !isValidSectionKey(rawKey)) {
     return { ok: false, error: `Неизвестная секция «${rawKey}»` };
