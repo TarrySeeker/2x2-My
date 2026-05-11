@@ -249,7 +249,7 @@ export default function HeroSectionClient({ data }: { data: HeroSectionData }) {
                  * с framer-motion transform/clip в Safari.
                  */
                 <span
-                  className="relative block text-[clamp(2rem,6.5vw,4.25rem)] text-brand-orange [min-height:calc(var(--rot-lines,3)*1em*0.95)]"
+                  className="relative block text-[clamp(2rem,6.5vw,4.25rem)] [min-height:calc(var(--rot-lines,3)*1em*0.95)]"
                   aria-live="polite"
                   style={
                     {
@@ -264,7 +264,20 @@ export default function HeroSectionClient({ data }: { data: HeroSectionData }) {
                     className="block transition-opacity duration-[400ms] ease-out will-change-[opacity]"
                     style={{ opacity: titleVisible ? 1 : 0 }}
                   >
-                    {rotatingTitles[titleIndex]}
+                    {/*
+                     * Title разбивается на строки по `\n`. Вторая строка (index === 1)
+                     * рендерится чёрной (text-brand-dark), все остальные — оранжевой
+                     * (text-brand-orange). Если в title нет `\n` — он целиком оранжевый.
+                     * Правка клиента 2026-05-09.
+                     */}
+                    {(rotatingTitles[titleIndex] ?? '').split('\n').map((line, idx) => (
+                      <span
+                        key={idx}
+                        className={`block ${idx === 1 ? 'text-brand-dark' : 'text-brand-orange'}`}
+                      >
+                        {line}
+                      </span>
+                    ))}
                   </span>
                 </span>
               ) : (
