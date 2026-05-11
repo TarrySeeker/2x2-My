@@ -49,3 +49,9 @@ next-env.d.ts
 # QA screenshots (генерируются Playwright'ом, не коммитим)
 /qa-screenshots/
 /qa-screenshots-viewport/
+
+# Архив исходников портфолио (PNG/JPG до конвертации в .webp).
+# Лежат локально на случай отката, но в репо/на VPS не пушим:
+# 41 MB исходников против 1.3 MB финальных .webp.
+# См. scripts/optimize-portfolio-images.mjs.
+/public/port/_archive/

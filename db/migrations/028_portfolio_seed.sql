@@ -44,8 +44,8 @@ INSERT INTO portfolio_items (
     'Печать визиток, каталогов и наклеек',
     'Полиграфия',
     'Корпоративные клиенты', 'B2B', 'Ханты-Мансийск', 2024,
-    '/port/print-visiting-cards-catalogs.png',
-    ARRAY['/port/print-visiting-cards-catalogs.png'],
+    '/port/print-visiting-cards-catalogs.webp',
+    ARRAY['/port/print-visiting-cards-catalogs.webp'],
     true, true, 10
   ),
   (
@@ -55,8 +55,8 @@ INSERT INTO portfolio_items (
     'Крышная вывеска ВТБ',
     'Наружная реклама',
     'ВТБ', 'Финансы', 'Ханты-Мансийск', 2024,
-    '/port/1.png',
-    ARRAY['/port/1.png'],
+    '/port/1.webp',
+    ARRAY['/port/1.webp'],
     true, true, 20
   ),
   (
@@ -66,8 +66,8 @@ INSERT INTO portfolio_items (
     'Стелы АЗС в Сургуте',
     'Наружная реклама',
     'АЗС АртСевер / Нефть', 'Топливо', 'Сургут', 2023,
-    '/port/5.png',
-    ARRAY['/port/5.png'],
+    '/port/5.webp',
+    ARRAY['/port/5.webp'],
     true, true, 30
   ),
   (
@@ -77,8 +77,8 @@ INSERT INTO portfolio_items (
     'Декоративные фигуры Сургут',
     'Фасады',
     'Брусника', 'Девелопмент', 'Сургут', 2024,
-    '/port/3.png',
-    ARRAY['/port/3.png'],
+    '/port/3.webp',
+    ARRAY['/port/3.webp'],
     true, true, 40
   ),
   (
@@ -88,8 +88,8 @@ INSERT INTO portfolio_items (
     'Реставрация стелы «Я ДОМА»',
     'Наружная реклама',
     'ЮКИОР', 'Госструктуры', 'пгт. Фёдоровский', 2023,
-    '/port/4.png',
-    ARRAY['/port/4.png'],
+    '/port/4.webp',
+    ARRAY['/port/4.webp'],
     true, true, 50
   ),
   (
@@ -99,8 +99,8 @@ INSERT INTO portfolio_items (
     'Входная группа Pirelli',
     'Наружная реклама',
     'Pirelli', 'Автосервис', 'Сургут', 2024,
-    '/port/2.png',
-    ARRAY['/port/2.png'],
+    '/port/2.webp',
+    ARRAY['/port/2.webp'],
     true, true, 60
   ),
   (
@@ -110,8 +110,8 @@ INSERT INTO portfolio_items (
     'Наружная реклама',
     'Наружная реклама',
     'ЮКИОР', 'Госструктуры', 'Ханты-Мансийск', 2023,
-    '/port/66.png',
-    ARRAY['/port/66.png'],
+    '/port/66.webp',
+    ARRAY['/port/66.webp'],
     true, true, 70
   )
 ON CONFLICT (slug) DO NOTHING;
