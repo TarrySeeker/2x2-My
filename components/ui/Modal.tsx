@@ -106,7 +106,11 @@ export default function Modal({
               ease: tokens.easings.softOut,
             }}
             className={clsx(
-              "relative w-full rounded-2xl bg-white p-6 shadow-xl sm:p-8",
+              // max-h + overflow-y-auto: на мобильных длинные формы (QuoteModal,
+              // OneClickModal) не помещались в viewport — последние поля и кнопка
+              // submit обрезались, scroll внутри модалки не работал.
+              // Правка клиента 2026-05-11.
+              "relative flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-y-auto overscroll-contain rounded-2xl bg-white p-6 shadow-xl sm:p-8",
               sizeClasses[size],
               className,
             )}

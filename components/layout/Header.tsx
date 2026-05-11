@@ -47,6 +47,7 @@ const DEFAULT_NAV_LINKS: HeaderNavLink[] = [
   { href: '/about', label: 'О нас' },
   { href: '/services', label: 'Услуги' },
   { href: '/portfolio', label: 'Портфолио' },
+  { href: '/blog', label: 'Блог' },
   { href: '/faq', label: 'FAQ' },
   { href: '/contacts', label: 'Контакты' },
 ]
