@@ -17,16 +17,16 @@
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-const { mockRequireAdmin, mockRevalidatePath, mockDeleteLead } = vi.hoisted(
+const { mockRequireOwner, mockRevalidatePath, mockDeleteLead } = vi.hoisted(
   () => ({
-    mockRequireAdmin: vi.fn(),
+    mockRequireOwner: vi.fn(),
     mockRevalidatePath: vi.fn(),
     mockDeleteLead: vi.fn(),
   }),
 );
 
 vi.mock("@/features/auth/api", () => ({
-  requireAdmin: mockRequireAdmin,
+  requireOwner: mockRequireOwner,
 }));
 
 vi.mock("next/cache", () => ({
@@ -54,11 +54,11 @@ import { deleteLeadAction } from "@/features/admin/actions/leads";
 beforeEach(() => {
   resetSqlMock();
   mockDeleteLead.mockReset();
-  mockRequireAdmin.mockReset();
+  mockRequireOwner.mockReset();
   mockRevalidatePath.mockReset();
   // По умолчанию — owner. В одном тесте ниже переопределим для проверки
   // permissions на content.
-  mockRequireAdmin.mockResolvedValue({
+  mockRequireOwner.mockResolvedValue({
     id: "user-1",
     username: "admin",
     role: "owner",
@@ -113,20 +113,20 @@ describe("deleteLeadAction — happy path по каждому типу", () => {
 });
 
 describe("deleteLeadAction — permissions", () => {
-  it("requireAdmin вызван с whitelist owner|manager (content исключён)", async () => {
+  it("requireOwner вызывается без аргументов (only owner)", async () => {
     mockDeleteLead.mockResolvedValueOnce(1);
     mockSql.mockResolvedValueOnce([{}]);
 
     await deleteLeadAction("quote", 1);
 
-    expect(mockRequireAdmin).toHaveBeenCalledTimes(1);
-    expect(mockRequireAdmin).toHaveBeenCalledWith(["owner", "manager"]);
+    expect(mockRequireOwner).toHaveBeenCalledTimes(1);
+    expect(mockRequireOwner).toHaveBeenCalledWith();
   });
 
-  it("если requireAdmin кидает (например, redirect для content) — action не дойдёт до DELETE", async () => {
+  it("если requireOwner кидает (redirect для manager/content) — action не дойдёт до DELETE", async () => {
     // Симулируем поведение реального requireAdmin для content-роли:
     // он вызывает next/navigation.redirect, который кидает.
-    mockRequireAdmin.mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
+    mockRequireOwner.mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
 
     await expect(deleteLeadAction("quote", 1)).rejects.toThrow(
       /NEXT_REDIRECT/,

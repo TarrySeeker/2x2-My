@@ -29,6 +29,9 @@ vi.mock("@/lib/data/ui-strings", () => ({
 
 vi.mock("@/features/auth/api", () => ({
   requireAdmin: mockRequireAdmin,
+  requireResource: mockRequireAdmin,
+  requireOwner: mockRequireAdmin,
+  requireAuth: mockRequireAdmin,
 }));
 
 vi.mock("next/cache", () => ({
