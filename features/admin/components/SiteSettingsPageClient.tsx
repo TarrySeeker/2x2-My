@@ -210,7 +210,10 @@ function Field({
   children,
   error,
 }: {
-  label: string;
+  // ReactNode — чтобы можно было встроить бейджи («Новое»), иконки
+  // и т.п. рядом с подписью поля. Раньше было `string`, добавил для
+  // SocialsForm → MAX (см. там комментарий).
+  label: React.ReactNode;
   hint?: string;
   children: React.ReactNode;
   error?: string;
@@ -465,6 +468,13 @@ function SocialsForm({
 
   return (
     <FormCard>
+      <div className="mb-5 rounded-lg border border-blue-200 bg-blue-50 p-3.5 text-xs leading-relaxed text-blue-900 dark:border-blue-400/30 dark:bg-blue-400/10 dark:text-blue-100">
+        Ссылки на ваши соцсети и мессенджеры. Заполненные — отображаются в
+        шапке и футере сайта. Пустые — скрываются автоматически.
+        Поддерживаются <span className="font-semibold">ВКонтакте, Telegram,
+        MAX (max.ru) и Дзен</span>.
+      </div>
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <Field label="ВКонтакте" error={errors.vk?.message}>
           <input
@@ -482,17 +492,23 @@ function SocialsForm({
             placeholder="https://t.me/..."
           />
         </Field>
-        <Field label="Дзен" error={errors.dzen?.message}>
-          <input
-            type="url"
-            {...register("dzen")}
-            className={inputCn}
-            placeholder="https://dzen.ru/..."
-          />
-        </Field>
+        {/*
+          MAX (max.ru) — российский мессенджер от VK. Подняли выше Дзена
+          и пометили бейджем «Новое», т.к. клиент жаловался что не видит
+          поле в форме (оно было предпоследним, под катом scroll'а на
+          ноуте). Поле подключено к ключу `socials.max` (миграция 033),
+          схема — socialsSettingSchema.max в site-settings.ts.
+        */}
         <Field
-          label="MAX"
-          hint="Российский мессенджер max.ru — ссылка на канал/профиль"
+          label={
+            <span className="inline-flex items-center gap-2">
+              MAX
+              <span className="inline-flex items-center rounded-full bg-brand-orange/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand-orange">
+                Новое
+              </span>
+            </span>
+          }
+          hint="Российский мессенджер max.ru — ссылка на ваш канал, чат или профиль"
           error={errors.max?.message}
         >
           <input
@@ -500,6 +516,14 @@ function SocialsForm({
             {...register("max")}
             className={inputCn}
             placeholder="https://max.ru/..."
+          />
+        </Field>
+        <Field label="Дзен" error={errors.dzen?.message}>
+          <input
+            type="url"
+            {...register("dzen")}
+            className={inputCn}
+            placeholder="https://dzen.ru/..."
           />
         </Field>
 

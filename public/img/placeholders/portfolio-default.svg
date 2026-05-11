@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Изображение работы скоро появится">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF7EE"/>
+      <stop offset="100%" stop-color="#FFE3C2"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg)"/>
+  <g fill="none" stroke="#FF6600" stroke-opacity="0.35" stroke-width="3">
+    <rect x="80" y="80" width="640" height="440" rx="24"/>
+    <path d="M80 460 L260 320 L380 410 L520 250 L720 460" stroke-opacity="0.45"/>
+    <circle cx="560" cy="200" r="36"/>
+  </g>
+  <g font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif" text-anchor="middle">
+    <text x="400" y="540" font-size="22" fill="#7A3A00" font-weight="600">Изображение скоро появится</text>
+  </g>
+</svg>
