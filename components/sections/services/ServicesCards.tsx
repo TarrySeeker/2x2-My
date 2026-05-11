@@ -44,7 +44,7 @@ const FALLBACK_CARDS: ServiceCard[] = [
     title: 'Наружная реклама',
     description: 'Стелы, фасады, фигуры и многое другое. Реализуем любые, даже самые невероятные идеи!',
     badge: 'Световые буквы от 150 р./см.',
-    image: '/port/1.png',
+    image: '/port/1.webp',
     href: '/contacts',
     category: 'outdoor',
   },

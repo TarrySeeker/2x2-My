@@ -22,7 +22,7 @@ const DEFAULT_ITEMS: ServiceItem[] = [
     title: 'Наружная реклама',
     description: 'Стелы, баннеры, объёмные и световые буквы, входные группы. Собственное производство и монтажная бригада.',
     badge: 'Световые буквы от 150 ₽/см',
-    image: '/port/1.png',
+    image: '/port/1.webp',
     width: '3 м',
     height: '1,5 м',
     cta_text: 'Заказать',
