@@ -2,7 +2,7 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 
-import { requireAdmin } from "@/features/auth/api";
+import { requireOwner } from "@/features/auth/api";
 import { upsertSetting } from "@/lib/data/settings";
 import {
   isValidSiteSettingKey,
@@ -26,7 +26,7 @@ export async function updateSiteSettingAction(
   rawKey: string,
   valueJson: unknown,
 ): Promise<UpdateSiteSettingResult> {
-  const profile = await requireAdmin();
+  const profile = await requireOwner();
 
   if (typeof rawKey !== "string" || !isValidSiteSettingKey(rawKey)) {
     return { ok: false, error: `Неизвестная настройка «${rawKey}»` };

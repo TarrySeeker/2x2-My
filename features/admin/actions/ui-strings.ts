@@ -2,7 +2,7 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 
-import { requireAdmin } from "@/features/auth/api";
+import { requireResource } from "@/features/auth/api";
 import {
   updateUiString,
   updateUiStringsBulk,
@@ -38,7 +38,7 @@ export async function updateUiStringAction(
   rawKey: string,
   rawValue: string,
 ): Promise<UiStringActionResult> {
-  const profile = await requireAdmin(["owner", "manager", "content"]);
+  const profile = await requireResource("content.cms");
 
   const parsed = uiStringUpdateSchema.safeParse({
     key: rawKey,
@@ -101,7 +101,7 @@ export async function updateUiStringAction(
 export async function bulkUpdateUiStringsAction(
   updates: Array<{ key: string; value: string }>,
 ): Promise<UiStringActionResult> {
-  const profile = await requireAdmin(["owner", "manager", "content"]);
+  const profile = await requireResource("content.cms");
 
   const parsed = uiStringsBulkUpdateSchema.safeParse(updates);
   if (!parsed.success) {

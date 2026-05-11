@@ -3,7 +3,7 @@
 import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 
-import { requireAdmin } from "@/features/auth/api";
+import { requireOwner } from "@/features/auth/api";
 import {
   createService,
   updateService,
@@ -107,7 +107,7 @@ function invalidate() {
 export async function createServiceAction(
   data: unknown,
 ): Promise<ActionResult & { service?: Service }> {
-  const profile = await requireAdmin();
+  const profile = await requireOwner();
 
   const parsed = serviceSchema.safeParse(data);
   if (!parsed.success) {
@@ -137,7 +137,7 @@ export async function updateServiceAction(
   rawId: string,
   data: unknown,
 ): Promise<ActionResult & { service?: Service }> {
-  const profile = await requireAdmin();
+  const profile = await requireOwner();
 
   const idResult = idSchema.safeParse(rawId);
   if (!idResult.success) return { ok: false, error: "Некорректный ID" };
@@ -184,7 +184,7 @@ export async function deleteServiceAction(
   rawId: string,
   options?: { hard?: boolean },
 ): Promise<ActionResult> {
-  const profile = await requireAdmin();
+  const profile = await requireOwner();
 
   const idResult = idSchema.safeParse(rawId);
   if (!idResult.success) return { ok: false, error: "Некорректный ID" };
@@ -214,7 +214,7 @@ export async function deleteServiceAction(
 export async function reorderServicesAction(
   data: unknown,
 ): Promise<ActionResult> {
-  const profile = await requireAdmin();
+  const profile = await requireOwner();
 
   const parsed = reorderServicesSchema.safeParse(data);
   if (!parsed.success) {

@@ -2,7 +2,7 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 
-import { requireAdmin } from "@/features/auth/api";
+import { requireResource } from "@/features/auth/api";
 import {
   upsertPageContent,
   pageContentCacheTag,
@@ -29,7 +29,7 @@ export async function updatePageContentAction(
   rawPath: string,
   rawData: unknown,
 ): Promise<PageContentActionResult> {
-  const profile = await requireAdmin(["owner", "manager", "content"]);
+  const profile = await requireResource("content.cms");
 
   if (typeof rawPath !== "string" || !isAllowedPageContentPath(rawPath)) {
     return { ok: false, error: `Неизвестная страница «${rawPath}»` };

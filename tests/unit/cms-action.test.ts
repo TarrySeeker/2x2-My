@@ -31,6 +31,9 @@ vi.mock("@/lib/data/cms", () => ({
 
 vi.mock("@/features/auth/api", () => ({
   requireAdmin: mockRequireAdmin,
+  requireResource: mockRequireAdmin,
+  requireOwner: mockRequireAdmin,
+  requireAuth: mockRequireAdmin,
 }));
 
 vi.mock("next/cache", () => ({

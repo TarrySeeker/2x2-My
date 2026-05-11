@@ -8,7 +8,7 @@ import {
   deleteMenuItem,
   reorderMenuItems,
 } from "@/features/admin/api/menu";
-import { requireAdmin } from "@/features/auth/api";
+import { requireResource } from "@/features/auth/api";
 import { menuItemSchema } from "@/features/admin/schemas/menu";
 import { logAdminAction } from "@/lib/audit";
 
@@ -17,7 +17,7 @@ const idSchema = z.coerce.number().int().positive();
 const idsSchema = z.array(idSchema).min(1);
 
 export async function createMenuItemAction(data: unknown) {
-  const profile = await requireAdmin();
+  const profile = await requireResource("content.cms");
   const validated = menuItemSchema.parse(data);
   await createMenuItem(validated);
   revalidatePath("/admin/content/menu");
@@ -31,7 +31,7 @@ export async function createMenuItemAction(data: unknown) {
 }
 
 export async function updateMenuItemAction(id: number, data: unknown) {
-  const profile = await requireAdmin();
+  const profile = await requireResource("content.cms");
   const validatedId = idSchema.parse(id);
   const validated = menuItemSchema.parse(data);
   await updateMenuItem(validatedId, validated);
@@ -46,7 +46,7 @@ export async function updateMenuItemAction(id: number, data: unknown) {
 }
 
 export async function deleteMenuItemAction(id: number) {
-  const profile = await requireAdmin();
+  const profile = await requireResource("content.cms");
   const validated = idSchema.parse(id);
   await deleteMenuItem(validated);
   revalidatePath("/admin/content/menu");
@@ -60,7 +60,7 @@ export async function deleteMenuItemAction(id: number) {
 }
 
 export async function reorderMenuItemsAction(position: string, ids: unknown) {
-  const profile = await requireAdmin();
+  const profile = await requireResource("content.cms");
   const validatedPosition = z.enum(["header", "footer"]).parse(position);
   const validatedIds = idsSchema.parse(ids);
   await reorderMenuItems(validatedPosition, validatedIds);

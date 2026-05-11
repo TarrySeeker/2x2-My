@@ -40,12 +40,17 @@ import clsx from "clsx";
 import type { UserRole } from "@/types/database";
 import { logoutAction } from "@/features/auth/actions";
 import { siteUrl } from "@/lib/siteConfig";
+import {
+  canAccessByRole,
+  type ClientResource,
+} from "@/features/admin/utils/client-permissions";
 
 interface NavLeaf {
   label: string;
   href: string;
   icon: typeof LayoutDashboard;
-  roles: UserRole[];
+  /** Ресурс из ролевой матрицы — определяет видимость для роли. */
+  resource: ClientResource;
   /** Если true — открыть в новой вкладке (для внешних ссылок типа sitemap.xml). */
   external?: boolean;
 }
@@ -55,7 +60,18 @@ interface NavGroup {
   label: string;
   icon: typeof LayoutDashboard;
   basePath: string;
-  roles: UserRole[];
+  /**
+   * Ресурс группы — определяет видимость самой группы. Если у роли
+   * нет доступа к ресурсу группы, она скрыта целиком (даже если есть
+   * доступ к подпунктам — это редкий corner case, мы его исключаем
+   * для чистоты UX).
+   *
+   * Можно передать массив — группа видима, если ХОТЯ БЫ ОДИН ресурс
+   * доступен. Используется для группы «Контент сайта», которая для
+   * `manager` целиком пропадает (внутри только portfolio/blog/team —
+   * они всё равно дублируются в выделенных пунктах меню).
+   */
+  resource: ClientResource | ClientResource[];
   items: NavLeaf[];
 }
 
@@ -93,115 +109,160 @@ const NAV_ITEMS: NavEntry[] = [
     label: "Дашборд",
     href: "/admin/dashboard",
     icon: LayoutDashboard,
-    roles: ["owner", "manager"],
+    resource: "dashboard",
   },
   // Раздел «Заказы» удалён вместе с таблицей orders (миграция 006).
   // Вместо него — «Заявки» (calculation_requests + leads + contact_requests).
+  //
+  // Группа «Заявки и продажи»: для роли `manager` (с 2026-05-11) скрыт
+  // подпункт «Заявки» (resource: leads — owner-only). «Промокоды»
+  // менеджер видит. Группа целиком отображается, если хотя бы один
+  // подпункт доступен.
   {
     type: "group",
     label: "Заявки и продажи",
     icon: ShoppingBag,
     basePath: "/admin/leads",
-    roles: ["owner", "manager"],
+    resource: ["leads", "promos"],
     items: [
       {
         label: "Заявки",
         href: "/admin/leads",
         icon: Inbox,
-        roles: ["owner", "manager"],
+        resource: "leads",
       },
       {
         label: "Промокоды",
         href: "/admin/promos",
         icon: Ticket,
-        roles: ["owner", "manager"],
+        resource: "promos",
       },
     ],
   },
-  // «Услуги» — единый редактор карточек услуг (`services` table).
-  // Это основной (и единственный) каталог сайта. Сущность «Товары»
-  // (products/categories/product_images) удалена 2026-05-06; таблицы
-  // в БД оставлены без обращений к ним из приложения, чтобы не делать
-  // блокирующую миграцию.
-  //
-  // Группа «Услуги» — карточки + справочник категорий услуг.
-  // Категории заведены отдельной таблицей service_categories
-  // (миграция 029) — клиент может добавлять/редактировать через UI.
+  // Группа «Услуги» — owner-only с 2026-05-11.
   {
     type: "group",
     label: "Услуги",
     icon: Wrench,
     basePath: "/admin/content/services",
-    roles: ["owner", "manager"],
+    resource: ["services", "services.categories"],
     items: [
       {
         label: "Карточки услуг",
         href: "/admin/content/services",
         icon: Wrench,
-        roles: ["owner", "manager"],
+        resource: "services",
       },
       {
         label: "Категории услуг",
         href: "/admin/content/services-categories",
         icon: Layers,
-        roles: ["owner", "manager"],
+        resource: "services.categories",
       },
     ],
   },
+  // Группа «Контент сайта». Для `manager` — скрыта целиком (он не
+  // редактирует CMS-разделы). Подпункты, которые доступны менеджеру
+  // (Портфолио, Блог, Команда, Акции) вынесены в отдельную группу
+  // «Контент менеджера» ниже.
   {
     type: "group",
     label: "Контент сайта",
     icon: Paintbrush,
     basePath: "/admin/content",
-    roles: ["owner", "manager", "content"],
+    resource: "content.cms",
     items: [
       {
         label: "Главная (секции)",
         href: "/admin/content/homepage",
         icon: Layout,
-        roles: ["owner", "manager", "content"],
+        resource: "content.cms",
       },
       {
         label: "Внутренние страницы (секции)",
         href: "/admin/content/sections",
         icon: Layers,
-        roles: ["owner", "manager", "content"],
+        resource: "content.cms",
       },
       {
         label: "Политика и оферты",
         href: "/admin/content/legal-pages",
         icon: ScrollText,
-        roles: ["owner", "manager", "content"],
+        resource: "content.cms",
       },
       {
         label: "Тексты кнопок и ошибок",
         href: "/admin/content/ui-strings",
         icon: Languages,
-        roles: ["owner", "manager", "content"],
+        resource: "content.cms",
       },
       {
         label: "Акции",
         href: "/admin/content/promotions",
         icon: Megaphone,
-        roles: ["owner", "manager", "content"],
+        resource: "promotions",
       },
       {
         label: "Портфолио",
         href: "/admin/content/portfolio",
         icon: ImageIcon,
-        roles: ["owner", "manager", "content"],
+        resource: "portfolio",
       },
       {
         label: "Команда",
         href: "/admin/content/team",
         icon: UsersRound,
-        roles: ["owner", "manager", "content"],
+        resource: "team",
       },
       {
         label: "Блог",
         href: "/admin/blog",
         icon: FileText,
-        roles: ["owner", "manager", "content"],
+        resource: "blog",
+      },
+    ],
+  },
+  // Отдельная группа для менеджера: дублирует доступные подпункты
+  // «Контент сайта», но без CMS. Owner и content тоже её увидят, но
+  // у них и без того есть полная «Контент сайта» — так что здесь
+  // только manager (см. `extraVisibilityFor` ниже, мы прячем эту
+  // группу для owner/content, чтобы не было дубликатов).
+  {
+    type: "group",
+    label: "Контент менеджера",
+    icon: Paintbrush,
+    basePath: "/admin/content/portfolio",
+    resource: ["portfolio", "blog", "team", "promotions"],
+    items: [
+      {
+        label: "Акции",
+        href: "/admin/content/promotions",
+        icon: Megaphone,
+        resource: "promotions",
+      },
+      {
+        label: "Портфолио",
+        href: "/admin/content/portfolio",
+        icon: ImageIcon,
+        resource: "portfolio",
+      },
+      {
+        label: "Категории портфолио",
+        href: "/admin/content/portfolio-categories",
+        icon: Layers,
+        resource: "portfolio.categories",
+      },
+      {
+        label: "Команда",
+        href: "/admin/content/team",
+        icon: UsersRound,
+        resource: "team",
+      },
+      {
+        label: "Блог",
+        href: "/admin/blog",
+        icon: FileText,
+        resource: "blog",
       },
     ],
   },
@@ -210,32 +271,32 @@ const NAV_ITEMS: NavEntry[] = [
     label: "SEO",
     icon: Search,
     basePath: "/admin/seo",
-    roles: ["owner", "manager", "content"],
+    resource: ["seo", "content.cms"],
     items: [
       {
         label: "Мета-теги страниц",
         href: "/admin/content/metadata",
         icon: ShieldCheck,
-        roles: ["owner", "manager", "content"],
+        resource: "content.cms",
       },
       {
         label: "Шаблоны и редиректы",
         href: "/admin/seo",
         icon: FileCode2,
-        roles: ["owner", "manager"],
+        resource: "seo",
       },
       {
         label: "Sitemap.xml",
         href: `${siteUrl}/sitemap.xml`,
         icon: MapIcon,
-        roles: ["owner", "manager", "content"],
+        resource: "seo",
         external: true,
       },
       {
         label: "Robots.txt",
         href: `${siteUrl}/robots.txt`,
         icon: ExternalLink,
-        roles: ["owner", "manager", "content"],
+        resource: "seo",
         external: true,
       },
     ],
@@ -244,7 +305,13 @@ const NAV_ITEMS: NavEntry[] = [
     label: "Настройки сайта",
     href: "/admin/content/settings",
     icon: Settings,
-    roles: ["owner", "manager"],
+    resource: "settings.site",
+  },
+  {
+    label: "Управление командой",
+    href: "/admin/settings",
+    icon: UsersRound,
+    resource: "users",
   },
 ];
 
@@ -558,15 +625,26 @@ export default function AdminSidebar({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  // Фильтрация по ролям: и группы, и отдельные пункты
+  // Фильтрация по ролям через единую матрицу `lib/auth/permissions.ts`
+  // (зеркалированную в client-permissions для bundle).
+  //
+  // Группа «Контент менеджера» — спец-кейс: дублирует подпункты «Контент
+  // сайта». Показываем только manager'у, у которого «Контент сайта»
+  // скрыт целиком (resource: content.cms — owner/content). У owner и
+  // content «Контент менеджера» дублирует уже видимое — прячем.
   const filteredItems = NAV_ITEMS.flatMap<NavEntry>((entry) => {
     if (isGroup(entry)) {
-      if (!entry.roles.includes(profileRole)) return [];
-      const subItems = entry.items.filter((s) => s.roles.includes(profileRole));
+      if (entry.label === "Контент менеджера" && profileRole !== "manager") {
+        return [];
+      }
+      if (!canAccessByRole(profileRole, entry.resource)) return [];
+      const subItems = entry.items.filter((s) =>
+        canAccessByRole(profileRole, s.resource),
+      );
       if (subItems.length === 0) return [];
       return [{ ...entry, items: subItems }];
     }
-    if (!entry.roles.includes(profileRole)) return [];
+    if (!canAccessByRole(profileRole, entry.resource)) return [];
     return [entry];
   });
 

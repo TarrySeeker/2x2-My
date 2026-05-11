@@ -21,7 +21,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
-import { requireAdmin } from "@/features/auth/api";
+import { requireOwner } from "@/features/auth/api";
 import {
   getLeadDetail,
   isLeadType,
@@ -84,7 +84,7 @@ export default async function LeadDetailPage({ params }: PageProps) {
   // Просмотр доступен всем ролям админки — content тоже может смотреть
   // (для модерации блога ему иногда нужно увидеть, например, обращение
   // из формы контактов с фидбеком). Удаление защищено отдельно в action.
-  await requireAdmin(["owner", "manager", "content"]);
+  await requireOwner();
 
   const { type, id } = await params;
 

@@ -1,6 +1,7 @@
 export {
   requireAdmin,
   requireAdminRedirect,
+  requireResourceApi,
   isResponse,
   getCurrentUser,
   getUserRole,
@@ -8,6 +9,14 @@ export {
 } from "./admin";
 
 export type { AdminUser } from "./admin";
+
+export {
+  canAccess,
+  canAccessAny,
+  rolesFor,
+  fallbackPathFor,
+  type AdminResource,
+} from "./permissions";
 
 export {
   generateSessionToken,

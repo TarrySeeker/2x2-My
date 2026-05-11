@@ -8,7 +8,7 @@ import {
   deleteRedirect,
   saveSeoTemplates,
 } from "@/features/admin/api/seo";
-import { requireAdmin } from "@/features/auth/api";
+import { requireOwner } from "@/features/auth/api";
 import {
   redirectSchema,
   seoTemplateSchema,
@@ -19,7 +19,7 @@ import { logAdminAction } from "@/lib/audit";
 const idSchema = z.coerce.number().int().positive();
 
 export async function createRedirectAction(data: unknown) {
-  const profile = await requireAdmin();
+  const profile = await requireOwner();
   const validated = redirectSchema.parse(data);
   const result = await createRedirect(validated);
   revalidatePath("/admin/seo");
@@ -34,7 +34,7 @@ export async function createRedirectAction(data: unknown) {
 }
 
 export async function updateRedirectAction(id: number, data: unknown) {
-  const profile = await requireAdmin();
+  const profile = await requireOwner();
   const validatedId = idSchema.parse(id);
   const validated = redirectSchema.parse(data);
   await updateRedirect(validatedId, validated);
@@ -49,7 +49,7 @@ export async function updateRedirectAction(id: number, data: unknown) {
 }
 
 export async function deleteRedirectAction(id: number) {
-  const profile = await requireAdmin();
+  const profile = await requireOwner();
   const validated = idSchema.parse(id);
   await deleteRedirect(validated);
   revalidatePath("/admin/seo");
@@ -63,7 +63,7 @@ export async function deleteRedirectAction(id: number) {
 }
 
 export async function saveSeoTemplatesAction(data: unknown) {
-  const profile = await requireAdmin();
+  const profile = await requireOwner();
   const validated = seoTemplateSchema.parse(data);
   await saveSeoTemplates(validated);
   revalidatePath("/admin/seo");

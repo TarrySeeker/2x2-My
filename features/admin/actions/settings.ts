@@ -2,13 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { updateSettings } from "@/features/admin/api/settings";
-import { requireAdmin } from "@/features/auth/api";
+import { requireOwner } from "@/features/auth/api";
 import { settingsUpdateSchema } from "@/features/admin/schemas/settings";
 import type { Json } from "@/types/database";
 import { logAdminAction } from "@/lib/audit";
 
 export async function updateSettingsAction(data: unknown) {
-  const profile = await requireAdmin();
+  const profile = await requireOwner();
   const validated = settingsUpdateSchema.parse(data);
   const updates = validated.map((item) => ({
     key: item.key,
