@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Обложка статьи">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F1623"/>
+      <stop offset="100%" stop-color="#1B2638"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF6600"/>
+      <stop offset="100%" stop-color="#FFA055"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <g opacity="0.18" fill="none" stroke="#FF8A33" stroke-width="2">
+    <path d="M0 720 L380 540 L640 660 L960 420 L1280 600 L1600 460"/>
+    <path d="M0 800 L320 700 L600 760 L880 600 L1200 720 L1600 600"/>
+  </g>
+  <g transform="translate(120 360)">
+    <rect width="120" height="14" rx="7" fill="url(#accent)"/>
+    <text x="0" y="100" font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="64" font-weight="700" fill="#F5F7FB">Блог 2х2</text>
+    <text x="0" y="170" font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="28" font-weight="500" fill="#A6B0C2">Реклама, вывески и полиграфия в ХМАО</text>
+  </g>
+</svg>

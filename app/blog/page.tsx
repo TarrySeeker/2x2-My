@@ -48,14 +48,23 @@ type BlogCard = {
   publishedAt: string | null
 }
 
-const FALLBACK_COVER = 'https://images.unsplash.com/photo-1521337581100-8ca9a73a5f79?w=1600'
+// Локальный SVG-плейсхолдер для постов без cover_image_url. Раньше
+// использовался Unsplash-URL, но это создавало два класса проблем:
+//   1. Внешний домен — лишний DNS+TLS hop, иногда блокируется CSP
+//      или корп. файрволами клиентов на территории РФ.
+//   2. Если Unsplash удалит/переместит фото — на сайте будут «битые»
+//      обложки без явной причины.
+// Локальный SVG отдаётся с того же домена, не зависит от внешних
+// сервисов и весит < 1 КБ.
+const FALLBACK_COVER = '/img/placeholders/blog-default.svg'
 
 function fromBlogPost(p: BlogPost): BlogCard {
+  const cover = (p.cover_image_url ?? '').trim()
   return {
     slug: p.slug,
     title: p.title,
     excerpt: p.excerpt ?? '',
-    coverUrl: p.cover_image_url || FALLBACK_COVER,
+    coverUrl: cover || FALLBACK_COVER,
     // reading_time лежит в БД как nullable int; если нет — оценим в 5 мин.
     readTimeMin: p.reading_time ?? 5,
     publishedAt: p.published_at ?? p.updated_at ?? null,
@@ -63,11 +72,15 @@ function fromBlogPost(p: BlogPost): BlogCard {
 }
 
 function fromStarter(s: (typeof blogStarters)[number]): BlogCard {
+  // Стартеры исторически содержат Unsplash-URL'ы — для UI-fallback
+  // (когда БД пуста) подменяем на локальный плейсхолдер по тем же
+  // причинам, что и для реальных постов (см. комментарий выше FALLBACK_COVER).
+  const isUnsplash = s.coverUrl.startsWith('https://images.unsplash.com/')
   return {
     slug: s.slug,
     title: s.title,
     excerpt: s.excerpt,
-    coverUrl: s.coverUrl,
+    coverUrl: isUnsplash ? FALLBACK_COVER : s.coverUrl,
     readTimeMin: s.readTimeMin,
     publishedAt: null,
   }
@@ -138,13 +151,25 @@ export default async function BlogPage() {
                 >
                   <Link href={`/blog/${post.slug}`} className="block">
                     <div className="relative aspect-[16/9] overflow-hidden bg-neutral-100">
+                      {/*
+                        Раньше стоял `unoptimized` — это отключало
+                        next/image-оптимизацию и грузило обложки
+                        напрямую с внешнего домена (Unsplash) без
+                        кэша на нашей стороне. Если внешний домен
+                        тормозит / отдаёт 404 / блокируется CSP —
+                        картинка просто не появлялась.
+
+                        Локальные SVG-плейсхолдеры (см. FALLBACK_COVER)
+                        и MinIO/Caddy-обложки next/image оптимизирует
+                        нативно и кэширует — поэтому `unoptimized`
+                        больше не нужен.
+                      */}
                       <Image
                         src={post.coverUrl}
                         alt={post.title}
                         fill
                         sizes="(max-width: 768px) 100vw, 50vw"
                         className="object-cover transition duration-500 group-hover:scale-105"
-                        unoptimized
                       />
                     </div>
                     <div className="p-6">
