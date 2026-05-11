@@ -9,6 +9,11 @@ import {
   type SessionUser,
 } from "@/lib/auth/lucia";
 import { getSessionToken } from "@/lib/auth/cookies";
+import {
+  canAccess,
+  fallbackPathFor,
+  type AdminResource,
+} from "@/lib/auth/permissions";
 
 /**
  * Публичный API авторизации для API-роутов / внутренних проверок.
@@ -96,11 +101,36 @@ export async function requireAdminRedirect(
     redirect("/admin/login");
   }
   if (!roles.includes(user.role)) {
-    // Контент-роль не имеет доступа к продуктам/заказам — пускаем в блог.
-    if (user.role === "content") {
-      redirect("/admin/blog");
-    }
-    redirect("/");
+    redirect(fallbackPathFor(user.role));
   }
+  return user;
+}
+
+/**
+ * Версия `requireAdmin` для API Route Handlers с проверкой ресурса
+ * по централизованной матрице прав (`lib/auth/permissions.ts`).
+ * Возвращает либо `SessionUser`, либо `NextResponse` с 401/403.
+ *
+ * Пример:
+ *   const auth = await requireResourceApi("services");
+ *   if (isResponse(auth)) return auth;
+ */
+export async function requireResourceApi(
+  resource: AdminResource,
+): Promise<AdminUser | NextResponse> {
+  const token = await getSessionToken();
+  if (!token) {
+    return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+  }
+
+  const { session, user } = await validateSessionToken(token);
+  if (!session || !user) {
+    return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+  }
+
+  if (!canAccess(user.role, resource)) {
+    return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
+  }
+
   return user;
 }

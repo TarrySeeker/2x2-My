@@ -20,6 +20,11 @@ import {
 import { getClientIp } from "@/lib/rate-limit";
 import type { Profile } from "@/types";
 import type { UserRole } from "@/types/database";
+import {
+  canAccess,
+  fallbackPathFor,
+  type AdminResource,
+} from "@/lib/auth/permissions";
 
 /**
  * Высокоуровневый auth-API для проекта «2х2».
@@ -128,18 +133,41 @@ export async function requireAuth(): Promise<Profile> {
 }
 
 /**
- * Требует роль owner или manager.
- * Контент-менеджера отправляет на /admin/blog (единственный доступный раздел).
+ * Требует, чтобы роль пользователя входила в `allowedRoles`.
+ * По умолчанию — owner или manager (исторический контракт).
+ *
+ * ВАЖНО: после ввода ограниченной роли `manager` (2026-05-11) вызовы
+ * вида `requireAdmin()` (без аргументов) пропустят менеджеров на
+ * страницу. Если страница доступна только владельцу — используйте
+ * `requireOwner()` или `requireResource("services")`. Полная матрица
+ * доступа — в `lib/auth/permissions.ts`.
  */
 export async function requireAdmin(
   allowedRoles: UserRole[] = ["owner", "manager"],
 ): Promise<Profile> {
   const profile = await requireAuth();
   if (!allowedRoles.includes(profile.role)) {
-    if (profile.role === "content") {
-      redirect("/admin/blog");
-    }
-    redirect("/");
+    redirect(fallbackPathFor(profile.role));
+  }
+  return profile;
+}
+
+/** Требует роль `owner`. Все остальные летят на свой fallback. */
+export async function requireOwner(): Promise<Profile> {
+  return requireAdmin(["owner"]);
+}
+
+/**
+ * Требует доступ к конкретному ресурсу из ролевой матрицы.
+ * Источник истины — `lib/auth/permissions.ts`. Если роль текущего
+ * пользователя не имеет доступа — редирект на fallback его роли.
+ */
+export async function requireResource(
+  resource: AdminResource,
+): Promise<Profile> {
+  const profile = await requireAuth();
+  if (!canAccess(profile.role, resource)) {
+    redirect(fallbackPathFor(profile.role));
   }
   return profile;
 }

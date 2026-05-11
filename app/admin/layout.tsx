@@ -7,6 +7,8 @@ import { sql } from "@/lib/db/client";
 import { getPendingReviewsCount } from "@/features/admin/api/reviews";
 import AdminSidebar from "@/features/admin/components/AdminSidebar";
 import AdminBreadcrumbs from "@/features/admin/components/AdminBreadcrumbs";
+import { resolveAccessForPath } from "@/features/admin/utils/access-matrix";
+import { canAccess, fallbackPathFor } from "@/lib/auth/permissions";
 
 export const metadata = {
   title: {
@@ -72,13 +74,21 @@ export default async function AdminLayout({
     redirect(FORCE_CHANGE_PATH);
   }
 
-  // Бизнес-роль content имеет доступ только к блогу/контенту.
-  const allowedForContent =
-    pathname.startsWith("/admin/blog") ||
-    pathname.startsWith("/admin/content") ||
-    pathname.startsWith("/admin/settings/account");
-  if (profile.role === "content" && pathname && !allowedForContent) {
-    redirect("/admin/blog");
+  // Единый guard на основе ролевой матрицы.
+  //
+  // `resolveAccessForPath` возвращает ресурс, который соответствует
+  // pathname. Например `/admin/content/services` → `services`,
+  // `/admin/leads/123` → `leads`. Если для pathname ресурс не определён
+  // (например `/admin/dashboard` или неизвестный путь) — falsy:
+  //   - известные публичные подразделы админки (логин/настройки аккаунта)
+  //     обработаны выше, для них guard не нужен,
+  //   - остальные неизвестные пути падают на дефолтный resource
+  //     `dashboard` (минимально-необходимый — owner+manager).
+  if (pathname) {
+    const resource = resolveAccessForPath(pathname);
+    if (resource && !canAccess(profile.role, resource)) {
+      redirect(fallbackPathFor(profile.role));
+    }
   }
 
   const isManagerOrOwner =
