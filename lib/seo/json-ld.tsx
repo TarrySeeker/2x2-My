@@ -279,10 +279,11 @@ export type ProductSeoInput = {
   unit?: string;
   categoryName?: string;
   sku?: string;
-  ratingValue?: number;
-  ratingCount?: number;
 };
 
+// 2026-05-12: aggregateRating убран. Раздел отзывов полностью удалён
+// (см. миграция 044_deprecate_reviews.sql + chore/remove-reviews-2026-05-12).
+// Если когда-нибудь вернём — добавить ratingValue/ratingCount обратно.
 export function buildProduct(p: ProductSeoInput): JsonLdData {
   const images = Array.isArray(p.image) ? p.image : p.image ? [p.image] : [];
   const offer =
@@ -310,15 +311,6 @@ export function buildProduct(p: ProductSeoInput): JsonLdData {
     brand: { "@type": "Brand", name: SITE.shortName },
     category: p.categoryName,
     ...(offer ? { offers: offer } : {}),
-    ...(p.ratingValue && p.ratingCount
-      ? {
-          aggregateRating: {
-            "@type": "AggregateRating",
-            ratingValue: p.ratingValue,
-            reviewCount: p.ratingCount,
-          },
-        }
-      : {}),
   };
 }
 

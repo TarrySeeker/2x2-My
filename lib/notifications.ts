@@ -16,8 +16,7 @@ type EventType =
   | "order_status_changed"
   | "calc_request_created"
   | "one_click_lead"
-  | "contact_form"
-  | "review_submitted";
+  | "contact_form";
 
 export async function sendNotification(
   event: EventType,
@@ -50,8 +49,6 @@ function formatMessage(event: EventType, ctx: NotificationContext): string {
       return `Купить в 1 клик\n${ctx.customer_name} (${ctx.customer_phone})`;
     case "contact_form":
       return `Обращение с сайта\n${ctx.customer_name}`;
-    case "review_submitted":
-      return `Новый отзыв от ${ctx.customer_name}`;
     default:
       return `Событие: ${event}`;
   }
