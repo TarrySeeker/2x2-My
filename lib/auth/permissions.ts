@@ -5,22 +5,23 @@ import type { UserRole } from "@/types/database";
 /**
  * Ролевая модель «2х2» — 2026-05-11.
  *
- * Бизнес-требование клиента: у роли `manager` должен быть доступ
- * только к разделам, связанным с продажами/контентом портфолио, без
- * влияния на услуги, контент сайта, SEO, настройки и заявки.
+ * Уточнение клиента 2026-05-11 (вторая итерация): `manager` — это
+ * МЕНЕДЖЕР ПО ПРОДАЖАМ. Ему нужны ТОЛЬКО Дашборд и Заявки, чтобы
+ * обрабатывать обращения клиентов. Никакого доступа к контенту,
+ * каталогу, отзывам, промокодам, портфолио и блогу.
  *
  * Матрица доступа (true = доступ есть):
  *
  *   Ресурс \ Роль                owner  manager  content
  *   dashboard                    ✓      ✓        ✗
- *   leads (заявки)               ✓      ✗        ✗
- *   promos (промокоды)           ✓      ✓        ✗
- *   reviews (отзывы)             ✓      ✓        ✗
- *   blog                         ✓      ✓        ✓
- *   portfolio                    ✓      ✓        ✓
- *   portfolio.categories         ✓      ✓        ✓
- *   team (команда)               ✓      ✓        ✓
- *   promotions (акции)           ✓      ✓        ✓
+ *   leads (заявки)               ✓      ✓        ✗
+ *   promos (промокоды)           ✓      ✗        ✗
+ *   reviews (отзывы)             ✓      ✗        ✗
+ *   blog                         ✓      ✗        ✓
+ *   portfolio                    ✓      ✗        ✓
+ *   portfolio.categories         ✓      ✗        ✓
+ *   team (команда)               ✓      ✗        ✓
+ *   promotions (акции)           ✓      ✗        ✓
  *   services                     ✓      ✗        ✗
  *   services.categories          ✓      ✗        ✗
  *   content.cms (homepage,
@@ -33,11 +34,10 @@ import type { UserRole } from "@/types/database";
  *   users (создание/смена ролей) ✓      ✗        ✗
  *
  * NB про `manager`:
- *   До этой миграции `manager` имел те же права что и `owner` (см.
- *   `lib/auth/admin.ts#DEFAULT_ADMIN_ROLES`). Бизнес попросил урезать
- *   роль — менеджер теперь видит только заказы/промокоды/отзывы/
- *   портфолио/блог/команду/акции/категории портфолио. Все остальные
- *   разделы — owner-only.
+ *   До 2026-05-11 `manager` имел те же права что и `owner`.
+ *   Первая попытка урезания дала менеджеру доступ к продажам +
+ *   контент-каталогу — но клиент уточнил что менеджер по продажам
+ *   ТОЛЬКО обрабатывает заявки. Контент — отдельная роль `content`.
  *
  * Source of truth — этот файл. Везде, где раньше был
  *   `requireAdmin(["owner", "manager"])` для запрещённого ресурса
@@ -70,14 +70,14 @@ export type AdminResource =
 
 const RESOURCE_ROLES: Record<AdminResource, readonly UserRole[]> = {
   dashboard: ["owner", "manager"],
-  leads: ["owner"],
-  promos: ["owner", "manager"],
-  reviews: ["owner", "manager"],
-  blog: ["owner", "manager", "content"],
-  portfolio: ["owner", "manager", "content"],
-  "portfolio.categories": ["owner", "manager", "content"],
-  team: ["owner", "manager", "content"],
-  promotions: ["owner", "manager", "content"],
+  leads: ["owner", "manager"],
+  promos: ["owner"],
+  reviews: ["owner"],
+  blog: ["owner", "content"],
+  portfolio: ["owner", "content"],
+  "portfolio.categories": ["owner", "content"],
+  team: ["owner", "content"],
+  promotions: ["owner", "content"],
   services: ["owner"],
   "services.categories": ["owner"],
   "content.cms": ["owner", "content"],

@@ -57,8 +57,14 @@ describe("permissions matrix — owner", () => {
 // 2. Матрица доступа — manager.
 // ────────────────────────────────────────────────────────
 
+// Менеджер по продажам — только дашборд + заявки + смена своего пароля.
 const MANAGER_ALLOWED: AdminResource[] = [
   "dashboard",
+  "leads",
+  "settings.account",
+];
+
+const MANAGER_DENIED: AdminResource[] = [
   "promos",
   "reviews",
   "blog",
@@ -66,11 +72,6 @@ const MANAGER_ALLOWED: AdminResource[] = [
   "portfolio.categories",
   "team",
   "promotions",
-  "settings.account",
-];
-
-const MANAGER_DENIED: AdminResource[] = [
-  "leads",
   "services",
   "services.categories",
   "content.cms",
@@ -79,7 +80,7 @@ const MANAGER_DENIED: AdminResource[] = [
   "users",
 ];
 
-describe("permissions matrix — manager (ограниченная роль)", () => {
+describe("permissions matrix — manager (только продажи)", () => {
   it.each(MANAGER_ALLOWED)("manager имеет доступ к %s", (resource) => {
     expect(canAccess("manager", resource)).toBe(true);
   });
@@ -88,8 +89,8 @@ describe("permissions matrix — manager (ограниченная роль)", (
     expect(canAccess("manager", resource)).toBe(false);
   });
 
-  it("manager + leads — критично, чтобы не утекли PII", () => {
-    expect(canAccess("manager", "leads")).toBe(false);
+  it("manager + leads — основной рабочий ресурс", () => {
+    expect(canAccess("manager", "leads")).toBe(true);
   });
 
   it("manager + services — клиент явно запретил", () => {
@@ -142,12 +143,12 @@ describe("permissions matrix — content", () => {
 // ────────────────────────────────────────────────────────
 
 describe("canAccessAny", () => {
-  it("manager имеет доступ хотя бы к одному из [leads, promos]", () => {
-    expect(canAccessAny("manager", ["leads", "promos"])).toBe(true);
+  it("manager имеет доступ хотя бы к одному из [dashboard, leads]", () => {
+    expect(canAccessAny("manager", ["dashboard", "leads"])).toBe(true);
   });
 
-  it("manager не имеет доступа ни к чему из [leads, services]", () => {
-    expect(canAccessAny("manager", ["leads", "services"])).toBe(false);
+  it("manager не имеет доступа ни к чему из [services, blog]", () => {
+    expect(canAccessAny("manager", ["services", "blog"])).toBe(false);
   });
 
   it("content имеет доступ к [content.cms, blog]", () => {
@@ -178,16 +179,16 @@ describe("rolesFor", () => {
     expect(rolesFor("services")).toEqual(["owner"]);
   });
 
-  it("blog → все 3 роли", () => {
-    expect(rolesFor("blog")).toEqual(["owner", "manager", "content"]);
+  it("blog → owner и content (без manager — менеджер по продажам не трогает контент)", () => {
+    expect(rolesFor("blog")).toEqual(["owner", "content"]);
   });
 
   it("content.cms → owner и content (без manager)", () => {
     expect(rolesFor("content.cms")).toEqual(["owner", "content"]);
   });
 
-  it("leads → только owner (PII)", () => {
-    expect(rolesFor("leads")).toEqual(["owner"]);
+  it("leads → owner и manager (основная работа менеджера по продажам)", () => {
+    expect(rolesFor("leads")).toEqual(["owner", "manager"]);
   });
 });
 
@@ -276,8 +277,12 @@ describe("E2E: роль × pathname", () => {
     return canAccess(role, resource);
   }
 
-  it("manager НЕ может открыть /admin/leads", () => {
-    expect(canRoleOpenPath("manager", "/admin/leads")).toBe(false);
+  it("manager МОЖЕТ открыть /admin/leads (основная работа)", () => {
+    expect(canRoleOpenPath("manager", "/admin/leads")).toBe(true);
+  });
+
+  it("manager МОЖЕТ открыть /admin/dashboard", () => {
+    expect(canRoleOpenPath("manager", "/admin/dashboard")).toBe(true);
   });
 
   it("manager НЕ может открыть /admin/content/services", () => {
@@ -296,16 +301,16 @@ describe("E2E: роль × pathname", () => {
     expect(canRoleOpenPath("manager", "/admin/settings")).toBe(false);
   });
 
-  it("manager МОЖЕТ открыть /admin/content/portfolio", () => {
-    expect(canRoleOpenPath("manager", "/admin/content/portfolio")).toBe(true);
+  it("manager НЕ может открыть /admin/content/portfolio", () => {
+    expect(canRoleOpenPath("manager", "/admin/content/portfolio")).toBe(false);
   });
 
-  it("manager МОЖЕТ открыть /admin/blog", () => {
-    expect(canRoleOpenPath("manager", "/admin/blog")).toBe(true);
+  it("manager НЕ может открыть /admin/blog", () => {
+    expect(canRoleOpenPath("manager", "/admin/blog")).toBe(false);
   });
 
-  it("manager МОЖЕТ открыть /admin/promos", () => {
-    expect(canRoleOpenPath("manager", "/admin/promos")).toBe(true);
+  it("manager НЕ может открыть /admin/promos", () => {
+    expect(canRoleOpenPath("manager", "/admin/promos")).toBe(false);
   });
 
   it("content НЕ может открыть /admin/leads", () => {
