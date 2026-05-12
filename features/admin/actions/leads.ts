@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 
-import { requireOwner } from "@/features/auth/api";
+import { requireResource } from "@/features/auth/api";
 import { sql } from "@/lib/db/client";
 import {
   LEAD_TYPES,
@@ -45,8 +45,8 @@ export async function deleteLeadAction(
   rawType: unknown,
   rawId: unknown,
 ): Promise<DeleteLeadResult> {
-  // Только owner/manager — content явно исключён.
-  const profile = await requireOwner();
+  // Доступ: owner + manager (по permissions matrix). content явно исключён.
+  const profile = await requireResource("leads");
 
   const parsed = deleteSchema.safeParse({ type: rawType, id: rawId });
   if (!parsed.success) {

@@ -9,7 +9,7 @@
 import Link from "next/link";
 
 import { sql } from "@/lib/db/client";
-import { requireOwner } from "@/features/auth/api";
+import { requireResource } from "@/features/auth/api";
 import LeadsListClient, {
   type LeadsListItem,
 } from "@/features/admin/components/LeadsListClient";
@@ -138,9 +138,9 @@ async function getRecentLeads(): Promise<RecentLeadRow[]> {
 }
 
 export default async function LeadsPage() {
-  // Просмотр доступен всем 3 ролям (включая content), удаление — отдельно
-  // в server-action.
-  await requireOwner();
+  // Доступ: owner + manager (по permissions matrix). Manager — основной
+  // потребитель: его задача обрабатывать заявки клиентов.
+  await requireResource("leads");
 
   const [counts, recent] = await Promise.all([getCounts(), getRecentLeads()]);
 
