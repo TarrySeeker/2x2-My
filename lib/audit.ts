@@ -16,7 +16,7 @@ import { sql } from "@/lib/db/client";
  *
  * Конвенции:
  *   action     — `'<ресурс>.<глагол>'`, напр. `'services.create'`,
- *                `'banners.delete'`, `'reviews.bulk_approve'`.
+ *                `'banners.delete'`, `'leads.update_status'`.
  *   tableName  — имя таблицы в БД (или null, если действие не привязано
  *                к одной таблице, напр. `'menu.reorder'`).
  *   recordId   — id затронутой строки (number|string|null) — приводим к TEXT.

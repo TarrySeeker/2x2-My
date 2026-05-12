@@ -20,7 +20,6 @@ const RESOURCE_ROLES: Record<ClientResource, readonly UserRole[]> = {
   dashboard: ["owner", "manager"],
   leads: ["owner", "manager"],
   promos: ["owner"],
-  reviews: ["owner"],
   blog: ["owner", "content"],
   portfolio: ["owner", "content"],
   "portfolio.categories": ["owner", "content"],

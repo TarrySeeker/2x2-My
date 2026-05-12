@@ -28,7 +28,10 @@ export type CalculationRequest = Tables["calculation_requests"]["Row"];
 export type PortfolioItem = Tables["portfolio_items"]["Row"];
 export type Lead = Tables["leads"]["Row"];
 export type ContactRequest = Tables["contact_requests"]["Row"];
-export type Review = Tables["reviews"]["Row"];
+// Review type removed 2026-05-12 — раздел «Отзывы» удалён вместе с
+// прикладным слоем. Таблица reviews в БД помечена DEPRECATED (миграция
+// 044_deprecate_reviews.sql). Если когда-нибудь вернём — раскомментировать.
+// export type Review = Tables["reviews"]["Row"];
 export type PromoCode = Tables["promo_codes"]["Row"];
 export type WishlistItem = Tables["wishlist_items"]["Row"];
 export type BlogCategory = Tables["blog_categories"]["Row"];
@@ -70,7 +73,7 @@ export type PortfolioCategoryUpdate = Tables["portfolio_categories"]["Update"];
 export type LeadInsert = Tables["leads"]["Insert"];
 export type CalculationRequestInsert = Tables["calculation_requests"]["Insert"];
 export type ContactRequestInsert = Tables["contact_requests"]["Insert"];
-export type ReviewInsert = Tables["reviews"]["Insert"];
+// ReviewInsert — удалено 2026-05-12 (см. комментарий к Review выше).
 export type TeamMemberInsert = Tables["team_members"]["Insert"];
 export type PromotionInsert = Tables["promotions"]["Insert"];
 export type ServiceInsert = Tables["services"]["Insert"];
@@ -289,7 +292,14 @@ export interface DashboardStats {
   new_leads: number;
   leads_week: number;
   new_contacts: number;
-  pending_reviews: number;
+  /**
+   * @deprecated 2026-05-12 — раздел «Отзывы» удалён, поле больше не
+   * читается в UI. RPC get_dashboard_stats() пока ещё возвращает это
+   * значение (таблица reviews в БД сохранена как DEPRECATED), поле
+   * остаётся опциональным для совместимости. После применения
+   * миграции 044_deprecate_reviews.sql — можно удалить целиком.
+   */
+  pending_reviews?: number;
   products_active: number;
   products_draft: number;
   portfolio_count: number;

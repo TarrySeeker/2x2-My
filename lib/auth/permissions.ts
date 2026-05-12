@@ -3,12 +3,15 @@ import "server-only";
 import type { UserRole } from "@/types/database";
 
 /**
- * Ролевая модель «2х2» — 2026-05-11.
+ * Ролевая модель «2х2» — 2026-05-12.
  *
  * Уточнение клиента 2026-05-11 (вторая итерация): `manager` — это
  * МЕНЕДЖЕР ПО ПРОДАЖАМ. Ему нужны ТОЛЬКО Дашборд и Заявки, чтобы
  * обрабатывать обращения клиентов. Никакого доступа к контенту,
- * каталогу, отзывам, промокодам, портфолио и блогу.
+ * каталогу, промокодам, портфолио и блогу.
+ *
+ * 2026-05-12: ресурс `reviews` удалён из матрицы вместе с разделом
+ * «Отзывы» (у клиента нет отзывов и блок не нужен).
  *
  * Матрица доступа (true = доступ есть):
  *
@@ -16,7 +19,6 @@ import type { UserRole } from "@/types/database";
  *   dashboard                    ✓      ✓        ✗
  *   leads (заявки)               ✓      ✓        ✗
  *   promos (промокоды)           ✓      ✗        ✗
- *   reviews (отзывы)             ✓      ✗        ✗
  *   blog                         ✓      ✗        ✓
  *   portfolio                    ✓      ✗        ✓
  *   portfolio.categories         ✓      ✗        ✓
@@ -50,7 +52,6 @@ export type AdminResource =
   // Заявки и продажи
   | "leads"
   | "promos"
-  | "reviews"
   // Контент-каталог (доступен manager'у — заказы клиентам формирует он)
   | "blog"
   | "portfolio"
@@ -72,7 +73,6 @@ const RESOURCE_ROLES: Record<AdminResource, readonly UserRole[]> = {
   dashboard: ["owner", "manager"],
   leads: ["owner", "manager"],
   promos: ["owner"],
-  reviews: ["owner"],
   blog: ["owner", "content"],
   portfolio: ["owner", "content"],
   "portfolio.categories": ["owner", "content"],

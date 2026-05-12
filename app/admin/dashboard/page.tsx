@@ -1,5 +1,5 @@
 /**
- * /admin/dashboard — обновлено 2026-05-06.
+ * /admin/dashboard — обновлено 2026-05-12.
  *
  * Бизнес-модель «2х2» — только индивидуальные расчёты, онлайн-оплаты
  * и заказов нет. Поэтому виджеты «Выручка», «Средний чек», «Заказы»,
@@ -9,6 +9,10 @@
  * 2026-05-06: удалена сущность «Товары» целиком — 2х2 продаёт услуги,
  * не товары. Убраны виджеты «Активных товаров» и «Мало на складе»,
  * освободившееся место заняли счётчики «Услуг в каталоге».
+ *
+ * 2026-05-12: удалён раздел «Отзывы» целиком (нет отзывов у клиента).
+ * Виджет «Отзывов на модерации» и список PendingReviews убраны.
+ * Освободившийся слот в Row 2 закрыт счётчиком «Работ в портфолио».
  */
 
 import Link from "next/link";
@@ -17,7 +21,6 @@ import {
   PhoneCall,
   Mail,
   TicketPercent,
-  Star,
   Briefcase,
   TrendingUp,
   Wrench,
@@ -26,10 +29,8 @@ import {
   getDashboardStatsV2,
   getLeadsBySource30d,
   getLeadsWithPromoMonth,
-  getPendingReviews,
   getServicesCount,
 } from "@/features/admin/api/dashboard";
-import PendingReviewsList from "@/features/admin/components/PendingReviewsList";
 import StatTile from "@/features/admin/components/StatTile";
 import LeadsBySourceCard from "@/features/admin/components/LeadsBySourceCard";
 
@@ -42,12 +43,11 @@ function formatNumber(value: number): string {
 }
 
 export default async function DashboardPage() {
-  const [stats, sources, promoMonth, pendingReviews, servicesCount] =
+  const [stats, sources, promoMonth, servicesCount] =
     await Promise.all([
       getDashboardStatsV2(),
       getLeadsBySource30d(5),
       getLeadsWithPromoMonth(),
-      getPendingReviews(5),
       getServicesCount(),
     ]);
 
@@ -123,9 +123,10 @@ export default async function DashboardPage() {
 
       {/* Row 2: вспомогательные счётчики каталога/контента.
           «Активных товаров» / «Мало на складе» удалены вместе с
-          сущностью «Товары» (2026-05-06). Их место занял счётчик
-          опубликованных карточек услуг — основа каталога 2х2. */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          сущностью «Товары» (2026-05-06). Виджет «Отзывов на модерации»
+          удалён вместе с разделом «Отзывы» (2026-05-12). Сетка
+          уплотнена с 4 до 3 колонок. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <StatTile
           title="Заявок с промокодом"
           value={formatNumber(promoMonth)}
@@ -141,14 +142,6 @@ export default async function DashboardPage() {
           href="/admin/content/services"
         />
         <StatTile
-          title="Отзывов на модерации"
-          value={formatNumber(stats.pending_reviews)}
-          caption="ждут публикации"
-          icon={<Star className="h-5 w-5" />}
-          href="/admin/reviews"
-          highlight={stats.pending_reviews > 0}
-        />
-        <StatTile
           title="Работ в портфолио"
           value={formatNumber(stats.portfolio_count)}
           caption="опубликовано"
@@ -157,10 +150,10 @@ export default async function DashboardPage() {
         />
       </div>
 
-      {/* Row 3: источники лидов + отзывы на модерации */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {/* Row 3: источники лидов. Раньше рядом был блок «Отзывы на
+          модерации» — удалён вместе с разделом 2026-05-12. */}
+      <div className="grid grid-cols-1 gap-6">
         <LeadsBySourceCard sources={sources} />
-        <PendingReviewsList reviews={pendingReviews} />
       </div>
     </div>
   );

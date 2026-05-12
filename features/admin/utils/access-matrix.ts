@@ -18,9 +18,12 @@ import type { AdminResource } from "@/lib/auth/permissions";
  * Это допустимо для:
  *   - /admin/login (отсечён выше в layout),
  *   - /admin (корень, редирект),
- *   - /admin/dashboard, /admin/blog, /admin/promos, /admin/reviews —
+ *   - /admin/dashboard, /admin/blog, /admin/promos —
  *     все они обрабатываются как доступные, проверка делается
  *     отдельной записью в матрице.
+ *
+ * 2026-05-12: ресурс `reviews` и правило `/admin/reviews` удалены вместе
+ * с разделом «Отзывы».
  */
 
 interface AccessRule {
@@ -57,7 +60,6 @@ const RULES: AccessRule[] = [
 
   // Простые разделы (просто префикс).
   { prefix: "/admin/promos", resource: "promos" },
-  { prefix: "/admin/reviews", resource: "reviews" },
   { prefix: "/admin/blog", resource: "blog" },
   { prefix: "/admin/dashboard", resource: "dashboard" },
 

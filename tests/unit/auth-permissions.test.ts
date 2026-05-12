@@ -32,7 +32,6 @@ const ALL_RESOURCES: AdminResource[] = [
   "dashboard",
   "leads",
   "promos",
-  "reviews",
   "blog",
   "portfolio",
   "portfolio.categories",
@@ -66,7 +65,6 @@ const MANAGER_ALLOWED: AdminResource[] = [
 
 const MANAGER_DENIED: AdminResource[] = [
   "promos",
-  "reviews",
   "blog",
   "portfolio",
   "portfolio.categories",
@@ -120,7 +118,6 @@ const CONTENT_DENIED: AdminResource[] = [
   "dashboard",
   "leads",
   "promos",
-  "reviews",
   "services",
   "services.categories",
   "seo",
@@ -238,7 +235,7 @@ describe("resolveAccessForPath", () => {
     ["/admin/content/ui-strings", "content.cms"],
     ["/admin/content/metadata", "content.cms"],
     ["/admin/content/pages", "content.cms"],
-    ["/admin/reviews", "reviews"],
+    // /admin/reviews — удалено 2026-05-12 (раздел «Отзывы» полностью убран).
     ["/admin/orders", "leads"], // legacy
     // Неизвестные пути → null (layout трактует как «не блокировать»)
     ["/admin", null],

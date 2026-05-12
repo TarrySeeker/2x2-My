@@ -87,7 +87,6 @@ function isGroup(entry: NavEntry): entry is NavGroup {
 // другие. Сами роуты и страницы остались — доступны по прямому URL,
 // но не отображаются в навигации:
 //   /admin/customers          (нет учёта клиентов на сайте)
-//   /admin/reviews            (TestimonialsSection удалён с витрины)
 //   /admin/content/banners    (нет компонента-читателя на витрине)
 //   /admin/content/pages      (дублирует legal-pages, таблица не читается)
 //   /admin/content/menu       (Header/Footer hardcoded)
@@ -98,6 +97,12 @@ function isGroup(entry: NavEntry): entry is NavGroup {
 // и компоненты вычищены; данные products/categories в БД помечены
 // deprecated на уровне комментария к таблице (миграция не требуется,
 // просто перестаём использовать).
+//
+// Раздел «Отзывы» (/admin/reviews) полностью удалён 2026-05-12:
+// у клиента нет отзывов и блок не нужен. Все страницы, API, компоненты
+// и роутинг убраны; таблица reviews в БД помечена DEPRECATED через
+// COMMENT ON TABLE (миграция 044), DROP TABLE не делаем из-за FK
+// и истории.
 //
 // /admin/seo вернули обратно (2026-04-25 second pass): группа «SEO»
 // содержит «Мета-теги страниц» (= /admin/content/metadata, основная
@@ -321,7 +326,6 @@ interface AdminSidebarProps {
   profileRole: UserRole;
   profileAvatar?: string | null;
   newOrdersCount?: number;
-  pendingReviewsCount?: number;
 }
 
 function ThemeToggle() {
@@ -619,7 +623,6 @@ export default function AdminSidebar({
   profileEmail,
   profileRole,
   newOrdersCount = 0,
-  pendingReviewsCount = 0,
 }: AdminSidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -652,9 +655,6 @@ export default function AdminSidebar({
   // newOrdersCount всегда 0 (orders таблица удалена). Параметр оставлен
   // для API-совместимости — admin layout его пока ещё передаёт.
   void newOrdersCount;
-  // pendingReviewsCount — раздел «Отзывы» скрыт из sidebar (cleanup
-  // 2026-04-25), бейдж выводить негде. Проп оставлен для совместимости.
-  void pendingReviewsCount;
 
   async function handleLogout() {
     setLoggingOut(true);

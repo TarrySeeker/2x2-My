@@ -2,13 +2,10 @@ import "server-only";
 
 import { sql } from "@/lib/db/client";
 import type { DashboardStats } from "@/types";
-import type { Row } from "@/lib/db/table-types";
-
-type ReviewRow = Row<"reviews">;
 
 /**
  * Дашборд после миграции 006 + cleanup 2026-04-25 + удаление товаров
- * 2026-05-06.
+ * 2026-05-06 + удаление отзывов 2026-05-12.
  *
  * Бизнес-модель «только индивидуальный расчёт» — таблиц `orders` /
  * `order_items` нет, выручки/среднего чека нет. Дашборд показывает
@@ -57,7 +54,6 @@ function emptyStatsV2(): DashboardStats {
     new_leads: 0,
     leads_week: 0,
     new_contacts: 0,
-    pending_reviews: 0,
     products_active: 0,
     products_draft: 0,
     portfolio_count: 0,
@@ -152,20 +148,5 @@ export async function getServicesCount(): Promise<{
   }
 }
 
-export async function getPendingReviews(limit = 5): Promise<ReviewRow[]> {
-  try {
-    const rows = await sql<ReviewRow[]>`
-      SELECT *
-      FROM reviews
-      WHERE status = 'pending'
-      ORDER BY created_at DESC
-      LIMIT ${limit}
-    `;
-    return rows;
-  } catch (err) {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[getPendingReviews] DB request failed:", err);
-    }
-    return [];
-  }
-}
+// getPendingReviews() — удалена 2026-05-12 вместе с разделом «Отзывы».
+// Виджет PendingReviewsList на дашборде убран.

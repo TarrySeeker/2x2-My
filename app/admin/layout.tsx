@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 
 import { getProfile } from "@/features/auth/api";
 import { sql } from "@/lib/db/client";
-import { getPendingReviewsCount } from "@/features/admin/api/reviews";
 import AdminSidebar from "@/features/admin/components/AdminSidebar";
 import AdminBreadcrumbs from "@/features/admin/components/AdminBreadcrumbs";
 import { resolveAccessForPath } from "@/features/admin/utils/access-matrix";
@@ -91,13 +90,6 @@ export default async function AdminLayout({
     }
   }
 
-  const isManagerOrOwner =
-    profile.role === "owner" || profile.role === "manager";
-
-  const [pendingReviewsCount] = isManagerOrOwner
-    ? await Promise.all([getPendingReviewsCount()])
-    : [0];
-
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
       <AdminSidebar
@@ -106,7 +98,6 @@ export default async function AdminLayout({
         profileRole={profile.role}
         profileAvatar={profile.avatar_url}
         newOrdersCount={0}
-        pendingReviewsCount={pendingReviewsCount}
       />
 
       {/* Main content */}

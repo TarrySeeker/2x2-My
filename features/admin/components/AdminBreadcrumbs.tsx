@@ -12,7 +12,7 @@ const LABELS: Record<string, string> = {
   orders: "Заказы",
   leads: "Заявки",
   customers: "Клиенты",
-  reviews: "Отзывы",
+  // reviews — удалено 2026-05-12.
   promos: "Промокоды",
   blog: "Блог",
   content: "Контент",
